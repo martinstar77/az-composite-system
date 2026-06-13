@@ -1,0 +1,280 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Plus, Edit2 } from "lucide-react"
+import { toast } from "sonner"
+
+import { Button } from "@/shared/components/ui/button"
+import { Input } from "@/shared/components/ui/input"
+import { Label } from "@/shared/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/shared/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/shared/components/ui/dialog"
+import { Switch } from "@/shared/components/ui/switch"
+import { upsertProductSourcing } from "../actions"
+import { Supplier } from "../types"
+import { LogisticsTemplate } from "@/modules/finance/types/logistics"
+
+interface AddSourcingDialogProps {
+  productId: string
+  suppliers: Supplier[]
+  templates: LogisticsTemplate[]
+  units: any[]
+  initialData?: any
+}
+
+export function AddSourcingDialog({ productId, suppliers, templates, units, initialData }: AddSourcingDialogProps) {
+  const [open, setOpen] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Form State
+  const [supplierId, setSupplierId] = useState(initialData?.dodavatel_id || "")
+  const [logisticsTemplateId, setLogisticsTemplateId] = useState(initialData?.logisticka_sablona_id || "")
+  const [nakupniMjId, setNakupniMjId] = useState(initialData?.nakupni_mj_id || "")
+  const [prevodniPomer, setPrevodniPomer] = useState(initialData?.prevodni_pomer_na_zakladni?.toString() || "1")
+  const [price, setPrice] = useState(initialData?.nakupni_cena?.toString() || "")
+  const [currency, setCurrency] = useState(initialData?.mena || "EUR")
+  const [moq, setMoq] = useState(initialData?.moq?.toString() || "1")
+  const [leadTime, setLeadTime] = useState(initialData?.lead_time_tydny?.toString() || "")
+  const [isPrimary, setIsPrimary] = useState(initialData?.is_primary || false)
+
+  useEffect(() => {
+    if (open && initialData) {
+      setSupplierId(initialData.dodavatel_id || "")
+      setLogisticsTemplateId(initialData.logisticka_sablona_id || "")
+      setNakupniMjId(initialData.nakupni_mj_id || "")
+      setPrevodniPomer(initialData.prevodni_pomer_na_zakladni?.toString() || "1")
+      setPrice(initialData.nakupni_cena?.toString() || "")
+      setCurrency(initialData.mena || "EUR")
+      setMoq(initialData.moq?.toString() || "1")
+      setLeadTime(initialData.lead_time_tydny?.toString() || "")
+      setIsPrimary(initialData.is_primary || false)
+    } else if (open && !initialData) {
+      setSupplierId("")
+      setLogisticsTemplateId("")
+      setNakupniMjId("")
+      setPrevodniPomer("1")
+      setPrice("")
+      setCurrency("EUR")
+      setMoq("1")
+      setLeadTime("")
+      setIsPrimary(false)
+    }
+  }, [open, initialData])
+
+  const router = useRouter()
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!supplierId || !price) return
+
+    setIsSubmitting(true)
+    try {
+      const { error } = await upsertProductSourcing({
+        id: initialData?.id,
+        produkt_id: productId,
+        dodavatel_id: supplierId,
+        nakupni_cena: parseFloat(price),
+        mena: currency,
+        moq: parseFloat(moq),
+        lead_time_tydny: leadTime ? parseInt(leadTime) : undefined,
+        is_primary: isPrimary,
+        logisticka_sablona_id: logisticsTemplateId || null,
+        nakupni_mj_id: nakupniMjId || null,
+        prevodni_pomer_na_zakladni: parseFloat(prevodniPomer) || 1
+      })
+
+      if (error) {
+        toast.error("Chyba při ukládání ceníku", { description: error.message })
+      } else {
+        toast.success(initialData ? "Ceník aktualizován" : "Ceník úspěšně přidán")
+        setOpen(false)
+        router.refresh()
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger render={
+        initialData ? (
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-white hover:bg-zinc-800">
+            <Edit2 className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button size="sm" className="gap-2">
+            <Plus className="h-4 w-4" />
+            Přiřadit dodavatele
+          </Button>
+        )
+      } />
+      <DialogContent className="sm:max-w-[500px] bg-background border-zinc-800">
+        <DialogHeader>
+          <DialogTitle>{initialData ? 'Upravit nákupní ceník' : 'Nový nákupní ceník'}</DialogTitle>
+          <DialogDescription className="text-zinc-400">
+            Propojte produkt s dodavatelem a nastavte nákupní podmínky.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+          <div className="space-y-2">
+            <Label>Vyberte dodavatele</Label>
+            <Select value={supplierId} onValueChange={(val) => setSupplierId(val || "")}>
+              <SelectTrigger className="bg-zinc-900 border-zinc-800 w-full text-left">
+                <span className="truncate">
+                  {supplierId 
+                    ? suppliers.find(s => s.id === supplierId)?.nazev_spolecnosti 
+                    : "— Vyberte firmu ze seznamu —"}
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                {suppliers.map(s => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.nazev_spolecnosti} ({s.kod})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Logistická trasa (Šablona pro dopravu a clo)</Label>
+            <Select value={logisticsTemplateId} onValueChange={(val) => setLogisticsTemplateId(val || "")}>
+              <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                <SelectValue placeholder="— Volitelné: Vyberte trasu —" />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map(t => (
+                  <SelectItem key={t.id} value={t.id!}>
+                    {t.nazev} ({t.typ_vypoctu_dopravy === 'procentualni' ? `${(t.sazba_dopravy * 100).toFixed(0)}%` : t.sazba_dopravy + ' EUR'})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="col-span-1 space-y-2">
+              <Label>Měna</Label>
+              <Select value={currency} onValueChange={(val) => setCurrency(val || "EUR")}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EUR">EUR</SelectItem>
+                  <SelectItem value="USD">USD</SelectItem>
+                  <SelectItem value="CZK">CZK</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2 space-y-2">
+              <Label htmlFor="price">Nákupní cena</Label>
+              <Input 
+                id="price" 
+                type="number" 
+                step="0.0001" 
+                placeholder="0.00" 
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                required
+                className="bg-zinc-900 border-zinc-800"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Nákupní měrná jednotka</Label>
+              <Select value={nakupniMjId} onValueChange={(val) => setNakupniMjId(val || "")}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                  <SelectValue placeholder="— Vyberte MJ —" />
+                </SelectTrigger>
+                <SelectContent>
+                  {units.map(u => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.nazev} ({u.zkratka})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-zinc-500">Za co je výše uvedená cena (m2, role, barel, kg)?</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="ratio">Převod na základní MJ</Label>
+              <Input 
+                id="ratio" 
+                type="number" 
+                step="0.0001" 
+                value={prevodniPomer}
+                onChange={(e) => setPrevodniPomer(e.target.value)}
+                className="bg-zinc-900 border-zinc-800"
+              />
+              <p className="text-[10px] text-zinc-500">Kolik je 1 Nákupní MJ ve vztahu k Základní MJ produktu? (např. 1 role = 50 m2, zadáš 50)</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="moq">Min. množství (MOQ v nákupní MJ)</Label>
+              <Input 
+                id="moq" 
+                type="number" 
+                step="0.01" 
+                value={moq}
+                onChange={(e) => setMoq(e.target.value)}
+                className="bg-zinc-900 border-zinc-800"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="lead-time">Lead Time (týdny)</Label>
+              <Input 
+                id="lead-time" 
+                type="number" 
+                placeholder="Dle firmy"
+                value={leadTime}
+                onChange={(e) => setLeadTime(e.target.value)}
+                className="bg-zinc-900 border-zinc-800"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-3 bg-zinc-900/50 rounded-lg border border-zinc-800">
+            <div className="space-y-0.5">
+              <Label className="text-sm">Hlavní dodavatel</Label>
+              <p className="text-[10px] text-zinc-500">Označit jako prioritního partnera.</p>
+            </div>
+            <Switch 
+              checked={isPrimary} 
+              onCheckedChange={setIsPrimary}
+              className="data-[state=checked]:bg-primary"
+            />
+          </div>
+
+          <DialogFooter className="pt-4 border-t border-zinc-800">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>Zrušit</Button>
+            <Button type="submit" disabled={isSubmitting || !supplierId || !price}>
+              {isSubmitting ? "Ukládám..." : initialData ? "Uložit změny" : "Přidat k produktu"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}

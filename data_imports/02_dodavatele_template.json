@@ -1,0 +1,18 @@
+[
+  {
+    "_comment": "--- VZOR 1: Hitex (Příklad importu dodavatele) ---",
+    "kod": "HITEX",
+    "nazev_spolecnosti": "HITEX Composites",
+    "zeme_puvodu": "Čína",
+    "vychozi_mena": "EUR",
+    
+    "platebni_podminky_splatnost_dni": 0,
+    "vychozi_lead_time_tydny": 3,
+    
+    "kontakty": {
+      "email_objednavky": "orders@hitex.cn",
+      "jmeno_zastupce": "Mr. Chen",
+      "telefonni_cislo": "+86 123 456 789"
+    }
+  }
+]

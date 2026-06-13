@@ -1,0 +1,71 @@
+[
+  {
+    "_comment": "--- VZOR 1: Karbonová tkanina (Výztužný materiál) ---",
+    "sku": "CF-WF-96-1K-T22(P11)-E",
+    "nazev": "Carbon Fabric 1K Twill 96g",
+    "kategorie_id": "vyztuzne_materialy",
+    "zakladni_mj_id": "m2",
+    
+    "mnozstvi_v_baleni": 50.00,
+    "jednotka_baleni_id": "bm",
+    "hmotnost_baliku_kg": 5.0,
+    "shelf_life_mesice": 24,
+    
+    "def_typ_skladovani": "sklad",
+    "def_proces_odeslani_id": "nadelit",
+    "def_typ_labelu_id": "cizi",
+    "stav_katalogu_id": "ready_to_order",
+    
+    "specifikace": {
+      "typ_vazby": "Twill 2/2",
+      "sirka_mm": 1000,
+      "plosna_hmotnost_g_m2": 96
+    }
+  },
+  {
+    "_comment": "--- VZOR 2: Epoxidová pryskyřice ---",
+    "sku": "EPOX-L285-10KG",
+    "nazev": "Epoxidová laminovací pryskyřice L285",
+    "kategorie_id": "pryskyrice",
+    "zakladni_mj_id": "kg",
+    
+    "mnozstvi_v_baleni": 10.00,
+    "jednotka_baleni_id": "kg",
+    "hmotnost_baliku_kg": 10.5,
+    "shelf_life_mesice": 36,
+    
+    "def_typ_skladovani": "sklad",
+    "def_proces_odeslani_id": "jen_odeslat",
+    "def_typ_labelu_id": "vlastni",
+    "stav_katalogu_id": "testovani",
+    
+    "specifikace": {
+      "misici_pomer": "100:40",
+      "doba_zpracovatelnosti_min": 45,
+      "vytvrzovaci_teplota_c": 80
+    }
+  },
+  {
+    "_comment": "--- VZOR 3: Prepreg ---",
+    "sku": "PREP-C-300-TW-1M",
+    "nazev": "Carbon Prepreg 300g Twill",
+    "kategorie_id": "prepregy",
+    "zakladni_mj_id": "m2",
+    
+    "mnozstvi_v_baleni": 25.00,
+    "jednotka_baleni_id": "bm",
+    "hmotnost_baliku_kg": 12.0,
+    "shelf_life_mesice": 12,
+    
+    "def_typ_skladovani": "sklad",
+    "def_proces_odeslani_id": "nadelit",
+    "def_typ_labelu_id": "white_label",
+    "stav_katalogu_id": "potreba_stitky",
+    
+    "specifikace": {
+      "skladovaci_teplota_c": -18,
+      "out_life_dny": 15,
+      "obsah_pryskyrice_procenta": 42
+    }
+  }
+]
