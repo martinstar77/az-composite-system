@@ -63,4 +63,11 @@ export interface Product {
     moq?: number | null
     logisticke_sablony?: { nazev: string } | null
   }[]
+  produkt_mnozstevni_slevy?: {
+    id: string
+    mnozstvi_od: number
+    typ_zakaznika: 'B2C' | 'B2B'
+    sleva_procenta: number
+  }[]
 }
+

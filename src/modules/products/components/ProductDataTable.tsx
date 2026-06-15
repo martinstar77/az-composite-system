@@ -221,10 +221,8 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
         const p = row.original
         return (
           <div className="flex flex-col gap-1 text-[10px] font-mono">
-            <div className="flex justify-between w-24"><span className="text-zinc-500">Retail:</span><span className="text-zinc-200">{p.cilova_marze_retail_procenta}%</span></div>
-            <div className="flex justify-between w-24"><span className="text-zinc-500">Partner:</span><span className="text-zinc-200">{p.cilova_marze_partner_procenta}%</span></div>
-            <div className="flex justify-between w-24"><span className="text-zinc-500">VIP:</span><span className="text-zinc-200">{p.cilova_marze_vip_procenta}%</span></div>
-            <div className="flex justify-between w-24"><span className="text-zinc-500">Premarket:</span><span className="text-zinc-200">{p.cilova_marze_premarket_open_procenta}%</span></div>
+            <div className="flex justify-between w-28"><span className="text-zinc-500">B2C (Retail):</span><span className="text-zinc-200">{p.cilova_marze_retail_procenta}%</span></div>
+            <div className="flex justify-between w-28"><span className="text-zinc-500">B2B (Partner):</span><span className="text-zinc-200">{p.cilova_marze_partner_procenta}%</span></div>
           </div>
         )
       }

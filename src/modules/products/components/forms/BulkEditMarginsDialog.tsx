@@ -26,9 +26,7 @@ export function BulkEditMarginsDialog({ open, onOpenChange, selectedProductIds, 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [margins, setMargins] = useState({
     retail: 30,
-    partner: 20,
-    vip: 15,
-    premarketOpen: 10
+    partner: 20
   })
 
   const handleSubmit = async () => {
@@ -74,26 +72,6 @@ export function BulkEditMarginsDialog({ open, onOpenChange, selectedProductIds, 
               step="0.1" 
               value={margins.partner} 
               onChange={(e) => setMargins({...margins, partner: parseFloat(e.target.value) || 0})} 
-              className="bg-zinc-900 border-zinc-800" 
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>VIP / Výroba Marže %</Label>
-            <Input 
-              type="number" 
-              step="0.1" 
-              value={margins.vip} 
-              onChange={(e) => setMargins({...margins, vip: parseFloat(e.target.value) || 0})} 
-              className="bg-zinc-900 border-zinc-800" 
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Premarket Open Marže %</Label>
-            <Input 
-              type="number" 
-              step="0.1" 
-              value={margins.premarketOpen} 
-              onChange={(e) => setMargins({...margins, premarketOpen: parseFloat(e.target.value) || 0})} 
               className="bg-zinc-900 border-zinc-800" 
             />
           </div>

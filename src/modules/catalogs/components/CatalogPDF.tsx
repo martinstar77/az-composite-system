@@ -117,20 +117,34 @@ interface PricedProduct extends Product {
 
 interface CatalogPDFProps {
   products: PricedProduct[];
-  tier: "retail" | "partner" | "vip" | "premarket_open";
+  tier: "retail" | "partner" | "partner_5" | "partner_10" | "partner_15" | "partner_20";
   targetCurrency: "CZK" | "EUR" | "USD";
   exchangeRate: number;
 }
 
 export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate }: CatalogPDFProps) => {
   
+  const getTierLabel = () => {
+    switch (tier) {
+      case 'retail': return 'Maloobchodní ceník (B2C)';
+      case 'partner': return 'Základní partnerský ceník (B2B)';
+      case 'partner_5': return 'Partnerský ceník B2B (sleva 5 %)';
+      case 'partner_10': return 'Partnerský ceník B2B (sleva 10 %)';
+      case 'partner_15': return 'Partnerský ceník B2B (sleva 15 %)';
+      case 'partner_20': return 'Partnerský ceník B2B (sleva 20 %)';
+      default: return 'Ceník produktů';
+    }
+  };
+
   const getPrice = (pr: PricingBreakdown | null) => {
     if (!pr) return "Na dotaz";
     let price = 0;
-    if (tier === 'retail') price = pr.retailUnitPrice;
-    else if (tier === 'partner') price = pr.partnerUnitPrice;
-    else if (tier === 'vip') price = pr.vipUnitPrice;
-    else if (tier === 'premarket_open') price = pr.premarketOpenUnitPrice;
+    if (tier === 'retail') price = pr.b2cUnitPrice;
+    else if (tier === 'partner') price = pr.b2bUnitPrice;
+    else if (tier === 'partner_5') price = pr.b2bDiscountedPrices[5];
+    else if (tier === 'partner_10') price = pr.b2bDiscountedPrices[10];
+    else if (tier === 'partner_15') price = pr.b2bDiscountedPrices[15];
+    else if (tier === 'partner_20') price = pr.b2bDiscountedPrices[20];
     
     if (targetCurrency !== 'CZK') {
       price = price / exchangeRate;
@@ -158,7 +172,7 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate }: Cat
             <Text style={styles.infoText}>Profesionální materiály</Text>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.title}>B2B Ceník produktů</Text>
+            <Text style={styles.title}>{getTierLabel()}</Text>
             <Text style={styles.infoText}>Platnost k: {today}</Text>
             <Text style={styles.infoText}>Výchozí měna: {targetCurrency}</Text>
           </View>

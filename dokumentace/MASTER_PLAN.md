@@ -66,10 +66,10 @@ Cíl: Automatizovat výpočet reálných nákladů (v CZK) a řídit ziskovost p
     *   Váhové kalkulace (Systém bere hmotnost z PIM a násobí ji tarifem dopravy).
 *   **Status Done:** Každý produkt má vypočítanou "Čistou nákladovou cenu na regále" (Landed Cost).
 
-### 3.3: Tiered Pricing System (Cenové hladiny) - [HOTOVO ✅]
-*   **Logika:** Definice cenových hladin: Retail (B2C), Partner (B2B), VIP/Production.
-*   **Množstevní slevy:** Tabulka `cenove_breaky` (Plánováno pro B2B portál).
-*   **Status Done:** Systém generuje 3 různé ceny pro každý produkt na základě jedné marže.
+### 3.3: Tiered Pricing System (Cenové hladiny & Množstevní slevy) - [HOTOVO ✅]
+*   **Logika:** Přechod na dvě hlavní prodejní úrovně: Maloobchod (B2C Retail) a Partnerský (B2B Partner) s tabulkovými slevovými hladinami (B2B, -5 %, -10 %, -15 %, -20 %).
+*   **Množstevní slevy (Volume Discounts):** Tabulka `produkt_mnozstevni_slevy` – procentuální slevy z B2B/B2C cen na základě odebraného množství chránící marže při změně nákladů.
+*   **Status Done:** Systém počítá B2C/B2B ceny a podporuje dynamické slevové breaky.
 
 ### 3.4: Margin Protection UI - [HOTOVO ✅]
 *   **UI:** Zobrazení "Target Margin %" vs. "Real Margin %" na základě aktuálních cen a kurzů. Vizuální upozornění, pokud marže klesne pod kritickou mez.
@@ -97,10 +97,10 @@ Cíl: Automatizovat výpočet reálných nákladů (v CZK) a řídit ziskovost p
     *   **Sweet Spot (Target):** Doporučená prodejní cena kalkulovaná z aktuálního kurzu a cílové marže.
 *   **Dynamické slevy a Množství:** Tento katalog se stane základem pro Fázi 5 a Fázi 7 (E-commerce), kdy systém umí automaticky nabídnout individuální cenu po přihlášení zákazníka na portál.
 
-### 3.9: Správce Marží (Category Margin Manager) - [NÁSLEDUJE]
-*   **Dashboard Správce Marží:** UI v modulu Finance pro zobrazení všech kategorií a nastavení jejich defaultních hodnot (Retail %, Partner %, VIP %, Logistická šablona).
-*   **Dědičnost při zakládání:** Automatické propsání těchto hodnot z kategorie do nově vytvářených produktů.
-*   **Plošný přepis (Push Updates):** Tlačítko pro okamžitý hromadný přepis marží a logistiky u všech existujících produktů spadajících do dané kategorie. Tím lze rychle reagovat na změny na trhu bez nutnosti ručního klikání.
+### 3.9: Správce Marží (Category Margin Manager) - [HOTOVO ✅]
+*   **Dashboard Správce Marží:** UI v modulu Finance pro zobrazení všech kategorií a nastavení jejich defaultních hodnot (Retail B2C %, Partner B2B %, Logistická šablona). - [x]
+*   **Dědičnost při zakládání:** Automatické propsání těchto hodnot z kategorie do nově vytvářených produktů. - [x]
+*   **Plošný přepis (Push Updates):** Tlačítko pro okamžitý hromadný přepis marží a logistiky u všech existujících produktů spadajících do dané kategorie. Tím lze rychle reagovat na změny na trhu bez nutnosti ručního klikání. - [x]
 
 ### 3.10: Secure Production Deployment (Self-Hosting & Bezpečnost)
 *   **Architektura Serveru:** Přesun aplikace na vlastní domácí server (On-Premise) s důrazem na maximální kontrolu nad daty.
@@ -124,6 +124,18 @@ Cíl: Přechod na paperless skladování s podporou více fyzických lokalit a p
 ### 4.2: Batch Management & Traceability (Šarže)
 *   **Logika:** Tabulka `skladove_sarze`. Každý kus na skladě má své UUID, vazbu na `produkty.id` a `vytvoreno_at`.
 *   **Traceability:** Sledování exspirace (Datum nákupu + `produkty.shelf_life_mesice`).
+
+## Phase 4.5: Decanting & Repackaging (Rozlévání a přebalování bulk materiálů)
+Cíl: Správa logistických receptur a přebalování nakoupených velkoobjemových surovin (bulku) na prodejní balení.
+- **Parent-Child BOM (Bill of Materials) Architektura:**
+  - **Surovina (Parent):** Skladová položka nese nákupní cenu, dopravu a clo (`pouze_pro_nakup = true`).
+  - **Prodejní balení (Child):** Samostatná prodejní SKU (např. 1L, 5L, 30L pryskyřice) s recepturou přebalení.
+- **Repackaging Recipe (Kusovník přebalení):**
+  - Každé prodejní balení spotřebovává definované množství suroviny (např. `5.0 l` suroviny), obal (např. kanystr, uzávěr), etiketu a fixní náklad na práci rozlévání.
+- **Landed Cost kalkulace balení:**
+  - Landed Cost se vypočítá dynamicky: $(\text{Množství suroviny} \times \text{Landed Cost suroviny}) + \text{Obaly} + \text{Práce}$. Prodejní B2B/B2C ceny se odvozují od této ceny.
+- **Repackaging Orders (Přebalovací příkazy):**
+  - Dávkové rozlévání s evidencí šarží (Batch Decanting) - skladník potvrdí rozlití 200L suroviny do 40 ks 5L kanystrů, čímž se odepíše surovina a naskladní prodejní balení s novými šaržemi.
 
 ## Phase 5: CRM & Sales (Obchodní Modul)
 ...

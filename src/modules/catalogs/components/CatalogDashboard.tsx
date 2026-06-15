@@ -33,7 +33,7 @@ interface CatalogDashboardProps {
 
 export function CatalogDashboard({ products, rates, settings, templates }: CatalogDashboardProps) {
   const [searchTerm, setSearchTerm] = useState("")
-  const [exportTier, setExportTier] = useState<"retail" | "partner" | "vip" | "premarket_open">("partner")
+  const [exportTier, setExportTier] = useState<"retail" | "partner" | "partner_5" | "partner_10" | "partner_15" | "partner_20">("partner")
   const [exportCurrency, setExportCurrency] = useState<"CZK" | "EUR" | "USD">("EUR")
   const [exportCategory, setExportCategory] = useState<string>("all")
   
@@ -56,10 +56,8 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
             product.hmotnost_baliku_kg || 0,
             product.clo_procenta,
             {
-              retail: product.cilova_marze_retail_procenta,
-              partner: product.cilova_marze_partner_procenta,
-              vip: product.cilova_marze_vip_procenta,
-              premarketOpen: product.cilova_marze_premarket_open_procenta
+              retail: product.cilova_marze_retail_procenta || 30,
+              partner: product.cilova_marze_partner_procenta || 20
             },
             rates,
             settings,
@@ -172,10 +170,12 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
                 <TableHead className="text-zinc-400 font-bold text-[10px] uppercase">Produkt & SKU</TableHead>
                 <TableHead className="text-zinc-400 font-bold text-[10px] uppercase">Sourcing (1 MJ)</TableHead>
                 <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right">Landed Cost (CZK)</TableHead>
-                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right">Retail Cena</TableHead>
-                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right border-x border-zinc-800 bg-blue-500/5">Partner (B2B)</TableHead>
-                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right">VIP Cena</TableHead>
-                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right border-x border-zinc-800 bg-yellow-500/5">Premarket Open</TableHead>
+                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right">B2C Retail</TableHead>
+                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right border-l border-zinc-800 bg-blue-500/5">B2B Partner</TableHead>
+                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right bg-blue-500/5">B2B -5 %</TableHead>
+                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right bg-blue-500/5">B2B -10 %</TableHead>
+                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right bg-blue-500/5">B2B -15 %</TableHead>
+                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right border-r border-zinc-800 bg-blue-500/5">B2B -20 %</TableHead>
                 <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right bg-red-500/5">Risk Marže</TableHead>
                 <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right bg-green-500/5">Safe Marže</TableHead>
               </TableRow>
@@ -190,6 +190,11 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
                       <div className="flex flex-col">
                         <span className="font-bold text-sm text-zinc-200">{p.nazev}</span>
                         <span className="text-[10px] font-mono text-zinc-500">{p.sku}</span>
+                        {p.produkt_mnozstevni_slevy && p.produkt_mnozstevni_slevy.length > 0 && (
+                          <Badge variant="outline" className="border-primary/50 text-primary bg-primary/5 text-[9px] py-0 px-1 mt-1 w-fit">
+                            Množstevní slevy ({p.produkt_mnozstevni_slevy.length})
+                          </Badge>
+                        )}
                       </div>
                     </TableCell>
                     
@@ -216,36 +221,42 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
                     <TableCell className="text-right">
                       {hasPricing ? (
                         <div className="flex flex-col items-end">
-                          <span className="font-bold">{formatCurrency(pr.retailUnitPrice)}</span>
+                          <span className="font-bold">{formatCurrency(pr.b2cUnitPrice)}</span>
                           <span className="text-[9px] text-green-500">{p.cilova_marze_retail_procenta}% marže</span>
                         </div>
                       ) : "—"}
                     </TableCell>
 
-                    <TableCell className="text-right border-x border-zinc-800 bg-blue-500/5">
+                    <TableCell className="text-right border-l border-zinc-800 bg-blue-500/5">
                       {hasPricing ? (
                         <div className="flex flex-col items-end">
-                          <span className="font-bold text-blue-400">{formatCurrency(pr.partnerUnitPrice)}</span>
+                          <span className="font-bold text-blue-400">{formatCurrency(pr.b2bUnitPrice)}</span>
                           <span className="text-[9px] text-blue-500">{p.cilova_marze_partner_procenta}% marže</span>
                         </div>
                       ) : "—"}
                     </TableCell>
 
-                    <TableCell className="text-right">
+                    <TableCell className="text-right bg-blue-500/5">
                       {hasPricing ? (
-                        <div className="flex flex-col items-end">
-                          <span className="font-bold">{formatCurrency(pr.vipUnitPrice)}</span>
-                          <span className="text-[9px] text-green-500">{p.cilova_marze_vip_procenta}% marže</span>
-                        </div>
+                        <span className="font-mono text-xs text-zinc-300">{formatCurrency(pr.b2bDiscountedPrices[5])}</span>
                       ) : "—"}
                     </TableCell>
 
-                    <TableCell className="text-right border-x border-zinc-800 bg-yellow-500/5">
+                    <TableCell className="text-right bg-blue-500/5">
                       {hasPricing ? (
-                        <div className="flex flex-col items-end">
-                          <span className="font-bold text-yellow-500">{formatCurrency(pr.premarketOpenUnitPrice)}</span>
-                          <span className="text-[9px] text-yellow-600">{p.cilova_marze_premarket_open_procenta}% marže</span>
-                        </div>
+                        <span className="font-mono text-xs text-zinc-300">{formatCurrency(pr.b2bDiscountedPrices[10])}</span>
+                      ) : "—"}
+                    </TableCell>
+
+                    <TableCell className="text-right bg-blue-500/5">
+                      {hasPricing ? (
+                        <span className="font-mono text-xs text-zinc-300">{formatCurrency(pr.b2bDiscountedPrices[15])}</span>
+                      ) : "—"}
+                    </TableCell>
+
+                    <TableCell className="text-right border-r border-zinc-800 bg-blue-500/5">
+                      {hasPricing ? (
+                        <span className="font-mono text-xs text-zinc-300">{formatCurrency(pr.b2bDiscountedPrices[20])}</span>
                       ) : "—"}
                     </TableCell>
 
@@ -275,7 +286,7 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
               })}
               {filteredProducts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center h-24 text-zinc-500">Žádné produkty k zobrazení.</TableCell>
+                  <TableCell colSpan={11} className="text-center h-24 text-zinc-500">Žádné produkty k zobrazení.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -298,10 +309,12 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-950 border-zinc-800">
-                  <SelectItem value="retail">B2C (Retail) - Nejvyšší ceny</SelectItem>
-                  <SelectItem value="partner">B2B (Partner) - Střední ceny</SelectItem>
-                  <SelectItem value="vip">VIP (Výroba) - Ceny pro výrobu</SelectItem>
-                  <SelectItem value="premarket_open">Premarket Open - Speciální ceny</SelectItem>
+                  <SelectItem value="retail">B2C (Retail) - Maloobchod</SelectItem>
+                  <SelectItem value="partner">B2B (Partner) - Základní B2B</SelectItem>
+                  <SelectItem value="partner_5">B2B (Partner) - Sleva 5%</SelectItem>
+                  <SelectItem value="partner_10">B2B (Partner) - Sleva 10%</SelectItem>
+                  <SelectItem value="partner_15">B2B (Partner) - Sleva 15%</SelectItem>
+                  <SelectItem value="partner_20">B2B (Partner) - Sleva 20%</SelectItem>
                 </SelectContent>
               </Select>
             </div>

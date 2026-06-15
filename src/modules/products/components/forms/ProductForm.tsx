@@ -55,8 +55,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       opt_skladova_zasoba: initialData?.opt_skladova_zasoba || 0,
       cilova_marze_retail_procenta: initialData?.cilova_marze_retail_procenta || 30,
       cilova_marze_partner_procenta: initialData?.cilova_marze_partner_procenta || 20,
-      cilova_marze_vip_procenta: initialData?.cilova_marze_vip_procenta || 15,
-      cilova_marze_premarket_open_procenta: initialData?.cilova_marze_premarket_open_procenta || 10,
       clo_procenta: initialData?.clo_procenta || 0,
     }
   })
@@ -115,8 +113,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
     switch (kategorieId) {
       case 'vyztuzne_materialy':
-        generatedSku = `${fabMat}-${fabForm}-${fabWeight}-${fabTow}-${fabWeave}`
-        generatedSpecs = { materiál: fabMat, typ: fabForm, gramáž: parseInt(fabWeight) || 0, vlákno: fabTow, vazba: fabWeave }
+        generatedSku = `${fabForm}-${fabMat}-${fabWeight}-${fabTow}-${fabWeave}`
+        generatedSpecs = { typ: fabForm, materiál: fabMat, gramáž: parseInt(fabWeight) || 0, vlákno: fabTow, vazba: fabWeave }
         break;
       case 'prepregy':
         generatedSku = `PP-${prepBase}-${prepWeight}-${prepResin}`
@@ -182,8 +180,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       if (category) {
         if (category.def_marze_retail_procenta !== undefined) setValue("cilova_marze_retail_procenta", category.def_marze_retail_procenta)
         if (category.def_marze_partner_procenta !== undefined) setValue("cilova_marze_partner_procenta", category.def_marze_partner_procenta)
-        if (category.def_marze_vip_procenta !== undefined) setValue("cilova_marze_vip_procenta", category.def_marze_vip_procenta)
-        if (category.def_marze_premarket_open_procenta !== undefined) setValue("cilova_marze_premarket_open_procenta", category.def_marze_premarket_open_procenta)
       }
     }
   }, [kategorieId, initialData, lookups.categories, setValue])
@@ -229,8 +225,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       
       {kategorieId === 'vyztuzne_materialy' ? renderGeneratorWrapper("Výztužné materiály", (
         <>
-          {renderSelect("Materiál", fabMat, setFabMat, [{val:"CF", label:"CF (Carbon)"}, {val:"GF", label:"GF (Glass)"}, {val:"AF", label:"AF (Aramid)"}, {val:"BF", label:"BF (Bio)"}, {val:"OF", label:"OF (Other)"}])}
           {renderSelect("Typ", fabForm, setFabForm, [{val:"WF", label:"WF (Woven)"}, {val:"UD", label:"UD (Uni)"}, {val:"BIAX", label:"BIAX"}, {val:"MAT", label:"MAT"}])}
+          {renderSelect("Materiál", fabMat, setFabMat, [{val:"CF", label:"CF (Carbon)"}, {val:"GF", label:"GF (Glass)"}, {val:"AF", label:"AF (Aramid)"}, {val:"BF", label:"BF (Bio)"}, {val:"OF", label:"OF (Other)"}])}
           <div className="space-y-2"><Label className="text-xs text-muted-foreground">Gramáž (g)</Label><Input type="number" value={fabWeight} onChange={(e) => setFabWeight(e.target.value)} className="h-8 bg-background" /></div>
           {renderSelect("Vlákno", fabTow, setFabTow, [{val:"1K", label:"1K"}, {val:"3K", label:"3K"}, {val:"12K", label:"12K"}, {val:"NA", label:"N/A"}])}
           {renderSelect("Vazba", fabWeave, setFabWeave, [{val:"P", label:"P (Plain)"}, {val:"T22", label:"T22 (Twill)"}, {val:"HYPER", label:"HYPER"}])}
@@ -405,22 +401,14 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
       <div className="p-4 bg-zinc-900/30 rounded-lg border border-zinc-800 space-y-4">
         <h3 className="text-sm font-semibold text-zinc-300 border-b border-zinc-800 pb-2">Cenotvorba a Marže (%)</h3>
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <div className="space-y-2">
-            <Label htmlFor="cilova_marze_retail_procenta">Retail Marže</Label>
+            <Label htmlFor="cilova_marze_retail_procenta">Retail Marže (B2C)</Label>
             <Input id="cilova_marze_retail_procenta" type="number" step="0.1" {...register("cilova_marze_retail_procenta")} className="bg-zinc-950 border-zinc-800" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="cilova_marze_partner_procenta">Partner Marže</Label>
+            <Label htmlFor="cilova_marze_partner_procenta">Partner Marže (B2B)</Label>
             <Input id="cilova_marze_partner_procenta" type="number" step="0.1" {...register("cilova_marze_partner_procenta")} className="bg-zinc-950 border-zinc-800" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="cilova_marze_vip_procenta">VIP Marže</Label>
-            <Input id="cilova_marze_vip_procenta" type="number" step="0.1" {...register("cilova_marze_vip_procenta")} className="bg-zinc-950 border-zinc-800" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="cilova_marze_premarket_open_procenta">Premarket Marže</Label>
-            <Input id="cilova_marze_premarket_open_procenta" type="number" step="0.1" {...register("cilova_marze_premarket_open_procenta")} className="bg-zinc-950 border-zinc-800" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="clo_procenta">Clo (Produkt)</Label>

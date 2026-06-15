@@ -28,6 +28,12 @@ export async function getProducts(): Promise<{ data: Product[] | null, error: an
         prevodni_pomer_na_zakladni,
         moq,
         logisticke_sablony ( nazev )
+      ),
+      produkt_mnozstevni_slevy (
+        id,
+        mnozstvi_od,
+        typ_zakaznika,
+        sleva_procenta
       )
     `)
     .is('deleted_at', null)
@@ -88,8 +94,6 @@ export async function createProduct(formData: ProductFormValues) {
     opt_skladova_zasoba: formData.opt_skladova_zasoba,
     cilova_marze_retail_procenta: formData.cilova_marze_retail_procenta,
     cilova_marze_partner_procenta: formData.cilova_marze_partner_procenta,
-    cilova_marze_vip_procenta: formData.cilova_marze_vip_procenta,
-    cilova_marze_premarket_open_procenta: formData.cilova_marze_premarket_open_procenta,
     clo_procenta: formData.clo_procenta,
     vytvoril_id: user?.id,
     upravil_id: user?.id
@@ -134,8 +138,6 @@ export async function updateProduct(id: string, formData: ProductFormValues) {
     opt_skladova_zasoba: formData.opt_skladova_zasoba,
     cilova_marze_retail_procenta: formData.cilova_marze_retail_procenta,
     cilova_marze_partner_procenta: formData.cilova_marze_partner_procenta,
-    cilova_marze_vip_procenta: formData.cilova_marze_vip_procenta,
-    cilova_marze_premarket_open_procenta: formData.cilova_marze_premarket_open_procenta,
     clo_procenta: formData.clo_procenta,
     upravil_id: user?.id,
     aktualizovano_at: new Date().toISOString()
@@ -150,7 +152,7 @@ export async function updateProduct(id: string, formData: ProductFormValues) {
   return { data, error }
 }
 
-export async function updateProductMargins(id: string, margins: { retail: number, partner: number, vip: number, premarketOpen: number }) {
+export async function updateProductMargins(id: string, margins: { retail: number, partner: number }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -159,8 +161,6 @@ export async function updateProductMargins(id: string, margins: { retail: number
     .update({
       cilova_marze_retail_procenta: margins.retail,
       cilova_marze_partner_procenta: margins.partner,
-      cilova_marze_vip_procenta: margins.vip,
-      cilova_marze_premarket_open_procenta: margins.premarketOpen,
       upravil_id: user?.id,
       aktualizovano_at: new Date().toISOString()
     })
@@ -251,7 +251,7 @@ export async function cloneProduct(id: string) {
   return { data: newProduct, error: null }
 }
 
-export async function bulkUpdateProductMargins(ids: string[], margins: { retail: number, partner: number, vip: number, premarketOpen: number }) {
+export async function bulkUpdateProductMargins(ids: string[], margins: { retail: number, partner: number }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -260,8 +260,6 @@ export async function bulkUpdateProductMargins(ids: string[], margins: { retail:
     .update({
       cilova_marze_retail_procenta: margins.retail,
       cilova_marze_partner_procenta: margins.partner,
-      cilova_marze_vip_procenta: margins.vip,
-      cilova_marze_premarket_open_procenta: margins.premarketOpen,
       upravil_id: user?.id,
       aktualizovano_at: new Date().toISOString()
     })
@@ -333,4 +331,53 @@ export async function getProductLookups() {
     processes: processes.data || [],
     templates: templates.data || []
   }
+}
+
+export async function getProductQuantityBreaks(productId: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('produkt_mnozstevni_slevy')
+    .select('*')
+    .eq('produkt_id', productId)
+    .order('mnozstvi_od', { ascending: true })
+  return { data, error }
+}
+
+export async function saveProductQuantityBreaks(
+  productId: string, 
+  breaks: Array<{ mnozstvi_od: number, typ_zakaznika: 'B2C' | 'B2B', sleva_procenta: number }>
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // 1. Delete all existing breaks for this product
+  const { error: deleteError } = await supabase
+    .from('produkt_mnozstevni_slevy')
+    .delete()
+    .eq('produkt_id', productId)
+
+  if (deleteError) return { error: deleteError }
+
+  if (breaks.length === 0) {
+    revalidatePath(`/produkty/${productId}`)
+    return { data: [], error: null }
+  }
+
+  // 2. Insert new breaks
+  const payload = breaks.map(b => ({
+    produkt_id: productId,
+    mnozstvi_od: b.mnozstvi_od,
+    typ_zakaznika: b.typ_zakaznika,
+    sleva_procenta: b.sleva_procenta,
+    vytvoril_id: user?.id,
+    upravil_id: user?.id
+  }))
+
+  const { data, error } = await supabase
+    .from('produkt_mnozstevni_slevy')
+    .insert(payload)
+    .select()
+
+  if (!error) revalidatePath(`/produkty/${productId}`)
+  return { data, error }
 }

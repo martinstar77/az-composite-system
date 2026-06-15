@@ -52,17 +52,28 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
   const [leadTime, setLeadTime] = useState(initialData?.lead_time_tydny?.toString() || "")
   const [isPrimary, setIsPrimary] = useState(initialData?.is_primary || false)
 
+  // Pricing Input Mode: Package vs Unit
+  const [priceInputMode, setPriceInputMode] = useState<"package" | "unit">("package")
+  const [unitPrice, setUnitPrice] = useState("")
+
   useEffect(() => {
     if (open && initialData) {
       setSupplierId(initialData.dodavatel_id || "")
       setLogisticsTemplateId(initialData.logisticka_sablona_id || "")
       setNakupniMjId(initialData.nakupni_mj_id || "")
-      setPrevodniPomer(initialData.prevodni_pomer_na_zakladni?.toString() || "1")
-      setPrice(initialData.nakupni_cena?.toString() || "")
+      const ratioStr = initialData.prevodni_pomer_na_zakladni?.toString() || "1"
+      const priceStr = initialData.nakupni_cena?.toString() || ""
+      setPrevodniPomer(ratioStr)
+      setPrice(priceStr)
       setCurrency(initialData.mena || "EUR")
       setMoq(initialData.moq?.toString() || "1")
       setLeadTime(initialData.lead_time_tydny?.toString() || "")
       setIsPrimary(initialData.is_primary || false)
+      setPriceInputMode("package")
+      
+      const ratio = parseFloat(ratioStr) || 1
+      const pr = parseFloat(priceStr) || 0
+      setUnitPrice((pr / ratio).toFixed(4).replace(/\.?0+$/, ""))
     } else if (open && !initialData) {
       setSupplierId("")
       setLogisticsTemplateId("")
@@ -73,8 +84,48 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
       setMoq("1")
       setLeadTime("")
       setIsPrimary(false)
+      setPriceInputMode("package")
+      setUnitPrice("")
     }
   }, [open, initialData])
+
+  const handleToggleMode = (mode: "package" | "unit") => {
+    setPriceInputMode(mode)
+    const ratio = parseFloat(prevodniPomer) || 1
+    if (mode === "unit") {
+      const pr = parseFloat(price) || 0
+      setUnitPrice((pr / ratio).toFixed(4).replace(/\.?0+$/, ""))
+    } else {
+      const up = parseFloat(unitPrice) || 0
+      setPrice((up * ratio).toFixed(4).replace(/\.?0+$/, ""))
+    }
+  }
+
+  const handlePriceChange = (val: string) => {
+    setPrice(val)
+    const ratio = parseFloat(prevodniPomer) || 1
+    const pr = parseFloat(val) || 0
+    setUnitPrice((pr / ratio).toFixed(4).replace(/\.?0+$/, ""))
+  }
+
+  const handleUnitPriceChange = (val: string) => {
+    setUnitPrice(val)
+    const ratio = parseFloat(prevodniPomer) || 1
+    const up = parseFloat(val) || 0
+    setPrice((up * ratio).toFixed(4).replace(/\.?0+$/, ""))
+  }
+
+  const handleRatioChange = (val: string) => {
+    setPrevodniPomer(val)
+    const ratio = parseFloat(val) || 1
+    if (priceInputMode === "unit") {
+      const up = parseFloat(unitPrice) || 0
+      setPrice((up * ratio).toFixed(4).replace(/\.?0+$/, ""))
+    } else {
+      const pr = parseFloat(price) || 0
+      setUnitPrice((pr / ratio).toFixed(4).replace(/\.?0+$/, ""))
+    }
+  }
 
   const router = useRouter()
 
@@ -169,8 +220,8 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
             </Select>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-1 space-y-2">
+          <div className="grid grid-cols-6 gap-3">
+            <div className="col-span-2 space-y-2">
               <Label>Měna</Label>
               <Select value={currency} onValueChange={(val) => setCurrency(val || "EUR")}>
                 <SelectTrigger className="bg-zinc-900 border-zinc-800">
@@ -184,19 +235,60 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
               </Select>
             </div>
             <div className="col-span-2 space-y-2">
-              <Label htmlFor="price">Nákupní cena</Label>
-              <Input 
-                id="price" 
-                type="number" 
-                step="0.0001" 
-                placeholder="0.00" 
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                required
-                className="bg-zinc-900 border-zinc-800"
-              />
+              <Label>Zadání ceny</Label>
+              <Select value={priceInputMode} onValueChange={(val: any) => handleToggleMode(val)}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="package">Za balení</SelectItem>
+                  <SelectItem value="unit">Za jednotku (1 MJ)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="col-span-2 space-y-2">
+              <Label htmlFor="price_input">
+                {priceInputMode === "package" ? "Cena za balení" : "Cena za 1 MJ"}
+              </Label>
+              {priceInputMode === "package" ? (
+                <Input 
+                  id="price_input" 
+                  type="number" 
+                  step="0.0001" 
+                  placeholder="0.00" 
+                  value={price}
+                  onChange={(e) => handlePriceChange(e.target.value)}
+                  required
+                  className="bg-zinc-900 border-zinc-800"
+                />
+              ) : (
+                <Input 
+                  id="price_input" 
+                  type="number" 
+                  step="0.0001" 
+                  placeholder="0.00" 
+                  value={unitPrice}
+                  onChange={(e) => handleUnitPriceChange(e.target.value)}
+                  required
+                  className="bg-zinc-900 border-zinc-800"
+                />
+              )}
             </div>
           </div>
+
+          {/* calculated pricing preview */}
+          {parseFloat(price) > 0 && parseFloat(prevodniPomer) > 0 && (
+            <div className="p-2.5 bg-primary/10 border border-primary/20 rounded text-xs text-primary flex justify-between items-center font-semibold">
+              <span>Vypočtený cenový přepočet:</span>
+              <span className="font-mono">
+                {priceInputMode === "package" ? (
+                  `Jednotková: ${(parseFloat(price) / parseFloat(prevodniPomer)).toFixed(4)} ${currency} / MJ`
+                ) : (
+                  `Celková za balení: ${parseFloat(price).toFixed(4)} ${currency}`
+                )}
+              </span>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -223,7 +315,7 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
                 type="number" 
                 step="0.0001" 
                 value={prevodniPomer}
-                onChange={(e) => setPrevodniPomer(e.target.value)}
+                onChange={(e) => handleRatioChange(e.target.value)}
                 className="bg-zinc-900 border-zinc-800"
               />
               <p className="text-[10px] text-zinc-500">Kolik je 1 Nákupní MJ ve vztahu k Základní MJ produktu? (např. 1 role = 50 m2, zadáš 50)</p>

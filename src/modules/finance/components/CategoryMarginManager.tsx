@@ -110,10 +110,8 @@ export function CategoryMarginManager({ categories, templates }: CategoryMarginM
           <TableHeader className="bg-zinc-900/50">
             <TableRow className="hover:bg-transparent border-zinc-800">
               <TableHead className="text-zinc-400 font-bold uppercase text-[10px] tracking-wider">Kategorie</TableHead>
-              <TableHead className="text-zinc-400 font-bold uppercase text-[10px] tracking-wider text-center">Retail %</TableHead>
-              <TableHead className="text-zinc-400 font-bold uppercase text-[10px] tracking-wider text-center">Partner %</TableHead>
-              <TableHead className="text-zinc-400 font-bold uppercase text-[10px] tracking-wider text-center">VIP %</TableHead>
-              <TableHead className="text-zinc-400 font-bold uppercase text-[10px] tracking-wider text-center">Premarket %</TableHead>
+              <TableHead className="text-zinc-400 font-bold uppercase text-[10px] tracking-wider text-center">Retail (B2C) %</TableHead>
+              <TableHead className="text-zinc-400 font-bold uppercase text-[10px] tracking-wider text-center">Partner (B2B) %</TableHead>
               <TableHead className="text-zinc-400 font-bold uppercase text-[10px] tracking-wider">Výchozí Logistika</TableHead>
               <TableHead className="text-zinc-400 font-bold uppercase text-[10px] tracking-wider text-right">Akce</TableHead>
             </TableRow>
@@ -144,24 +142,6 @@ export function CategoryMarginManager({ categories, templates }: CategoryMarginM
                       type="number" 
                       value={current.def_marze_partner_procenta}
                       onChange={(e) => handleUpdateField(cat.id, 'def_marze_partner_procenta', e.target.value)}
-                      className="bg-zinc-900 border-zinc-800 h-8 text-center text-xs"
-                    />
-                  </TableCell>
-
-                  <TableCell className="w-24">
-                    <Input 
-                      type="number" 
-                      value={current.def_marze_vip_procenta}
-                      onChange={(e) => handleUpdateField(cat.id, 'def_marze_vip_procenta', e.target.value)}
-                      className="bg-zinc-900 border-zinc-800 h-8 text-center text-xs"
-                    />
-                  </TableCell>
-
-                  <TableCell className="w-24">
-                    <Input 
-                      type="number" 
-                      value={current.def_marze_premarket_open_procenta}
-                      onChange={(e) => handleUpdateField(cat.id, 'def_marze_premarket_open_procenta', e.target.value)}
                       className="bg-zinc-900 border-zinc-800 h-8 text-center text-xs"
                     />
                   </TableCell>

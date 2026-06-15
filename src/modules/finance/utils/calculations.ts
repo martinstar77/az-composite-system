@@ -35,16 +35,18 @@ export interface PricingBreakdown {
   unitLandedCostWithBuffer: number
 
   // Selling Prices (Per Unit)
-  retailUnitPrice: number
-  partnerUnitPrice: number
-  vipUnitPrice: number
-  premarketOpenUnitPrice: number
+  b2cUnitPrice: number
+  b2bUnitPrice: number
+  b2bDiscountedPrices: {
+    5: number
+    10: number
+    15: number
+    20: number
+  }
   
   // Margins Amount (Per Unit)
-  retailUnitMarginAmount: number
-  partnerUnitMarginAmount: number
-  vipUnitMarginAmount: number
-  premarketOpenUnitMarginAmount: number
+  b2cUnitMarginAmount: number
+  b2bUnitMarginAmount: number
   
   // Hedging scenarios
   currentMargin: number
@@ -58,7 +60,7 @@ export function calculateProductPricing(
   totalUnits: number, // Conversion ratio (e.g. 1 Role = 50 m2)
   weightKg: number,
   productClo: number | null,
-  margins: { retail: number, partner: number, vip: number, premarketOpen: number },
+  margins: { retail: number, partner: number },
   rates: ExchangeRate[],
   settings: GlobalFinanceSettings,
   template?: LogisticsTemplate | null
@@ -146,10 +148,15 @@ export function calculateProductPricing(
     return cost / (1 - marginPercent / 100)
   }
 
-  const retailUnitPrice = calculatePrice(unitLandedCostWithBuffer, margins.retail)
-  const partnerUnitPrice = calculatePrice(unitLandedCostWithBuffer, margins.partner)
-  const vipUnitPrice = calculatePrice(unitLandedCostWithBuffer, margins.vip)
-  const premarketOpenUnitPrice = calculatePrice(unitLandedCostWithBuffer, margins.premarketOpen)
+  const b2cUnitPrice = calculatePrice(unitLandedCostWithBuffer, margins.retail)
+  const b2bUnitPrice = calculatePrice(unitLandedCostWithBuffer, margins.partner)
+
+  const b2bDiscountedPrices = {
+    5: b2bUnitPrice * 0.95,
+    10: b2bUnitPrice * 0.90,
+    15: b2bUnitPrice * 0.85,
+    20: b2bUnitPrice * 0.80
+  }
 
   // 7. Hedging Analysis (Simplified 5-year extremes)
   const strongestRate = currency === 'EUR' ? 23.5 : (currency === 'USD' ? 21.0 : 1)
@@ -158,7 +165,7 @@ export function calculateProductPricing(
   const calculateMargin = (r: number) => {
     const costOrig = (purchasingUnitPrice * r) + totalShippingCostCzk + totalCustomsCostCzk + totalBankFeesCzk + totalClearingFeesCzk + totalWasteFeesCzk + totalPackagingFeesCzk + totalBufferAmount
     const costUnit = costOrig / totalUnits
-    return ((retailUnitPrice - costUnit) / retailUnitPrice) * 100
+    return ((b2cUnitPrice - costUnit) / b2cUnitPrice) * 100
   }
 
   return {
@@ -190,15 +197,12 @@ export function calculateProductPricing(
     unitBufferAmount,
     unitLandedCostWithBuffer,
 
-    retailUnitPrice,
-    partnerUnitPrice,
-    vipUnitPrice,
-    premarketOpenUnitPrice,
+    b2cUnitPrice,
+    b2bUnitPrice,
+    b2bDiscountedPrices,
     
-    retailUnitMarginAmount: retailUnitPrice - unitLandedCostWithBuffer,
-    partnerUnitMarginAmount: partnerUnitPrice - unitLandedCostWithBuffer,
-    vipUnitMarginAmount: vipUnitPrice - unitLandedCostWithBuffer,
-    premarketOpenUnitMarginAmount: premarketOpenUnitPrice - unitLandedCostWithBuffer,
+    b2cUnitMarginAmount: b2cUnitPrice - unitLandedCostWithBuffer,
+    b2bUnitMarginAmount: b2bUnitPrice - unitLandedCostWithBuffer,
     
     currentMargin: margins.retail,
     lowMargin: calculateMargin(weakestRate),

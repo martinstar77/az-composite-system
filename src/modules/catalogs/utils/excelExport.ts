@@ -9,7 +9,7 @@ interface PricedProduct extends Product {
 
 export function exportCatalogToExcel(
   products: PricedProduct[],
-  tier: "retail" | "partner" | "vip" | "premarket_open",
+  tier: "retail" | "partner" | "partner_5" | "partner_10" | "partner_15" | "partner_20",
   targetCurrency: "CZK" | "EUR" | "USD",
   exchangeRate: number
 ) {
@@ -18,10 +18,12 @@ export function exportCatalogToExcel(
     const pr = p.pricing
     let price = 0
     if (pr) {
-      if (tier === 'retail') price = pr.retailUnitPrice
-      else if (tier === 'partner') price = pr.partnerUnitPrice
-      else if (tier === 'vip') price = pr.vipUnitPrice
-      else if (tier === 'premarket_open') price = pr.premarketOpenUnitPrice
+      if (tier === 'retail') price = pr.b2cUnitPrice
+      else if (tier === 'partner') price = pr.b2bUnitPrice
+      else if (tier === 'partner_5') price = pr.b2bDiscountedPrices[5]
+      else if (tier === 'partner_10') price = pr.b2bDiscountedPrices[10]
+      else if (tier === 'partner_15') price = pr.b2bDiscountedPrices[15]
+      else if (tier === 'partner_20') price = pr.b2bDiscountedPrices[20]
       
       // Ceny v DB jsou vždy v CZK, pokud zákazník chce EUR, vydělíme to kurzem
       if (targetCurrency !== 'CZK') {

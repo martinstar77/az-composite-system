@@ -30,8 +30,6 @@ export const productFormSchema = z.object({
   // Pricing & Margins
   cilova_marze_retail_procenta: z.coerce.number().min(0).default(30),
   cilova_marze_partner_procenta: z.coerce.number().min(0).default(20),
-  cilova_marze_vip_procenta: z.coerce.number().min(0).default(15),
-  cilova_marze_premarket_open_procenta: z.coerce.number().min(0).default(10),
   clo_procenta: z.coerce.number().min(0).default(0),
 })
 

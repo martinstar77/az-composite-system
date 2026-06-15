@@ -128,24 +128,116 @@ export async function upsertProductSourcing(payload: {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  const dbPayload = {
-    ...payload,
-    upravil_id: user?.id,
-    aktualizovano_at: new Date().toISOString()
+  // 1. If we are setting this supplier as primary, unset other active primary suppliers
+  if (payload.is_primary) {
+    await supabase
+      .from('produkt_dodavatel')
+      .update({ is_primary: false })
+      .eq('produkt_id', payload.produkt_id)
+      .is('deleted_at', null)
   }
 
-  if (!payload.id) {
-    // @ts-ignore
-    dbPayload.vytvoril_id = user?.id
-  }
-
-  const { data, error } = await supabase
+  // 2. Check if there is an existing active sourcing record for this supplier and product
+  const { data: existingActive } = await supabase
     .from('produkt_dodavatel')
-    .upsert(dbPayload)
-    .select()
+    .select('*')
+    .eq('produkt_id', payload.produkt_id)
+    .eq('dodavatel_id', payload.dodavatel_id)
+    .is('deleted_at', null)
+    .maybeSingle()
 
-  if (!error) revalidatePath(`/produkty/${payload.produkt_id}`)
-  return { data, error }
+  if (existingActive) {
+    // If the price or currency has changed, we want to log the old one as history by soft-deleting it
+    const priceChanged = 
+      existingActive.nakupni_cena !== payload.nakupni_cena ||
+      existingActive.mena !== payload.mena ||
+      existingActive.nakupni_mj_id !== payload.nakupni_mj_id ||
+      existingActive.prevodni_pomer_na_zakladni !== payload.prevodni_pomer_na_zakladni
+
+    if (priceChanged) {
+      // Soft-delete the existing active entry
+      await supabase
+        .from('produkt_dodavatel')
+        .update({ 
+          deleted_at: new Date().toISOString(),
+          is_primary: false,
+          upravil_id: user?.id,
+          aktualizovano_at: new Date().toISOString()
+        })
+        .eq('id', existingActive.id)
+
+      // Insert a new active record with the new price
+      const insertPayload = {
+        produkt_id: payload.produkt_id,
+        dodavatel_id: payload.dodavatel_id,
+        nakupni_cena: payload.nakupni_cena,
+        mena: payload.mena,
+        moq: payload.moq,
+        lead_time_tydny: payload.lead_time_tydny,
+        is_primary: payload.is_primary ?? false,
+        logisticka_sablona_id: payload.logisticka_sablona_id,
+        nakupni_mj_id: payload.nakupni_mj_id,
+        prevodni_pomer_na_zakladni: payload.prevodni_pomer_na_zakladni ?? 1,
+        vytvoril_id: user?.id,
+        upravil_id: user?.id,
+        vytvoreno_at: new Date().toISOString(),
+        aktualizovano_at: new Date().toISOString()
+      }
+
+      const { data, error } = await supabase
+        .from('produkt_dodavatel')
+        .insert([insertPayload])
+        .select()
+
+      if (!error) revalidatePath(`/produkty/${payload.produkt_id}`)
+      return { data, error }
+    } else {
+      // Just update the existing active record details (only metadata changed, not pricing)
+      const updatePayload = {
+        moq: payload.moq,
+        lead_time_tydny: payload.lead_time_tydny,
+        is_primary: payload.is_primary ?? false,
+        logisticka_sablona_id: payload.logisticka_sablona_id,
+        upravil_id: user?.id,
+        aktualizovano_at: new Date().toISOString()
+      }
+
+      const { data, error } = await supabase
+        .from('produkt_dodavatel')
+        .update(updatePayload)
+        .eq('id', existingActive.id)
+        .select()
+
+      if (!error) revalidatePath(`/produkty/${payload.produkt_id}`)
+      return { data, error }
+    }
+  } else {
+    // Create new supplier entry
+    const insertPayload = {
+      produkt_id: payload.produkt_id,
+      dodavatel_id: payload.dodavatel_id,
+      nakupni_cena: payload.nakupni_cena,
+      mena: payload.mena,
+      moq: payload.moq,
+      lead_time_tydny: payload.lead_time_tydny,
+      is_primary: payload.is_primary ?? false,
+      logisticka_sablona_id: payload.logisticka_sablona_id,
+      nakupni_mj_id: payload.nakupni_mj_id,
+      prevodni_pomer_na_zakladni: payload.prevodni_pomer_na_zakladni ?? 1,
+      vytvoril_id: user?.id,
+      upravil_id: user?.id,
+      vytvoreno_at: new Date().toISOString(),
+      aktualizovano_at: new Date().toISOString()
+    }
+
+    const { data, error } = await supabase
+      .from('produkt_dodavatel')
+      .insert([insertPayload])
+      .select()
+
+    if (!error) revalidatePath(`/produkty/${payload.produkt_id}`)
+    return { data, error }
+  }
 }
 
 export async function deleteProductSourcing(id: string, productId: string) {
