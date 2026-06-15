@@ -6,10 +6,11 @@ import { DollarSign, Euro } from "lucide-react"
 
 export function CurrencyHeaderPreview() {
   const [rates, setRates] = useState<{mena: string, kurz_czk: number}[]>([])
-  const supabase = createClient()
 
   useEffect(() => {
     async function loadRates() {
+      const supabase = createClient()
+
       // Get the most recent date
       const { data: recentDate } = await supabase
         .from('historie_kurzu')
@@ -30,6 +31,7 @@ export function CurrencyHeaderPreview() {
     }
     loadRates()
   }, [])
+
 
   if (rates.length === 0) return null
 
