@@ -105,3 +105,51 @@ Jakmile vše běží, máte k dispozici následující rozhraní:
   npx supabase db reset
   ```
   *(Po resetu je nutné znovu spustit skripty pro vytvoření admina a import produktů v Kroku 4!)*
+
+---
+
+## 6. Přepínání mezi Cloud a lokální databází
+
+Projekt podporuje dva vývojové režimy. Výchozí je **Cloud** – data jsou vždy aktuální a Docker není potřeba.
+
+### Přehled režimů
+
+| | `npm run dev` | `npm run dev:docker` |
+|---|---|---|
+| **Databáze** | Supabase Cloud ☁️ | Lokální Docker 🐳 |
+| **Docker nutný** | ❌ Ne | ✅ Ano (`npx supabase start`) |
+| **Studio** | [app.supabase.com](https://app.supabase.com) | [localhost:54323](http://localhost:54323) |
+| **Data** | Produkční/reálná | Izolovaná, resetovatelná |
+| **Config soubor** | `.env.local` | `.env.docker.local` |
+
+### Kdy použít který režim?
+
+- **`npm run dev` (Cloud)** → Výchozí. Testujete s reálnými daty, vidíte co je v produkci.
+- **`npm run dev:docker` (Lokální)** → Když testujete destruktivní operace (mazání dat, reset, nové migrace), nebo chcete izolované prostředí.
+
+> [!WARNING]
+> Při `npm run dev` (Cloud) se veškeré změny dat (vytváření produktů, editace, mazání) **zapíší přímo do produkční databáze**. Buďte opatrní při testování nových funkcí se zápisem!
+
+### Spuštění v Docker režimu
+
+```bash
+# 1. Spusťte lokální Supabase (Docker musí běžet)
+npx supabase start
+
+# 2. Spusťte vývojový server s lokálními klíči
+npm run dev:docker
+# alias: npm run dev:local
+```
+
+### Klíče a konfigurace
+
+Klíče jsou uloženy ve dvou souborech (oba jsou v `.gitignore`, nikdy se necommitují):
+
+- **`.env.local`** – Cloud Supabase klíče (pro `npm run dev`)
+- **`.env.docker.local`** – Lokální Docker klíče (pro `npm run dev:docker`), předvyplněné automaticky
+
+Lokální klíče kdykoli obnovíte příkazem:
+```bash
+npx supabase status
+```
+

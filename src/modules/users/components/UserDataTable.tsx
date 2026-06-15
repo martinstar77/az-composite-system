@@ -56,7 +56,8 @@ import {
 } from "@/shared/components/ui/alert-dialog"
 import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
-import { updateUserRole, deleteUser, adminResetPassword, updateUserProfile } from "../actions"
+import { updateUserRole, deleteUser, adminResetPassword } from "../actions"
+import { EditUserDialog } from "./EditUserDialog"
 
 interface UserDataTableProps {
   data: UserProfile[]
@@ -69,10 +70,9 @@ export function UserDataTable({ data, roles }: UserDataTableProps) {
   // States for various dialogs
   const [resetUserId, setResetUserId] = React.useState<string | null>(null)
   const [deleteUserObj, setDeleteUserObj] = React.useState<{id: string, email: string} | null>(null)
-  const [editUserObj, setEditUserObj] = React.useState<{id: string, nickname: string} | null>(null)
+  const [editUserObj, setEditUserObj] = React.useState<UserProfile | null>(null)
   
   const [newPassword, setNewPassword] = React.useState("")
-  const [newNickname, setNewNickname] = React.useState("")
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   
   const handleRoleChange = async (userId: string, newRoleId: string) => {
@@ -114,25 +114,6 @@ export function UserDataTable({ data, roles }: UserDataTableProps) {
         toast.success("Heslo úspěšně změněno")
         setResetUserId(null)
         setNewPassword("")
-      }
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleUpdateNickname = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!editUserObj || !newNickname) return
-    setIsSubmitting(true)
-    try {
-      const { error } = await updateUserProfile(editUserObj.id, { jmeno: newNickname })
-      if (error) {
-        toast.error("Chyba při aktualizaci", { description: error.message })
-      } else {
-        toast.success("Přezdívka aktualizována")
-        setEditUserObj(null)
-        setNewNickname("")
-        router.refresh()
       }
     } finally {
       setIsSubmitting(false)
@@ -204,13 +185,10 @@ export function UserDataTable({ data, roles }: UserDataTableProps) {
                 <DropdownMenuLabel>Správa uživatele</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem 
-                  onClick={() => {
-                    setEditUserObj({ id: user.id, nickname: user.jmeno || "" })
-                    setNewNickname(user.jmeno || "")
-                  }}
+                  onClick={() => setEditUserObj(user)}
                   className="cursor-pointer"
                 >
-                  <UserCog className="mr-2 h-4 w-4" /> Upravit identitu (Nickname)
+                  <UserCog className="mr-2 h-4 w-4" /> Upravit údaje uživatele
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={() => setResetUserId(user.id)}
@@ -277,38 +255,15 @@ export function UserDataTable({ data, roles }: UserDataTableProps) {
         </Table>
       </div>
 
-      {/* Dialog: Edit Nickname */}
-      <Dialog open={!!editUserObj} onOpenChange={(open) => !open && setEditUserObj(null)}>
-        <DialogContent className="sm:max-w-[425px] bg-background text-foreground border-zinc-800">
-          <DialogHeader>
-            <DialogTitle>Upravit identitu</DialogTitle>
-            <DialogDescription className="text-zinc-400">
-              Změňte systémovou přezdívku uživatele.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleUpdateNickname} className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label htmlFor="nickname-edit">Systémová přezdívka (Nickname)</Label>
-              <Input
-                id="nickname-edit"
-                placeholder="Přezdívka"
-                value={newNickname}
-                onChange={(e) => setNewNickname(e.target.value)}
-                required
-                className="bg-zinc-900 border-zinc-800"
-              />
-            </div>
-            <DialogFooter className="border-t border-zinc-800 pt-4 mt-4">
-              <Button type="button" variant="outline" onClick={() => setEditUserObj(null)}>
-                Zrušit
-              </Button>
-              <Button type="submit" disabled={isSubmitting || !newNickname}>
-                {isSubmitting ? "Ukládám..." : "Uložit změny"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+      {/* Dialog: Full User Edit */}
+      {editUserObj && (
+        <EditUserDialog 
+          user={editUserObj}
+          roles={roles}
+          open={!!editUserObj}
+          onOpenChange={(open) => !open && setEditUserObj(null)}
+        />
+      )}
 
       {/* Dialog: Reset Password */}
       <Dialog open={!!resetUserId} onOpenChange={(open) => !open && setResetUserId(null)}>

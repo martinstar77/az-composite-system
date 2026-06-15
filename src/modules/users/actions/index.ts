@@ -2,9 +2,10 @@
 
 import { createClient } from '@/shared/lib/supabase/server'
 import { createAdminClient } from '@/shared/lib/supabase/admin'
+import { revalidatePath } from 'next/cache'
 import { UserProfile, Role } from '../types'
 
-export async function getUsers(): Promise<{ data: UserProfile[] | null, error: any }> {
+export async function getUsers(): Promise<{ data: UserProfile[] | null, error: unknown }> {
   const supabase = await createClient()
   
   // Checking if the current user is admin is handled by RLS on profily_uzivatelu, 
@@ -20,7 +21,7 @@ export async function getUsers(): Promise<{ data: UserProfile[] | null, error: a
   return { data, error }
 }
 
-export async function getRoles(): Promise<{ data: Role[] | null, error: any }> {
+export async function getRoles(): Promise<{ data: Role[] | null, error: unknown }> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('c_role_uzivatelu')
@@ -71,6 +72,37 @@ export async function createUserWithPassword(email: string, password: string, ro
   }
 
   return { data: authData, error: null }
+}
+
+export async function updateUserFull(userId: string, payload: { email?: string, jmeno?: string, role_id?: string }) {
+  const adminAuthClient = createAdminClient()
+  
+  // 1. Update Auth if email is provided
+  if (payload.email) {
+    const { error: authError } = await adminAuthClient.auth.admin.updateUserById(userId, {
+      email: payload.email,
+      email_confirm: true // Force confirmation so they don't get stuck in a pending state
+    })
+    
+    if (authError) return { error: authError }
+  }
+
+  // 2. Update Profile
+  const profileUpdates: { jmeno?: string, role_id?: string } = {}
+  if (payload.jmeno !== undefined) profileUpdates.jmeno = payload.jmeno
+  if (payload.role_id !== undefined) profileUpdates.role_id = payload.role_id
+
+  if (Object.keys(profileUpdates).length > 0) {
+    const { error: profileError } = await adminAuthClient
+      .from('profily_uzivatelu')
+      .update(profileUpdates)
+      .eq('id', userId)
+      
+    if (profileError) return { error: profileError }
+  }
+
+  revalidatePath('/nastaveni/uzivatele')
+  return { success: true }
 }
 
 export async function updateUserProfile(userId: string, updates: { jmeno?: string, role_id?: string }) {
