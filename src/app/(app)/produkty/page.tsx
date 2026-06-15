@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getProducts, getProductLookups } from '@/modules/products/actions'
 import { ProductDataTable } from '@/modules/products/components/ProductDataTable'
 import { CreateProductDialog } from '@/modules/products/components/forms/CreateProductDialog'

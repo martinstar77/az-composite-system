@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getSuppliers } from '@/modules/sourcing/actions'
 import { SupplierDataTable } from '@/modules/sourcing/components/SupplierDataTable'
 import { CreateSupplierDialog } from '@/modules/sourcing/components/CreateSupplierDialog'

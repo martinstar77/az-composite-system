@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getLatestRates, getGlobalFinanceSettings, getLogisticsTemplates, getCategoriesWithDefaults } from '@/modules/finance/actions'
 import { FinanceDashboard } from '@/modules/finance/components/FinanceDashboard'
 import { LogisticsTemplateManager } from '@/modules/finance/components/LogisticsTemplateManager'

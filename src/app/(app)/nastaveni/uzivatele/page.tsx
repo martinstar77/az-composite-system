@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getUsers, getRoles, getAllPermissions, getRolePermissionsMatrix } from '@/modules/users/actions'
 import { UserDataTable } from '@/modules/users/components/UserDataTable'
 import { CreateUserDialog } from '@/modules/users/components/CreateUserDialog'

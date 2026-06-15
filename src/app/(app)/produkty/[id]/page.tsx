@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getProduct, getUnits } from '@/modules/products/actions'
 import { getProductSourcing, getSuppliers } from '@/modules/sourcing/actions'
 import { getLatestRates, getGlobalFinanceSettings, getLogisticsTemplates } from '@/modules/finance/actions'

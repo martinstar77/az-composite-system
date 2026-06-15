@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import { getProducts } from '@/modules/products/actions'
 import { getLatestRates, getGlobalFinanceSettings, getLogisticsTemplates } from '@/modules/finance/actions'
 import { CatalogDashboard } from '@/modules/catalogs/components/CatalogDashboard'
