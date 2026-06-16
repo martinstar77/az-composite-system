@@ -19,6 +19,7 @@ import { Textarea } from "@/shared/components/ui/textarea"
 import { productFormSchema, type ProductFormValues } from "@/modules/products/types/formSchema"
 import { createProduct, updateProduct, checkSkuExists } from "@/modules/products/actions"
 import { Product } from "../../types"
+import { generateProductName } from "../../utils/nameGenerator"
 
 interface ProductFormProps {
   initialData?: Product
@@ -56,10 +57,12 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       cilova_marze_retail_procenta: initialData?.cilova_marze_retail_procenta || 30,
       cilova_marze_partner_procenta: initialData?.cilova_marze_partner_procenta || 20,
       clo_procenta: initialData?.clo_procenta || 0,
+      is_name_generated: initialData ? (initialData as any).is_name_generated : true,
     }
   })
 
   const kategorieId = watch("kategorie_id")
+  const isNameGenerated = watch("is_name_generated")
   const zakladniMjId = watch("zakladni_mj_id")
   const jednotkaBaleniId = watch("jednotka_baleni_id")
   const stavId = watch("stav_katalogu_id")
@@ -248,8 +251,13 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     if (generatedSku) {
       setValue("sku", generatedSku, { shouldValidate: true })
       setValue("specifikace_json", JSON.stringify(generatedSpecs, null, 2))
+      
+      if (isNameGenerated && kategorieId === 'vyztuzne_materialy') {
+        const generatedName = generateProductName(generatedSpecs, kategorieId)
+        setValue("nazev", generatedName, { shouldValidate: true })
+      }
     }
-  }, [kategorieId, fabMat, fabForm, fabWeight, fabTow, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, clnBrand, clnPack, coreMat, coreDens, coreThick, coreFinish, polBrand, polCont, polSize, fasType, fasBase, fasSize, fasMat, toolSub, toolId, conSub, conId, setValue])
+  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, clnBrand, clnPack, coreMat, coreDens, coreThick, coreFinish, polBrand, polCont, polSize, fasType, fasBase, fasSize, fasMat, toolSub, toolId, conSub, conId, setValue])
 
   // Live SKU Duplicate Check (Debounced)
   useEffect(() => {
@@ -383,8 +391,29 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           {errors.kategorie_id && <p className="text-xs text-destructive">{errors.kategorie_id.message}</p>}
         </div>
         <div className="space-y-2">
-          <Label htmlFor="nazev">Název produktu</Label>
-          <Input id="nazev" placeholder="Carbon 200g Twill" {...register("nazev")} />
+          <div className="flex justify-between items-center">
+            <Label htmlFor="nazev">Název produktu</Label>
+            {kategorieId === 'vyztuzne_materialy' && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground select-none">
+                <input 
+                  type="checkbox" 
+                  id="is_name_generated" 
+                  {...register("is_name_generated")}
+                  className="rounded border-zinc-800 bg-zinc-950 accent-primary size-3.5"
+                />
+                <label htmlFor="is_name_generated" className="cursor-pointer font-medium hover:text-white transition-colors">
+                  Generovat automaticky
+                </label>
+              </div>
+            )}
+          </div>
+          <Input 
+            id="nazev" 
+            placeholder="Carbon 200g Twill" 
+            readOnly={isNameGenerated && kategorieId === 'vyztuzne_materialy'}
+            className={isNameGenerated && kategorieId === 'vyztuzne_materialy' ? "bg-muted text-muted-foreground cursor-not-allowed font-medium border-zinc-850" : "font-medium"}
+            {...register("nazev")} 
+          />
           {errors.nazev && <p className="text-xs text-destructive">{errors.nazev.message}</p>}
         </div>
       </div>

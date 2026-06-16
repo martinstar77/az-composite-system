@@ -31,6 +31,9 @@ export const productFormSchema = z.object({
   cilova_marze_retail_procenta: z.coerce.number().min(0).default(30),
   cilova_marze_partner_procenta: z.coerce.number().min(0).default(20),
   clo_procenta: z.coerce.number().min(0).default(0),
+
+  // Generator
+  is_name_generated: z.boolean().default(true),
 })
 
 export type ProductFormValues = z.infer<typeof productFormSchema>
