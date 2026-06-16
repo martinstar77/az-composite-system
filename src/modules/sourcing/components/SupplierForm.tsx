@@ -64,7 +64,7 @@ export function SupplierForm({ initialData, onSubmit, isSubmitting, onCancel }: 
           <Label>Výchozí měna</Label>
           <Select onValueChange={(val) => setValue("vychozi_mena", val || "EUR")} value={currentMena || "EUR"}>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue>{currentMena || "EUR"}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="EUR">EUR (Euro)</SelectItem>

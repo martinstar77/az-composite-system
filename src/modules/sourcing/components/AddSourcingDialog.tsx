@@ -208,7 +208,9 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
             <Label>Logistická trasa (Šablona pro dopravu a clo)</Label>
             <Select value={logisticsTemplateId} onValueChange={(val) => setLogisticsTemplateId(val || "")}>
               <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                <SelectValue placeholder="— Volitelné: Vyberte trasu —" />
+                <SelectValue placeholder="— Volitelné: Vyberte trasu —">
+                  {templates.find(t => t.id === logisticsTemplateId)?.nazev}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {templates.map(t => (
@@ -225,7 +227,7 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
               <Label>Měna</Label>
               <Select value={currency} onValueChange={(val) => setCurrency(val || "EUR")}>
                 <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                  <SelectValue />
+                  <SelectValue>{currency}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="EUR">EUR</SelectItem>
@@ -238,7 +240,7 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
               <Label>Zadání ceny</Label>
               <Select value={priceInputMode} onValueChange={(val: any) => handleToggleMode(val)}>
                 <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                  <SelectValue />
+                  <SelectValue>{priceInputMode === "package" ? "Za balení" : "Za jednotku (1 MJ)"}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="package">Za balení</SelectItem>
@@ -295,7 +297,12 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
               <Label>Nákupní měrná jednotka</Label>
               <Select value={nakupniMjId} onValueChange={(val) => setNakupniMjId(val || "")}>
                 <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                  <SelectValue placeholder="— Vyberte MJ —" />
+                  <SelectValue placeholder="— Vyberte MJ —">
+                    {(() => {
+                      const u = units.find(u => u.id === nakupniMjId);
+                      return u ? `${u.nazev} (${u.zkratka})` : undefined;
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {units.map(u => (

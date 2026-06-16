@@ -65,47 +65,86 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const stavId = watch("stav_katalogu_id")
   const labelId = watch("def_typ_labelu_id")
   const procesId = watch("def_proces_odeslani_id")
+  const defTypSkladovani = watch("def_typ_skladovani")
   const currentSku = watch("sku")
 
   // Live Validation State
   const [skuExists, setSkuExists] = useState(false)
 
   // --- Omni-Generator State ---
+  const specs = (initialData?.specifikace as any) || {}
   // Fabrics
-  const [fabMat, setFabMat] = useState("CF")
-  const [fabForm, setFabForm] = useState("WF")
-  const [fabWeight, setFabWeight] = useState("200")
-  const [fabTow, setFabTow] = useState("3K")
-  const [fabWeave, setFabWeave] = useState("T22")
+  const [fabMat, setFabMat] = useState(specs.materiál || "CF")
+  const [fabForm, setFabForm] = useState(specs.typ || "WF")
+  const [fabWeight, setFabWeight] = useState(String(specs.gramáž || "200"))
+  const [fabTow, setFabTow] = useState(specs.vlákno || "3K")
+  const [fabWeave, setFabWeave] = useState(specs.vazba || "T22")
+  const [fabUse, setFabUse] = useState(specs.použití || "E") // Economy, Visual, Industry (E, V, I)
+  const [fabBrand, setFabBrand] = useState(specs.výrobce_vlákna && specs.materiál !== "HF" ? specs.výrobce_vlákna : "TO")
+
+  // Hybrid Fibre inputs (active only when fabMat === "HF")
+  const [fabMat1, setFabMat1] = useState<string>(() => {
+    if (specs.materiál === "HF" && Array.isArray(specs.materiál_složení)) {
+      return specs.materiál_složení[0] || "CF"
+    }
+    return "CF"
+  })
+  const [fabMat2, setFabMat2] = useState<string>(() => {
+    if (specs.materiál === "HF" && Array.isArray(specs.materiál_složení)) {
+      return specs.materiál_složení[1] || "AF"
+    }
+    return "AF"
+  })
+  const [fabBrand1, setFabBrand1] = useState<string>(() => {
+    if (specs.materiál === "HF" && Array.isArray(specs.výrobci_složení)) {
+      return specs.výrobci_složení[0] || "TO"
+    }
+    return "TO"
+  })
+  const [fabBrand2, setFabBrand2] = useState<string>(() => {
+    if (specs.materiál === "HF" && Array.isArray(specs.výrobci_složení)) {
+      return specs.výrobci_složení[1] || "HY"
+    }
+    return "HY"
+  })
+
+  // Fabric Packaging & Dimensions
+  const [fabPackType, setFabPackType] = useState<string>(specs.typ_baleni || "role") // role, krabice, metraz
+  const [fabWidth, setFabWidth] = useState<string>(specs.sirka_m !== undefined ? String(specs.sirka_m) : "1.25")
+  const [fabLength, setFabLength] = useState<string>(specs.delka_m !== undefined ? String(specs.delka_m) : "100")
+  const [fabPieces, setFabPieces] = useState<string>(specs.pocet_kusu !== undefined ? String(specs.pocet_kusu) : "10")
   // Prepregs
-  const [prepBase, setPrepBase] = useState("CF")
-  const [prepWeight, setPrepWeight] = useState("300")
-  const [prepResin, setPrepResin] = useState("EPX")
+  const [prepBase, setPrepBase] = useState(specs.base_materiál || "CF")
+  const [prepWeight, setPrepWeight] = useState(String(specs.gramáž || "300"))
+  const [prepResin, setPrepResin] = useState(specs.pryskyřice || "EPX")
   // Chemicals (Resins, Adhesives)
-  const [chemType, setChemType] = useState("RES")
-  const [chemBase, setChemBase] = useState("EP")
-  const [chemVariant, setChemVariant] = useState("LAM")
-  const [chemColor, setChemColor] = useState("CLR")
+  const [chemType, setChemType] = useState(specs.typ || "RES")
+  const [chemBase, setChemBase] = useState(specs.chemie || "EP")
+  const [chemVariant, setChemVariant] = useState(specs.varianta || "MED")
+  const [chemColor, setChemColor] = useState(specs.barva_id || "CLR")
   // Cleaners
-  const [clnBrand, setClnBrand] = useState("RST5")
-  const [clnPack, setClnPack] = useState("5L")
+  const [clnBrand, setClnBrand] = useState(specs.značka || "RST5")
+  const [clnPack, setClnPack] = useState(specs.balení || "5L")
   // Cores
-  const [coreMat, setCoreMat] = useState("PVC")
-  const [coreDens, setCoreDens] = useState("80")
-  const [coreThick, setCoreThick] = useState("10MM")
-  const [coreFinish, setCoreFinish] = useState("PL")
+  const [coreMat, setCoreMat] = useState(specs.materiál || "PVC")
+  const [coreDens, setCoreDens] = useState(String(specs.hustota_kgm3 || "80"))
+  const [coreThick, setCoreThick] = useState(specs.tloušťka || "10MM")
+  const [coreFinish, setCoreFinish] = useState(specs.úprava || "PL")
   // Polish/Abrasives
-  const [polBrand, setPolBrand] = useState("REX")
-  const [polCont, setPolCont] = useState("CAN")
-  const [polSize, setPolSize] = useState("1KG")
+  const [polBrand, setPolBrand] = useState(specs.značka || "REX")
+  const [polCont, setPolCont] = useState(specs.obal || "CAN")
+  const [polSize, setPolSize] = useState(specs.velikost || "1KG")
   // Fasteners (Spojovací materiál pro kompozity)
-  const [fasType, setFasType] = useState("BFAST") // Bonding Fastener
-  const [fasBase, setFasBase] = useState("STUD") // Závitová tyč / Matice
-  const [fasSize, setFasSize] = useState("M8")
-  const [fasMat, setFasMat] = useState("A4")
-  // Tools/Semi-finished
-  const [toolSub, setToolSub] = useState("ROL")
-  const [toolId, setToolId] = useState("50MM")
+  const [fasType, setFasType] = useState(specs.typ_spoje || "BFAST") // Bonding Fastener
+  const [fasBase, setFasBase] = useState(specs.zakladna || "STUD") // Závitová tyč / Matice
+  const [fasSize, setFasSize] = useState(specs.zavit_prumer || "M8")
+  const [fasMat, setFasMat] = useState(specs.material || "A4")
+  // Tools (Nářadí)
+  const [toolSub, setToolSub] = useState(specs.podkategorie || "BU")
+  const [toolId, setToolId] = useState(specs.identifikátor || "50MM")
+  // Consumables (Spotřební materiál)
+  const [conSub, setConSub] = useState(specs.podkategorie || "BF")
+  const [conId, setConId] = useState(specs.identifikátor || "50MM")
 
   useEffect(() => {
     let generatedSku = ""
@@ -113,8 +152,59 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
     switch (kategorieId) {
       case 'vyztuzne_materialy':
-        generatedSku = `${fabForm}-${fabMat}-${fabWeight}-${fabTow}-${fabWeave}`
-        generatedSpecs = { typ: fabForm, materiál: fabMat, gramáž: parseInt(fabWeight) || 0, vlákno: fabTow, vazba: fabWeave }
+        const w = parseFloat(fabWidth) || 0
+        const l = parseFloat(fabLength) || 0
+        const pcs = parseInt(fabPieces) || 0
+        let area = 0
+        let uom = "role"
+
+        if (fabPackType === "role") {
+          area = w * l
+          uom = "role"
+        } else if (fabPackType === "krabice") {
+          area = w * l * pcs
+          uom = "ks"
+        } else {
+          area = w * l
+          uom = "ks"
+        }
+
+        setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
+        setValue("jednotka_baleni_id", uom, { shouldValidate: true })
+
+        if (fabMat === "HF") {
+          generatedSku = `${fabForm}-${fabMat1}${fabMat2}-${fabWeight}-${fabTow}-${fabWeave}-${fabUse}-${fabBrand1}${fabBrand2}`
+          generatedSpecs = {
+            typ: fabForm,
+            materiál: fabMat,
+            materiál_složení: [fabMat1, fabMat2],
+            gramáž: parseInt(fabWeight) || 0,
+            vlákno: fabTow,
+            vazba: fabWeave,
+            použití: fabUse,
+            výrobce_vlákna: `${fabBrand1}${fabBrand2}`,
+            výrobci_složení: [fabBrand1, fabBrand2],
+            typ_baleni: fabPackType,
+            sirka_m: w,
+            delka_m: l,
+            ...(fabPackType === "krabice" ? { pocet_kusu: pcs } : {})
+          }
+        } else {
+          generatedSku = `${fabForm}-${fabMat}-${fabWeight}-${fabTow}-${fabWeave}-${fabUse}-${fabBrand}`
+          generatedSpecs = { 
+            typ: fabForm, 
+            materiál: fabMat, 
+            gramáž: parseInt(fabWeight) || 0, 
+            vlákno: fabTow, 
+            vazba: fabWeave, 
+            použití: fabUse, 
+            výrobce_vlákna: fabBrand,
+            typ_baleni: fabPackType,
+            sirka_m: w,
+            delka_m: l,
+            ...(fabPackType === "krabice" ? { pocet_kusu: pcs } : {})
+          }
+        }
         break;
       case 'prepregy':
         generatedSku = `PP-${prepBase}-${prepWeight}-${prepResin}`
@@ -143,12 +233,13 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         generatedSku = `FAS-${fasType}-${fasBase}-${fasSize}-${fasMat}`
         generatedSpecs = { typ_spoje: fasType, zakladna: fasBase, zavit_prumer: fasSize, material: fasMat }
         break;
-      case 'nastroje_rucni':
-      case 'nastroje_strojni':
-      case 'polotovary':
-        const tPrefix = kategorieId === 'nastroje_rucni' ? 'TOL' : (kategorieId === 'nastroje_strojni' ? 'MAC' : 'SFP')
-        generatedSku = `${tPrefix}-${toolSub}-${toolId}`
+      case 'naradi':
+        generatedSku = `TOL-${toolSub}-${toolId}`
         generatedSpecs = { podkategorie: toolSub, identifikátor: toolId }
+        break;
+      case 'consumables':
+        generatedSku = `CON-${conSub}-${conId}`
+        generatedSpecs = { podkategorie: conSub, identifikátor: conId }
         break;
       default:
         return;
@@ -158,7 +249,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       setValue("sku", generatedSku, { shouldValidate: true })
       setValue("specifikace_json", JSON.stringify(generatedSpecs, null, 2))
     }
-  }, [kategorieId, fabMat, fabForm, fabWeight, fabTow, fabWeave, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, clnBrand, clnPack, coreMat, coreDens, coreThick, coreFinish, polBrand, polCont, polSize, fasType, fasBase, fasSize, fasMat, toolSub, toolId, setValue])
+  }, [kategorieId, fabMat, fabForm, fabWeight, fabTow, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, clnBrand, clnPack, coreMat, coreDens, coreThick, coreFinish, polBrand, polCont, polSize, fasType, fasBase, fasSize, fasMat, toolSub, toolId, conSub, conId, setValue])
 
   // Live SKU Duplicate Check (Debounced)
   useEffect(() => {
@@ -173,16 +264,60 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     return () => clearTimeout(timer)
   }, [currentSku, initialData?.id])
 
-  // Apply Category Defaults (Margins) when category changes
-  useEffect(() => {
-    if (!initialData && kategorieId) {
-      const category = lookups.categories.find(c => c.id === kategorieId)
+  // handle category select & dynamic defaults
+  const handleCategoryChange = (val: string | null) => {
+    const catId = val || ""
+    setValue("kategorie_id", catId, { shouldValidate: true })
+
+    if (!initialData && catId) {
+      const category = lookups.categories.find(c => c.id === catId)
       if (category) {
         if (category.def_marze_retail_procenta !== undefined) setValue("cilova_marze_retail_procenta", category.def_marze_retail_procenta)
         if (category.def_marze_partner_procenta !== undefined) setValue("cilova_marze_partner_procenta", category.def_marze_partner_procenta)
       }
+
+      switch (catId) {
+        case 'vyztuzne_materialy':
+        case 'prepregy':
+          setValue("zakladni_mj_id", "m2")
+          setValue("jednotka_baleni_id", "bm")
+          setValue("mnozstvi_v_baleni", 100)
+          break
+        case 'pryskyrice':
+        case 'lepidla':
+          setValue("zakladni_mj_id", "kg")
+          setValue("jednotka_baleni_id", "ks")
+          setValue("mnozstvi_v_baleni", 1)
+          break
+        case 'spotrebni_chemie':
+          setValue("zakladni_mj_id", "l")
+          setValue("jednotka_baleni_id", "ks")
+          setValue("mnozstvi_v_baleni", 1)
+          break
+        default:
+          setValue("zakladni_mj_id", "ks")
+          setValue("jednotka_baleni_id", "ks")
+          setValue("mnozstvi_v_baleni", 1)
+          break
+      }
+
+      if (catId === 'prepregy') {
+        setValue("def_typ_skladovani", "mrazak")
+        setValue("shelf_life_mesice", 12)
+      } else if (catId === 'pryskyrice' || catId === 'lepidla') {
+        setValue("def_typ_skladovani", "sklad")
+        setValue("shelf_life_mesice", 12)
+      } else if (catId === 'spotrebni_chemie') {
+        setValue("def_typ_skladovani", "sklad")
+        setValue("shelf_life_mesice", 24)
+      } else {
+        setValue("def_typ_skladovani", "sklad")
+        setValue("shelf_life_mesice", 0)
+      }
+
+      setValue("def_typ_labelu_id", "vlastni")
     }
-  }, [kategorieId, initialData, lookups.categories, setValue])
+  }
 
   const handleSkuChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.toUpperCase()
@@ -212,7 +347,11 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     <div className="space-y-2">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <Select onValueChange={(v) => setter(v || "")} value={value}>
-        <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="h-8">
+          <SelectValue>
+            {options.find(o => o.val === value)?.label}
+          </SelectValue>
+        </SelectTrigger>
         <SelectContent>
           {options.map(o => <SelectItem key={o.val} value={o.val}>{o.label}</SelectItem>)}
         </SelectContent>
@@ -220,16 +359,104 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     </div>
   )
 
+  const isChemicalCategory = kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie';
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       
+      {/* 1. Hlavní klasifikace (Kategorie a Název) */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Kategorie</Label>
+          <Select onValueChange={handleCategoryChange} value={kategorieId || ""}>
+            <SelectTrigger>
+              <SelectValue placeholder="Vyberte kategorii">
+                {lookups.categories.find(c => c.id === kategorieId)?.nazev}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {lookups.categories.map(c => (
+                <SelectItem key={c.id} value={c.id}>{c.nazev}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {errors.kategorie_id && <p className="text-xs text-destructive">{errors.kategorie_id.message}</p>}
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="nazev">Název produktu</Label>
+          <Input id="nazev" placeholder="Carbon 200g Twill" {...register("nazev")} />
+          {errors.nazev && <p className="text-xs text-destructive">{errors.nazev.message}</p>}
+        </div>
+      </div>
+
       {kategorieId === 'vyztuzne_materialy' ? renderGeneratorWrapper("Výztužné materiály", (
         <>
           {renderSelect("Typ", fabForm, setFabForm, [{val:"WF", label:"WF (Woven)"}, {val:"UD", label:"UD (Uni)"}, {val:"BIAX", label:"BIAX"}, {val:"MAT", label:"MAT"}])}
-          {renderSelect("Materiál", fabMat, setFabMat, [{val:"CF", label:"CF (Carbon)"}, {val:"GF", label:"GF (Glass)"}, {val:"AF", label:"AF (Aramid)"}, {val:"BF", label:"BF (Bio)"}, {val:"OF", label:"OF (Other)"}])}
+          {renderSelect("Materiál", fabMat, setFabMat, [
+            {val:"CF", label:"CF (Carbon)"},
+            {val:"GF", label:"GF (Glass)"},
+            {val:"AF", label:"AF (Aramid)"},
+            {val:"HF", label:"HF (Hybrid Fibre)"},
+            {val:"BF", label:"BF (Bio)"},
+            {val:"OF", label:"OF (Other)"}
+          ])}
+          {fabMat === "HF" && (
+            <>
+              {renderSelect("Materiál 1", fabMat1, setFabMat1, [
+                {val:"CF", label:"CF (Carbon)"},
+                {val:"GF", label:"GF (Glass)"},
+                {val:"AF", label:"AF (Aramid)"},
+                {val:"BF", label:"BF (Bio)"},
+                {val:"OF", label:"OF (Other)"}
+              ])}
+              {renderSelect("Materiál 2", fabMat2, setFabMat2, [
+                {val:"CF", label:"CF (Carbon)"},
+                {val:"GF", label:"GF (Glass)"},
+                {val:"AF", label:"AF (Aramid)"},
+                {val:"BF", label:"BF (Bio)"},
+                {val:"OF", label:"OF (Other)"}
+              ])}
+            </>
+          )}
           <div className="space-y-2"><Label className="text-xs text-muted-foreground">Gramáž (g)</Label><Input type="number" value={fabWeight} onChange={(e) => setFabWeight(e.target.value)} className="h-8 bg-background" /></div>
-          {renderSelect("Vlákno", fabTow, setFabTow, [{val:"1K", label:"1K"}, {val:"3K", label:"3K"}, {val:"12K", label:"12K"}, {val:"NA", label:"N/A"}])}
-          {renderSelect("Vazba", fabWeave, setFabWeave, [{val:"P", label:"P (Plain)"}, {val:"T22", label:"T22 (Twill)"}, {val:"HYPER", label:"HYPER"}])}
+          {renderSelect("Vlákno", fabTow, setFabTow, [{val:"1K", label:"1K"}, {val:"3K", label:"3K"}, {val:"6K", label:"6K"}, {val:"12K", label:"12K"}, {val:"NA", label:"N/A"}])}
+          {renderSelect("Vazba", fabWeave, setFabWeave, [{val:"P", label:"P (Plain)"}, {val:"T22", label:"T22 (Twill)"}, {val:"T44", label:"T44 (Twill)"}])}
+          {renderSelect("Použití", fabUse, setFabUse, [{val:"E", label:"E (Economy)"}, {val:"V", label:"V (Visual)"}, {val:"I", label:"I (Industry)"}])}
+          {fabMat === "HF" ? (
+            <>
+              {renderSelect("Výrobce 1", fabBrand1, setFabBrand1, [
+                {val:"ZH", label:"ZH (Zhongfu)"},
+                {val:"TN", label:"TN (Tenax)"},
+                {val:"TA", label:"TA (Tayrifil)"},
+                {val:"HY", label:"HY (Hyosung)"},
+                {val:"MI", label:"MI (Mitsubishi)"},
+                {val:"HX", label:"HX (Hexcel)"},
+                {val:"TO", label:"TO (Toray)"},
+                {val:"DP", label:"DP (Dupont)"}
+              ])}
+              {renderSelect("Výrobce 2", fabBrand2, setFabBrand2, [
+                {val:"ZH", label:"ZH (Zhongfu)"},
+                {val:"TN", label:"TN (Tenax)"},
+                {val:"TA", label:"TA (Tayrifil)"},
+                {val:"HY", label:"HY (Hyosung)"},
+                {val:"MI", label:"MI (Mitsubishi)"},
+                {val:"HX", label:"HX (Hexcel)"},
+                {val:"TO", label:"TO (Toray)"},
+                {val:"DP", label:"DP (Dupont)"}
+              ])}
+            </>
+          ) : (
+            renderSelect("Výrobce vlákna", fabBrand, setFabBrand, [
+              {val:"ZH", label:"ZH (Zhongfu)"},
+              {val:"TN", label:"TN (Tenax)"},
+              {val:"TA", label:"TA (Tayrifil)"},
+              {val:"HY", label:"HY (Hyosung)"},
+              {val:"MI", label:"MI (Mitsubishi)"},
+              {val:"HX", label:"HX (Hexcel)"},
+              {val:"TO", label:"TO (Toray)"},
+              {val:"DP", label:"DP (Dupont)"}
+            ])
+          )}
         </>
       )) : kategorieId === 'prepregy' ? renderGeneratorWrapper("Prepregy", (
         <>
@@ -269,10 +496,30 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           <div className="space-y-2"><Label className="text-xs text-muted-foreground">Závit (např. M8)</Label><Input value={fasSize} onChange={(e) => setFasSize(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} className="h-8 bg-background" placeholder="M8" /></div>
           {renderSelect("Materiál", fasMat, setFasMat, [{val:"A2", label:"A2 (Nerez)"}, {val:"A4", label:"A4 (Nerez moř.)"}, {val:"STL", label:"Ocel Pozink"}, {val:"ALU", label:"Hliník"}])}
         </>
-      )) : (kategorieId === 'nastroje_rucni' || kategorieId === 'nastroje_strojni' || kategorieId === 'polotovary') ? renderGeneratorWrapper("Nástroje a Polotovary", (
+      )) : kategorieId === 'naradi' ? renderGeneratorWrapper("Nářadí (Tools)", (
         <>
-          <div className="space-y-2"><Label className="text-xs text-muted-foreground">Podkategorie</Label><Input value={toolSub} onChange={(e) => setToolSub(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} className="h-8 bg-background" placeholder="ROL" /></div>
+          {renderSelect("Podkategorie", toolSub, setToolSub, [
+            {val:"BU", label:"BU (Breach unit)"},
+            {val:"QR", label:"QR (Quick release)"},
+            {val:"SQ", label:"SQ (Squeezer)"}
+          ])}
           <div className="space-y-2"><Label className="text-xs text-muted-foreground">Identifikátor</Label><Input value={toolId} onChange={(e) => setToolId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} className="h-8 bg-background" placeholder="50MM" /></div>
+        </>
+      )) : kategorieId === 'consumables' ? renderGeneratorWrapper("Spotřební materiál (Consumables)", (
+        <>
+          {renderSelect("Podkategorie", conSub, setConSub, [
+            {val:"BF", label:"BF (Bagging film)"},
+            {val:"RF", label:"RF (Release film)"},
+            {val:"PP", label:"PP (Peel ply)"},
+            {val:"BC", label:"BC (Breather)"},
+            {val:"ST", label:"ST (Sealing tape)"},
+            {val:"FT", label:"FT (Flash tape)"},
+            {val:"FM", label:"FM (Flow mesh)"},
+            {val:"FCH", label:"FCH (Flow channel)"},
+            {val:"T", label:"T (Tube)"},
+            {val:"C", label:"C (Connectors)"}
+          ])}
+          <div className="space-y-2"><Label className="text-xs text-muted-foreground">Identifikátor</Label><Input value={conId} onChange={(e) => setConId(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} className="h-8 bg-background" placeholder="50MM" /></div>
         </>
       )) : (
         <div className="p-6 bg-zinc-100 dark:bg-zinc-900 border border-dashed border-zinc-300 dark:border-zinc-700 rounded-lg text-center space-y-3">
@@ -281,7 +528,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           </div>
           <h3 className="font-semibold text-foreground">Aktivujte Smart Generátor</h3>
           <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-            Pro automatické složení správného kódu (SKU) a technických parametrů vyberte nejprve <strong className="text-foreground">Kategorii</strong> níže ve formuláři.
+            Pro automatické složení správného kódu (SKU) a technických parametrů vyberte nejprve <strong className="text-foreground">Kategorii</strong> nahoře ve formuláři.
           </p>
           <div className="pt-4 mt-4 border-t border-zinc-200 dark:border-zinc-800 text-left">
             <Label htmlFor="sku" className={`text-xs ${skuExists ? 'text-red-500' : 'text-muted-foreground'}`}>
@@ -297,17 +544,89 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="nazev">Název produktu</Label>
-          <Input id="nazev" placeholder="Carbon 200g Twill" {...register("nazev")} />
-          {errors.nazev && <p className="text-xs text-destructive">{errors.nazev.message}</p>}
+      {/* Dynamic Dimension Configuration for Fabrics */}
+      {kategorieId === 'vyztuzne_materialy' && (
+        <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-4">
+          <h3 className="text-sm font-semibold text-primary border-b border-primary/20 pb-2">Konfigurace balení a rozměrů tkaniny</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Typ balení</Label>
+              <Select onValueChange={(val: string | null) => setFabPackType(val || "role")} value={fabPackType}>
+                <SelectTrigger className="h-9">
+                  <SelectValue>
+                    {fabPackType === "role" ? "Role (Roll)" :
+                     fabPackType === "krabice" ? "Krabice (Box - Skládané)" :
+                     fabPackType === "metraz" ? "Stříhaná metráž" : fabPackType}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="role">Role (Roll)</SelectItem>
+                  <SelectItem value="krabice">Krabice (Box - Skládané)</SelectItem>
+                  <SelectItem value="metraz">Stříhaná metráž</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="fabWidth" className="text-xs text-muted-foreground">Šířka (m)</Label>
+              <Input 
+                id="fabWidth" 
+                type="number" 
+                step="0.01" 
+                value={fabWidth} 
+                onChange={(e) => setFabWidth(e.target.value)} 
+                className="h-9 bg-background" 
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="fabLength" className="text-xs text-muted-foreground">Délka (m / bm)</Label>
+              <Input 
+                id="fabLength" 
+                type="number" 
+                step="0.1" 
+                value={fabLength} 
+                onChange={(e) => setFabLength(e.target.value)} 
+                className="h-9 bg-background" 
+              />
+            </div>
+
+            {fabPackType === "krabice" && (
+              <div className="space-y-2">
+                <Label htmlFor="fabPieces" className="text-xs text-muted-foreground">Počet kusů (přířezů)</Label>
+                <Input 
+                  id="fabPieces" 
+                  type="number" 
+                  value={fabPieces} 
+                  onChange={(e) => setFabPieces(e.target.value)} 
+                  className="h-9 bg-background" 
+                />
+              </div>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground flex flex-wrap gap-x-6 gap-y-2 bg-primary/5 p-3 rounded border border-primary/10">
+            <span>
+              <strong>Vypočtená plocha:</strong> {((parseFloat(fabWidth) || 0) * (parseFloat(fabLength) || 0) * (fabPackType === "krabice" ? (parseInt(fabPieces) || 0) : 1)).toFixed(2)} m²
+            </span>
+            <span>
+              <strong>Výchozí měrná jednotka:</strong> m² (plocha)
+            </span>
+            <span>
+              <strong>Jednotka balení:</strong> {fabPackType === "role" ? "role" : "ks"}
+            </span>
+          </div>
         </div>
+      )}
+
+      {/* 3. Katalogový stav a Měrná jednotka */}
+      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Stav v katalogu</Label>
           <Select onValueChange={(val: string | null) => setValue("stav_katalogu_id", val || "")} value={stavId || ""}>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue placeholder="Vyberte stav">
+                {lookups.statuses.find(s => s.id === stavId)?.nazev}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {lookups.statuses.map(s => (
@@ -316,28 +635,16 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             </SelectContent>
           </Select>
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Kategorie</Label>
-          <Select onValueChange={(val: string | null) => setValue("kategorie_id", val || "")} value={kategorieId || ""}>
-            <SelectTrigger>
-              <SelectValue placeholder="Vyberte kategorii" />
-            </SelectTrigger>
-            <SelectContent>
-              {lookups.categories.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.nazev}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {errors.kategorie_id && <p className="text-xs text-destructive">{errors.kategorie_id.message}</p>}
-        </div>
         <div className="space-y-2">
           <Label>Základní měrná jednotka</Label>
           <Select onValueChange={(val: string | null) => setValue("zakladni_mj_id", val || "")} value={zakladniMjId || ""}>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue placeholder="Vyberte jednotku">
+                {(() => {
+                  const u = lookups.units.find(u => u.id === zakladniMjId);
+                  return u ? `${u.nazev} (${u.zkratka})` : undefined;
+                })()}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {lookups.units.map(u => (
@@ -348,12 +655,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         </div>
       </div>
 
+      {/* 4. Typ labelu a Proces odeslání */}
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label>Typ labelu</Label>
           <Select onValueChange={(val: string | null) => setValue("def_typ_labelu_id", val || "")} value={labelId || ""}>
             <SelectTrigger>
-              <SelectValue placeholder="Vyberte label" />
+              <SelectValue placeholder="Vyberte typ labelu">
+                {lookups.labels.find(l => l.id === labelId)?.nazev}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {lookups.labels.map(l => (
@@ -367,7 +677,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           <Label>Proces odeslání</Label>
           <Select onValueChange={(val: string | null) => setValue("def_proces_odeslani_id", val || "")} value={procesId || ""}>
             <SelectTrigger>
-              <SelectValue placeholder="Vyberte proces" />
+              <SelectValue placeholder="Vyberte proces">
+                {lookups.processes.find(p => p.id === procesId)?.nazev}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {lookups.processes.map(p => (
@@ -379,26 +691,36 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="shelf_life_mesice">Shelf Life (měsíce)</Label>
-          <Input id="shelf_life_mesice" type="number" {...register("shelf_life_mesice")} />
+      {/* 5. Skladování a Trvanlivost (Kondiciální zobrazení pro vybrané chemické/trvanlivé kategorie) */}
+      {isChemicalCategory && (
+        <div className="grid grid-cols-2 gap-4 p-4 bg-zinc-900/30 rounded-lg border border-zinc-800">
+          <div className="space-y-2">
+            <Label>Způsob skladování</Label>
+            <Select onValueChange={(val: string | null) => setValue("def_typ_skladovani", val || "sklad")} value={defTypSkladovani || "sklad"}>
+              <SelectTrigger>
+                <SelectValue placeholder="Vyberte skladování">
+                  {defTypSkladovani === "sklad" ? "Standardní sklad" : 
+                   defTypSkladovani === "lednice" ? "Lednice (Chlazené)" : 
+                   defTypSkladovani === "mrazak" ? "Mrazák (Mražené -18°C)" : undefined}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sklad">Standardní sklad</SelectItem>
+                <SelectItem value="lednice">Lednice (Chlazené)</SelectItem>
+                <SelectItem value="mrazak">Mrazák (Mražené -18°C)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="shelf_life_mesice">Shelf Life (Trvanlivost v měsících)</Label>
+            <Input id="shelf_life_mesice" type="number" {...register("shelf_life_mesice")} />
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="grid grid-cols-2 gap-4 p-4 bg-primary/5 rounded-lg border border-primary/10">
-        <div className="space-y-2">
-          <Label htmlFor="min_skladova_zasoba" className="text-primary font-semibold">Min. skladová zásoba</Label>
-          <Input id="min_skladova_zasoba" type="number" step="0.01" {...register("min_skladova_zasoba")} className="bg-background" />
-          <p className="text-[10px] text-muted-foreground italic">Systém vás upozorní pod touto hranicí.</p>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="opt_skladova_zasoba">Opt. skladová zásoba</Label>
-          <Input id="opt_skladova_zasoba" type="number" step="0.01" {...register("opt_skladova_zasoba")} className="bg-background" />
-          <p className="text-[10px] text-muted-foreground italic">Ideální stav pro doplňování zásob.</p>
-        </div>
-      </div>
 
+
+      {/* 7. Cenotvorba a Marže */}
       <div className="p-4 bg-zinc-900/30 rounded-lg border border-zinc-800 space-y-4">
         <h3 className="text-sm font-semibold text-zinc-300 border-b border-zinc-800 pb-2">Cenotvorba a Marže (%)</h3>
         <div className="grid grid-cols-3 gap-3">
@@ -418,16 +740,30 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         </div>
       </div>
 
+      {/* 8. Logistické balení */}
       <div className="grid grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg border border-zinc-800">
         <div className="space-y-2">
           <Label htmlFor="mnozstvi_v_baleni">Množství v bal.</Label>
-          <Input id="mnozstvi_v_baleni" type="number" step="0.01" {...register("mnozstvi_v_baleni")} />
+          <Input 
+            id="mnozstvi_v_baleni" 
+            type="number" 
+            step="0.01" 
+            readOnly={kategorieId === "vyztuzne_materialy"}
+            className={kategorieId === "vyztuzne_materialy" ? "bg-muted text-muted-foreground border-zinc-850" : ""}
+            {...register("mnozstvi_v_baleni")} 
+          />
         </div>
         <div className="space-y-2">
           <Label>Jednotka balení</Label>
-          <Select onValueChange={(val: string | null) => setValue("jednotka_baleni_id", val || "")} value={jednotkaBaleniId || ""}>
-            <SelectTrigger>
-              <SelectValue />
+          <Select 
+            onValueChange={(val: string | null) => setValue("jednotka_baleni_id", val || "")} 
+            value={jednotkaBaleniId || ""}
+            disabled={kategorieId === "vyztuzne_materialy"}
+          >
+            <SelectTrigger className={kategorieId === "vyztuzne_materialy" ? "bg-muted text-muted-foreground opacity-90 cursor-not-allowed" : ""}>
+              <SelectValue placeholder="Vyberte jednotku">
+                {lookups.units.find(u => u.id === jednotkaBaleniId)?.zkratka}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {lookups.units.map(u => (
@@ -442,17 +778,18 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         </div>
       </div>
 
+      {/* 9. Technické specifikace (JSON) */}
       <div className="space-y-2">
         <Label htmlFor="specifikace_json">Technické specifikace (Data pro filtry e-shopu)</Label>
         <Textarea 
           id="specifikace_json" 
           placeholder='{"vazba": "Twill 2/2", "gramaz": 200}' 
           className={`font-mono text-xs h-24 ${kategorieId && kategorieId !== '' && kategorieId !== 'draft' ? 'bg-muted/50 text-muted-foreground' : ''}`}
-          readOnly={kategorieId === 'vyztuzne_materialy' || kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie' || kategorieId === 'cores_standard' || kategorieId === 'cores_active' || kategorieId === 'brouseni_a_lesteni' || kategorieId === 'spojovaci_material' || kategorieId === 'nastroje_rucni' || kategorieId === 'nastroje_strojni' || kategorieId === 'polotovary'}
+          readOnly={kategorieId === 'vyztuzne_materialy' || kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie' || kategorieId === 'cores_standard' || kategorieId === 'cores_active' || kategorieId === 'brouseni_a_lesteni' || kategorieId === 'spojovaci_material' || kategorieId === 'naradi' || kategorieId === 'consumables'}
           {...register("specifikace_json")}
         />
         <p className="text-[10px] text-muted-foreground italic">
-          {kategorieId === 'vyztuzne_materialy' || kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie' || kategorieId === 'cores_standard' || kategorieId === 'cores_active' || kategorieId === 'brouseni_a_lesteni' || kategorieId === 'spojovaci_material' || kategorieId === 'nastroje_rucni' || kategorieId === 'nastroje_strojni' || kategorieId === 'polotovary' 
+          {kategorieId === 'vyztuzne_materialy' || kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie' || kategorieId === 'cores_standard' || kategorieId === 'cores_active' || kategorieId === 'brouseni_a_lesteni' || kategorieId === 'spojovaci_material' || kategorieId === 'naradi' || kategorieId === 'consumables' 
             ? "Tato data jsou generována automaticky z vašeho výběru nahoře a nelze je upravovat ručně."
             : "Zadejte ve formátu { \"vlastnost\": \"hodnota\" } pro kategorie bez generátoru."}
         </p>

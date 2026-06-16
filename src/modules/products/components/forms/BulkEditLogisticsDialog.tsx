@@ -65,7 +65,12 @@ export function BulkEditLogisticsDialog({ open, onOpenChange, selectedProductIds
             <Label>Logistická trasa (Šablona pro dopravu a clo)</Label>
             <Select value={templateId} onValueChange={(val) => setTemplateId(val || "")}>
               <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                <SelectValue placeholder="— Vyberte trasu —" />
+                <SelectValue placeholder="— Vyberte trasu —">
+                  {(() => {
+                    const t = templates.find(t => t.id === templateId);
+                    return t ? `${t.nazev} (${t.typ_vypoctu_dopravy === 'procentualni' ? `${(t.sazba_dopravy * 100).toFixed(0)}%` : t.sazba_dopravy + ' EUR'})` : undefined;
+                  })()}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {templates.map(t => (

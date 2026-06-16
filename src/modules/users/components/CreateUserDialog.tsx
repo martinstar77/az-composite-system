@@ -148,7 +148,9 @@ export function CreateUserDialog({ roles }: CreateUserDialogProps) {
             <Label>Přístupová role (RBAC)</Label>
             <Select value={roleId} onValueChange={(val) => setRoleId(val || "manager")}>
               <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                <SelectValue placeholder="Vyberte roli" />
+                <SelectValue placeholder="Vyberte roli">
+                  {roles.find(r => r.id === roleId)?.nazev}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {roles.map(r => (

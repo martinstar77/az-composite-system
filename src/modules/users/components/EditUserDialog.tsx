@@ -123,7 +123,9 @@ export function EditUserDialog({ user, roles, open, onOpenChange }: EditUserDial
               disabled={isMainAdmin}
             >
               <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                <SelectValue placeholder="Vyberte roli" />
+                <SelectValue placeholder="Vyberte roli">
+                  {roles.find(r => r.id === roleId)?.nazev}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {roles.map(r => (

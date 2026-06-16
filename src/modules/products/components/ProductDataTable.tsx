@@ -232,19 +232,15 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
       header: "Skladem",
       cell: ({ row }) => {
         const p = row.original;
-        // In Phase 4 this will be actual physical stock. For now, 0 as placeholder.
         const inStock = 0; 
-        const isLowStock = p.min_skladova_zasoba !== null && inStock <= p.min_skladova_zasoba;
         
         return (
           <div className="flex flex-col gap-1">
-            <div className={`text-xs font-bold ${isLowStock ? 'text-red-500' : 'text-green-500'}`}>
+            <div className="text-xs font-bold text-green-500">
               {inStock} {p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id}
             </div>
-            <div className="text-[10px] text-muted-foreground flex gap-1 items-center">
-              <span>Min: {p.min_skladova_zasoba || 0}</span>
-              <span className="text-zinc-700">|</span>
-              <span>Balení: {p.mnozstvi_v_baleni} {p.c_merne_jednotky_baleni?.zkratka}</span>
+            <div className="text-[10px] text-muted-foreground">
+              Balení: {p.mnozstvi_v_baleni} {p.c_merne_jednotky_baleni?.zkratka}
             </div>
           </div>
         )

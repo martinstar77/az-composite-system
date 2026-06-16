@@ -112,20 +112,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 </div>
               </div>
             </div>
-
-            <div className="p-6 bg-zinc-900/50 border border-zinc-800 rounded-xl space-y-4 shadow-xl">
-              <h3 className="text-lg font-semibold border-b border-zinc-800 pb-2 text-primary">Skladové limity (Digital Twin)</h3>
-              <div className="grid grid-cols-2 gap-4 text-center">
-                <div className="p-4 bg-red-500/5 border border-red-500/20 rounded-lg">
-                  <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Minimum</p>
-                  <p className="text-2xl font-bold text-red-500">{product.min_skladova_zasoba || 0} {product.c_merne_jednotky_baleni?.zkratka}</p>
-                </div>
-                <div className="p-4 bg-zinc-800/50 border border-zinc-800 rounded-lg">
-                  <p className="text-xs text-zinc-500 uppercase font-bold mb-1">Optimum</p>
-                  <p className="text-2xl font-bold text-zinc-200">{product.opt_skladova_zasoba || 0} {product.c_merne_jednotky_baleni?.zkratka}</p>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="p-6 bg-zinc-900/50 border border-zinc-800 rounded-xl space-y-4 shadow-xl h-fit">
