@@ -13,7 +13,7 @@ import {
   ColumnFiltersState,
   getFilteredRowModel,
 } from "@tanstack/react-table"
-import { MoreHorizontal, FileEdit, Trash2, Mail, Phone, Globe, ArrowUpDown, Search, FilterX } from "lucide-react"
+import { MoreHorizontal, FileEdit, Trash2, Mail, Phone, Globe, ArrowUpDown, Search, FilterX, MapPin } from "lucide-react"
 import { toast } from "sonner"
 import {
   Table,
@@ -162,6 +162,26 @@ export function SupplierDataTable({ data }: SupplierDataTableProps) {
             )}
           </div>
         )
+      },
+    },
+    {
+      id: "adresa",
+      header: "Adresa",
+      cell: ({ row }) => {
+        const a = row.original.adresa;
+        if (!a?.mesto && !a?.ulice) return <span className="text-[10px] text-zinc-600 italic">—</span>;
+        const parts = [a.ulice, [a.psc, a.mesto].filter(Boolean).join(' '), a.stat].filter(Boolean);
+        return (
+          <div className="flex flex-col gap-0.5">
+            {parts.map((part, i) => (
+              <div key={i} className="flex items-center gap-1 text-[10px] text-zinc-400">
+                {i === 0 && <MapPin className="h-3 w-3 text-primary flex-shrink-0" />}
+                {i > 0 && <span className="w-3" />}
+                {part}
+              </div>
+            ))}
+          </div>
+        );
       },
     },
     {

@@ -36,6 +36,12 @@ export async function createSupplier(formData: SupplierFormValues) {
       jmeno_zastupce: formData.jmeno_zastupce,
       telefonni_cislo: formData.telefonni_cislo
     },
+    adresa: {
+      ulice: formData.adresa_ulice,
+      mesto: formData.adresa_mesto,
+      psc: formData.adresa_psc,
+      stat: formData.adresa_stat
+    },
     vytvoril_id: user?.id,
     upravil_id: user?.id
   }
@@ -64,6 +70,12 @@ export async function updateSupplier(id: string, formData: SupplierFormValues) {
       email_objednavky: formData.email_objednavky,
       jmeno_zastupce: formData.jmeno_zastupce,
       telefonni_cislo: formData.telefonni_cislo
+    },
+    adresa: {
+      ulice: formData.adresa_ulice,
+      mesto: formData.adresa_mesto,
+      psc: formData.adresa_psc,
+      stat: formData.adresa_stat
     },
     upravil_id: user?.id,
     aktualizovano_at: new Date().toISOString()

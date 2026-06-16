@@ -12,6 +12,12 @@ export const supplierFormSchema = z.object({
   email_objednavky: z.string().email({ message: "Neplatný e-mail" }).optional().or(z.literal("")),
   jmeno_zastupce: z.string().optional(),
   telefonni_cislo: z.string().optional(),
+
+  // Address (simplified for the form, will be mapped to JSONB)
+  adresa_ulice: z.string().optional(),
+  adresa_mesto: z.string().optional(),
+  adresa_psc: z.string().optional(),
+  adresa_stat: z.string().optional(),
 })
 
 export type SupplierFormValues = z.infer<typeof supplierFormSchema>

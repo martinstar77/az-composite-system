@@ -35,6 +35,10 @@ export function SupplierForm({ initialData, onSubmit, isSubmitting, onCancel }: 
       email_objednavky: initialData?.kontakty?.email_objednavky || "",
       jmeno_zastupce: initialData?.kontakty?.jmeno_zastupce || "",
       telefonni_cislo: initialData?.kontakty?.telefonni_cislo || "",
+      adresa_ulice: initialData?.adresa?.ulice || "",
+      adresa_mesto: initialData?.adresa?.mesto || "",
+      adresa_psc: initialData?.adresa?.psc || "",
+      adresa_stat: initialData?.adresa?.stat || "",
     }
   })
 
@@ -103,6 +107,30 @@ export function SupplierForm({ initialData, onSubmit, isSubmitting, onCancel }: 
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="jmeno_zastupce">Jméno obchodního zástupce</Label>
             <Input id="jmeno_zastupce" placeholder="Ing. Jan Novák" {...register("jmeno_zastupce")} />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-primary uppercase tracking-wider">Adresa sídla společnosti</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="adresa_ulice">Ulice a č.p.</Label>
+            <Input id="adresa_ulice" placeholder="Hlavní 123/4" {...register("adresa_ulice")} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="adresa_mesto">Město</Label>
+            <Input id="adresa_mesto" placeholder="Praha" {...register("adresa_mesto")} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-2">
+              <Label htmlFor="adresa_psc">PSČ</Label>
+              <Input id="adresa_psc" placeholder="110 00" {...register("adresa_psc")} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="adresa_stat">Stát</Label>
+              <Input id="adresa_stat" placeholder="Česká republika" {...register("adresa_stat")} />
+            </div>
           </div>
         </div>
       </div>

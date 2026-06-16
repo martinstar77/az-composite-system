@@ -12,6 +12,12 @@ export interface Supplier {
     telefonni_cislo?: string
     [key: string]: any
   }
+  adresa?: {
+    ulice?: string
+    mesto?: string
+    psc?: string
+    stat?: string
+  }
   vytvoreno_at: string
   aktualizovano_at: string
   deleted_at: string | null
