@@ -29,6 +29,7 @@ interface ProductFormProps {
     statuses: any[]
     labels: any[]
     processes: any[]
+    fiberCodes?: any[]
   }
   onSubmit: (data: ProductFormValues) => Promise<void>
   isSubmitting: boolean
@@ -84,6 +85,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [fabWeave, setFabWeave] = useState(specs.vazba || "T22")
   const [fabUse, setFabUse] = useState(specs.použití || "E") // Economy, Visual, Industry (E, V, I)
   const [fabBrand, setFabBrand] = useState(specs.výrobce_vlákna && specs.materiál !== "HF" ? specs.výrobce_vlákna : "TO")
+  const [fabFiberCode, setFabFiberCode] = useState<string>(specs.kód_vlákna && specs.materiál !== "HF" ? specs.kód_vlákna : "syt45")
 
   // Hybrid Fibre inputs (active only when fabMat === "HF")
   const [fabMat1, setFabMat1] = useState<string>(() => {
@@ -110,10 +112,26 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     }
     return "HY"
   })
+  const [fabFiberCode1, setFabFiberCode1] = useState<string>(() => {
+    if (specs.materiál === "HF" && Array.isArray(specs.kódy_vláken_složení)) {
+      return specs.kódy_vláken_složení[0] || "syt45"
+    }
+    return "syt45"
+  })
+  const [fabFiberCode2, setFabFiberCode2] = useState<string>(() => {
+    if (specs.materiál === "HF" && Array.isArray(specs.kódy_vláken_složení)) {
+      return specs.kódy_vláken_složení[1] || "tc33"
+    }
+    return "tc33"
+  })
 
   // Fabric Packaging & Dimensions
   const [fabPackType, setFabPackType] = useState<string>(specs.typ_baleni || "role") // role, krabice, metraz
-  const [fabWidth, setFabWidth] = useState<string>(specs.sirka_m !== undefined ? String(specs.sirka_m) : "1.25")
+  const [fabWidth, setFabWidth] = useState<string>(
+    specs.sirka_cm !== undefined 
+      ? String(specs.sirka_cm) 
+      : (specs.sirka_m !== undefined ? String(specs.sirka_m * 100) : "100")
+  )
   const [fabLength, setFabLength] = useState<string>(specs.delka_m !== undefined ? String(specs.delka_m) : "100")
   const [fabPieces, setFabPieces] = useState<string>(specs.pocet_kusu !== undefined ? String(specs.pocet_kusu) : "10")
   // Prepregs
@@ -161,22 +179,25 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         let area = 0
         let uom = "role"
 
+        // Divide width by 100 since fabWidth is in cm and length is in m
         if (fabPackType === "role") {
-          area = w * l
+          area = (w / 100) * l
           uom = "role"
         } else if (fabPackType === "krabice") {
-          area = w * l * pcs
+          area = (w / 100) * l * pcs
           uom = "ks"
         } else {
-          area = w * l
+          area = (w / 100) * l
           uom = "ks"
         }
 
         setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
         setValue("jednotka_baleni_id", uom, { shouldValidate: true })
 
+        const w_cm = Math.round(w)
         if (fabMat === "HF") {
-          generatedSku = `${fabForm}-${fabMat1}${fabMat2}-${fabWeight}-${fabTow}-${fabWeave}-${fabUse}-${fabBrand1}${fabBrand2}`
+          const fiberCodesSku = `${fabFiberCode1}${fabFiberCode2}`.toUpperCase()
+          generatedSku = `${fabForm}-${fabMat1}${fabMat2}-${fabWeight}-${fabTow}-${fabWeave}-${w_cm}-${fiberCodesSku}-${fabUse}`
           generatedSpecs = {
             typ: fabForm,
             materiál: fabMat,
@@ -187,13 +208,17 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             použití: fabUse,
             výrobce_vlákna: `${fabBrand1}${fabBrand2}`,
             výrobci_složení: [fabBrand1, fabBrand2],
+            kod_vlakna1: fabFiberCode1,
+            kod_vlakna2: fabFiberCode2,
+            kódy_vláken_složení: [fabFiberCode1, fabFiberCode2],
             typ_baleni: fabPackType,
-            sirka_m: w,
+            sirka_cm: w_cm,
             delka_m: l,
             ...(fabPackType === "krabice" ? { pocet_kusu: pcs } : {})
           }
         } else {
-          generatedSku = `${fabForm}-${fabMat}-${fabWeight}-${fabTow}-${fabWeave}-${fabUse}-${fabBrand}`
+          const fiberCodeSku = fabFiberCode.toUpperCase()
+          generatedSku = `${fabForm}-${fabMat}-${fabWeight}-${fabTow}-${fabWeave}-${w_cm}-${fiberCodeSku}-${fabUse}`
           generatedSpecs = { 
             typ: fabForm, 
             materiál: fabMat, 
@@ -202,8 +227,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             vazba: fabWeave, 
             použití: fabUse, 
             výrobce_vlákna: fabBrand,
+            kód_vlákna: fabFiberCode,
             typ_baleni: fabPackType,
-            sirka_m: w,
+            sirka_cm: w_cm,
             delka_m: l,
             ...(fabPackType === "krabice" ? { pocet_kusu: pcs } : {})
           }
@@ -253,11 +279,11 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       setValue("specifikace_json", JSON.stringify(generatedSpecs, null, 2))
       
       if (isNameGenerated && kategorieId === 'vyztuzne_materialy') {
-        const generatedName = generateProductName(generatedSpecs, kategorieId)
+        const generatedName = generateProductName(generatedSpecs, kategorieId, lookups.fiberCodes)
         setValue("nazev", generatedName, { shouldValidate: true })
       }
     }
-  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, clnBrand, clnPack, coreMat, coreDens, coreThick, coreFinish, polBrand, polCont, polSize, fasType, fasBase, fasSize, fasMat, toolSub, toolId, conSub, conId, setValue])
+  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, clnBrand, clnPack, coreMat, coreDens, coreThick, coreFinish, polBrand, polCont, polSize, fasType, fasBase, fasSize, fasMat, toolSub, toolId, conSub, conId, setValue, lookups.fiberCodes])
 
   // Live SKU Duplicate Check (Debounced)
   useEffect(() => {
@@ -453,7 +479,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           {renderSelect("Použití", fabUse, setFabUse, [{val:"E", label:"E (Economy)"}, {val:"V", label:"V (Visual)"}, {val:"I", label:"I (Industry)"}])}
           {fabMat === "HF" ? (
             <>
-              {renderSelect("Výrobce 1", fabBrand1, setFabBrand1, [
+              {renderSelect("Výrobce 1 (Interní)", fabBrand1, setFabBrand1, [
                 {val:"ZH", label:"ZH (Zhongfu)"},
                 {val:"TN", label:"TN (Tenax)"},
                 {val:"TA", label:"TA (Tayrifil)"},
@@ -463,7 +489,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 {val:"TO", label:"TO (Toray)"},
                 {val:"DP", label:"DP (Dupont)"}
               ])}
-              {renderSelect("Výrobce 2", fabBrand2, setFabBrand2, [
+              {renderSelect("Výrobce 2 (Interní)", fabBrand2, setFabBrand2, [
                 {val:"ZH", label:"ZH (Zhongfu)"},
                 {val:"TN", label:"TN (Tenax)"},
                 {val:"TA", label:"TA (Tayrifil)"},
@@ -473,18 +499,23 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 {val:"TO", label:"TO (Toray)"},
                 {val:"DP", label:"DP (Dupont)"}
               ])}
+              {renderSelect("Kód vlákna 1", fabFiberCode1, setFabFiberCode1, (lookups.fiberCodes || []).map((f: any) => ({ val: f.id, label: f.nazev })))}
+              {renderSelect("Kód vlákna 2", fabFiberCode2, setFabFiberCode2, (lookups.fiberCodes || []).map((f: any) => ({ val: f.id, label: f.nazev })))}
             </>
           ) : (
-            renderSelect("Výrobce vlákna", fabBrand, setFabBrand, [
-              {val:"ZH", label:"ZH (Zhongfu)"},
-              {val:"TN", label:"TN (Tenax)"},
-              {val:"TA", label:"TA (Tayrifil)"},
-              {val:"HY", label:"HY (Hyosung)"},
-              {val:"MI", label:"MI (Mitsubishi)"},
-              {val:"HX", label:"HX (Hexcel)"},
-              {val:"TO", label:"TO (Toray)"},
-              {val:"DP", label:"DP (Dupont)"}
-            ])
+            <>
+              {renderSelect("Výrobce vlákna (Interní)", fabBrand, setFabBrand, [
+                {val:"ZH", label:"ZH (Zhongfu)"},
+                {val:"TN", label:"TN (Tenax)"},
+                {val:"TA", label:"TA (Tayrifil)"},
+                {val:"HY", label:"HY (Hyosung)"},
+                {val:"MI", label:"MI (Mitsubishi)"},
+                {val:"HX", label:"HX (Hexcel)"},
+                {val:"TO", label:"TO (Toray)"},
+                {val:"DP", label:"DP (Dupont)"}
+              ])}
+              {renderSelect("Kód vlákna", fabFiberCode, setFabFiberCode, (lookups.fiberCodes || []).map((f: any) => ({ val: f.id, label: f.nazev })))}
+            </>
           )}
         </>
       )) : kategorieId === 'prepregy' ? renderGeneratorWrapper("Prepregy", (
@@ -597,11 +628,11 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="fabWidth" className="text-xs text-muted-foreground">Šířka (m)</Label>
+              <Label htmlFor="fabWidth" className="text-xs text-muted-foreground">Šířka (cm)</Label>
               <Input 
                 id="fabWidth" 
                 type="number" 
-                step="0.01" 
+                step="1" 
                 value={fabWidth} 
                 onChange={(e) => setFabWidth(e.target.value)} 
                 className="h-9 bg-background" 
@@ -635,7 +666,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           </div>
           <div className="text-xs text-muted-foreground flex flex-wrap gap-x-6 gap-y-2 bg-primary/5 p-3 rounded border border-primary/10">
             <span>
-              <strong>Vypočtená plocha:</strong> {((parseFloat(fabWidth) || 0) * (parseFloat(fabLength) || 0) * (fabPackType === "krabice" ? (parseInt(fabPieces) || 0) : 1)).toFixed(2)} m²
+              <strong>Vypočtená plocha:</strong> {(((parseFloat(fabWidth) || 0) / 100) * (parseFloat(fabLength) || 0) * (fabPackType === "krabice" ? (parseInt(fabPieces) || 0) : 1)).toFixed(2)} m²
             </span>
             <span>
               <strong>Výchozí měrná jednotka:</strong> m² (plocha)

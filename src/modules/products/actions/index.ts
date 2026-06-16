@@ -314,13 +314,14 @@ export async function bulkUpdateLogisticsTemplate(productIds: string[], template
 export async function getProductLookups() {
   const supabase = await createClient()
 
-  const [categories, units, statuses, labels, processes, templates] = await Promise.all([
+  const [categories, units, statuses, labels, processes, templates, fiberCodes] = await Promise.all([
     supabase.from('c_kategorie').select('*').order('nazev'),
     supabase.from('c_merne_jednotky').select('*').order('nazev'),
     supabase.from('c_stavy_produktu').select('*').order('nazev'),
     supabase.from('c_typy_labelu').select('*').order('nazev'),
     supabase.from('c_procesy_odeslani').select('*').order('nazev'),
-    supabase.from('logisticke_sablony').select('*').order('nazev')
+    supabase.from('logisticke_sablony').select('*').order('nazev'),
+    supabase.from('c_kody_vlakna').select('*').order('id')
   ])
 
   return {
@@ -329,7 +330,8 @@ export async function getProductLookups() {
     statuses: statuses.data || [],
     labels: labels.data || [],
     processes: processes.data || [],
-    templates: templates.data || []
+    templates: templates.data || [],
+    fiberCodes: fiberCodes.data || []
   }
 }
 

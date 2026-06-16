@@ -1,4 +1,8 @@
-export function generateProductName(specs: any, categoryId: string): string {
+export function generateProductName(
+  specs: any, 
+  categoryId: string, 
+  fiberCodes?: Array<{ id: string, nazev: string }>
+): string {
   if (categoryId !== 'vyztuzne_materialy') return ""
 
   const materialMap: Record<string, string> = {
@@ -22,15 +26,25 @@ export function generateProductName(specs: any, categoryId: string): string {
     T44: "Twill 4/4"
   }
 
-  const brandMap: Record<string, string> = {
-    ZH: "Zhongfu",
-    TN: "Tenax",
-    TA: "Tayrifil",
-    HY: "Hyosung",
-    MI: "Mitsubishi",
-    HX: "Hexcel",
-    TO: "Toray",
-    DP: "Dupont"
+  // Fiber Code lookup helper (looks in list, falls back to raw ID capitalized)
+  function getFiberCodeLabel(codeId: string) {
+    if (!codeId) return ""
+    const found = fiberCodes?.find(f => f.id === codeId.toLowerCase())
+    if (found) return found.nazev
+    
+    // Static fallback
+    const staticMap: Record<string, string> = {
+      syt45: "SYT45",
+      syt45s: "SYT45S",
+      tc33: "TC33",
+      hts40: "HTS40",
+      h2550: "H2550",
+      af1000: "AF1000",
+      af3000: "AF3000",
+      as4: "AS4",
+      tr30s: "TR30S"
+    }
+    return staticMap[codeId.toLowerCase()] || codeId.toUpperCase()
   }
 
   const useMap: Record<string, string> = {
@@ -61,26 +75,30 @@ export function generateProductName(specs: any, categoryId: string): string {
   // 4. Weave
   const weaveStr = weaveMap[specs.vazba] || specs.vazba || ""
 
-  // 5. Brand (Manufacturer)
-  let brandStr = ""
+  // 5. Width in cm
+  const widthStr = specs.sirka_cm ? `${specs.sirka_cm}cm` : ""
+
+  // 6. Fiber Code (replaces Brand/Manufacturer)
+  let fiberCodeStr = ""
   if (specs.materiál === "HF") {
-    const b1 = brandMap[specs.vyrobce1] || ""
-    const b2 = brandMap[specs.vyrobce2] || ""
-    brandStr = b1 && b2 ? `${b1} / ${b2}` : (b1 || b2 || "")
+    const fc1 = getFiberCodeLabel(specs.kod_vlakna1)
+    const fc2 = getFiberCodeLabel(specs.kod_vlakna2)
+    fiberCodeStr = fc1 && fc2 ? `${fc1} / ${fc2}` : (fc1 || fc2 || "")
   } else {
-    brandStr = brandMap[specs.výrobce_vlákna] || ""
+    fiberCodeStr = getFiberCodeLabel(specs.kód_vlákna)
   }
 
-  // 6. Quality Tier
+  // 7. Quality Tier
   const useStr = useMap[specs.použití] || ""
 
-  // Join sections
-  const nameParts = [baseName, weightStr, towStr, weaveStr].filter(Boolean)
+  // Join sections before separator
+  const nameParts = [baseName, weightStr, towStr, weaveStr, widthStr].filter(Boolean)
   let fullName = nameParts.join(" ")
 
-  const brandParts = [brandStr, useStr].filter(Boolean)
-  if (brandParts.length > 0) {
-    fullName += ` - ${brandParts.join(" ")}`
+  // Brand/FiberCode + Quality Tier goes after the en-dash " – " (Unicode \u2013)
+  const fiberParts = [fiberCodeStr, useStr].filter(Boolean)
+  if (fiberParts.length > 0) {
+    fullName += ` – ${fiberParts.join(" ")}`
   }
 
   return fullName
