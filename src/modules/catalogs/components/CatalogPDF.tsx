@@ -44,8 +44,8 @@ const styles = StyleSheet.create({
     margin: 'auto',
     flexDirection: 'row',
   },
-  tableColHeader: {
-    width: '20%',
+  tableColHeaderSku: {
+    width: '15%',
     borderStyle: 'solid',
     borderWidth: 1,
     borderColor: '#e4e4e7',
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   tableColHeaderName: {
-    width: '40%',
+    width: '25%',
     borderStyle: 'solid',
     borderWidth: 1,
     borderColor: '#e4e4e7',
@@ -64,8 +64,48 @@ const styles = StyleSheet.create({
     backgroundColor: '#f4f4f5',
     padding: 6,
   },
-  tableCol: {
+  tableColHeaderUnitPrice: {
     width: '20%',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderColor: '#e4e4e7',
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    backgroundColor: '#f4f4f5',
+    padding: 6,
+  },
+  tableColHeaderUnitCount: {
+    width: '13%',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderColor: '#e4e4e7',
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    backgroundColor: '#f4f4f5',
+    padding: 6,
+  },
+  tableColHeaderTotalPrice: {
+    width: '17%',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderColor: '#e4e4e7',
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    backgroundColor: '#f4f4f5',
+    padding: 6,
+  },
+  tableColHeaderPackSize: {
+    width: '10%',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderColor: '#e4e4e7',
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    backgroundColor: '#f4f4f5',
+    padding: 6,
+  },
+  tableColSku: {
+    width: '15%',
     borderStyle: 'solid',
     borderWidth: 1,
     borderColor: '#e4e4e7',
@@ -74,7 +114,43 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   tableColName: {
-    width: '40%',
+    width: '25%',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderColor: '#e4e4e7',
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    padding: 6,
+  },
+  tableColUnitPrice: {
+    width: '20%',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderColor: '#e4e4e7',
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    padding: 6,
+  },
+  tableColUnitCount: {
+    width: '13%',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderColor: '#e4e4e7',
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    padding: 6,
+  },
+  tableColTotalPrice: {
+    width: '17%',
+    borderStyle: 'solid',
+    borderWidth: 1,
+    borderColor: '#e4e4e7',
+    borderLeftWidth: 0,
+    borderTopWidth: 0,
+    padding: 6,
+  },
+  tableColPackSize: {
+    width: '10%',
     borderStyle: 'solid',
     borderWidth: 1,
     borderColor: '#e4e4e7',
@@ -84,17 +160,17 @@ const styles = StyleSheet.create({
   },
   tableCellHeader: {
     margin: 'auto',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 'bold',
     color: '#18181b',
   },
   tableCell: {
     margin: 'auto',
-    fontSize: 9,
+    fontSize: 8,
     color: '#3f3f46',
   },
   tableCellName: {
-    fontSize: 9,
+    fontSize: 8,
     color: '#3f3f46',
   },
   footer: {
@@ -136,8 +212,8 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate }: Cat
     }
   };
 
-  const getPrice = (pr: PricingBreakdown | null) => {
-    if (!pr) return "Na dotaz";
+  const getNumericPrice = (pr: PricingBreakdown | null) => {
+    if (!pr) return 0;
     let price = 0;
     if (tier === 'retail') price = pr.b2cUnitPrice;
     else if (tier === 'partner') price = pr.b2bUnitPrice;
@@ -149,7 +225,7 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate }: Cat
     if (targetCurrency !== 'CZK') {
       price = price / exchangeRate;
     }
-    return `${price.toFixed(2)} ${targetCurrency}`;
+    return price;
   };
 
   const today = new Date().toLocaleDateString('cs-CZ');
@@ -174,7 +250,8 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate }: Cat
           <View style={{ alignItems: 'flex-end' }}>
             <Text style={styles.title}>{getTierLabel()}</Text>
             <Text style={styles.infoText}>Platnost k: {today}</Text>
-            <Text style={styles.infoText}>Výchozí měna: {targetCurrency}</Text>
+            <Text style={styles.infoText}>Ceník má platnost 14 dní od tohoto data</Text>
+            <Text style={styles.infoText}>Měna: {targetCurrency}</Text>
           </View>
         </View>
 
@@ -188,37 +265,61 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate }: Cat
             <View style={styles.table}>
               {/* Table Header */}
               <View style={styles.tableRow}>
-                <View style={styles.tableColHeader}>
-                  <Text style={styles.tableCellHeader}>SKU</Text>
+                <View style={styles.tableColHeaderSku}>
+                  <Text style={styles.tableCellHeader}>Číslo produktu</Text>
                 </View>
                 <View style={styles.tableColHeaderName}>
-                  <Text style={styles.tableCellHeader}>Název produktu</Text>
+                  <Text style={styles.tableCellHeader}>Název</Text>
                 </View>
-                <View style={styles.tableColHeader}>
-                  <Text style={styles.tableCellHeader}>Měrná jedn.</Text>
+                <View style={styles.tableColHeaderUnitPrice}>
+                  <Text style={styles.tableCellHeader}>Cena za jednotku</Text>
                 </View>
-                <View style={styles.tableColHeader}>
-                  <Text style={styles.tableCellHeader}>Cena za MJ</Text>
+                <View style={styles.tableColHeaderUnitCount}>
+                  <Text style={styles.tableCellHeader}>Počet jednotek</Text>
+                </View>
+                <View style={styles.tableColHeaderTotalPrice}>
+                  <Text style={styles.tableCellHeader}>Celková cena</Text>
+                </View>
+                <View style={styles.tableColHeaderPackSize}>
+                  <Text style={styles.tableCellHeader}>Velikost balení</Text>
                 </View>
               </View>
 
               {/* Table Body */}
-              {catProducts.map((p) => (
-                <View style={styles.tableRow} key={p.id}>
-                  <View style={styles.tableCol}>
-                    <Text style={styles.tableCell}>{p.sku}</Text>
+              {catProducts.map((p) => {
+                const pricePerUnit = getNumericPrice(p.pricing);
+                const qtyInPack = p.mnozstvi_v_baleni || 1;
+                const totalPriceVal = pricePerUnit * qtyInPack;
+                const unitAbbr = p.c_merne_jednotky_zakladni?.zkratka || '';
+                const packAbbr = p.c_merne_jednotky_baleni?.zkratka || 'bal.';
+
+                return (
+                  <View style={styles.tableRow} key={p.id}>
+                    <View style={styles.tableColSku}>
+                      <Text style={styles.tableCell}>{p.sku}</Text>
+                    </View>
+                    <View style={styles.tableColName}>
+                      <Text style={styles.tableCellName}>{p.nazev}</Text>
+                    </View>
+                    <View style={styles.tableColUnitPrice}>
+                      <Text style={styles.tableCell}>
+                        {pricePerUnit > 0 ? `${pricePerUnit.toFixed(2)} ${targetCurrency} / ${unitAbbr}` : "Na dotaz"}
+                      </Text>
+                    </View>
+                    <View style={styles.tableColUnitCount}>
+                      <Text style={styles.tableCell}>{`${qtyInPack} ${unitAbbr}`}</Text>
+                    </View>
+                    <View style={styles.tableColTotalPrice}>
+                      <Text style={{ ...styles.tableCell, fontWeight: 'bold' }}>
+                        {pricePerUnit > 0 ? `${totalPriceVal.toFixed(2)} ${targetCurrency}` : "Na dotaz"}
+                      </Text>
+                    </View>
+                    <View style={styles.tableColPackSize}>
+                      <Text style={styles.tableCell}>{`1 ${packAbbr}`}</Text>
+                    </View>
                   </View>
-                  <View style={styles.tableColName}>
-                    <Text style={styles.tableCellName}>{p.nazev}</Text>
-                  </View>
-                  <View style={styles.tableCol}>
-                    <Text style={styles.tableCell}>{p.c_merne_jednotky_zakladni?.zkratka || '-'}</Text>
-                  </View>
-                  <View style={styles.tableCol}>
-                    <Text style={{ ...styles.tableCell, fontWeight: 'bold' }}>{getPrice(p.pricing)}</Text>
-                  </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           </View>
         ))}
@@ -226,7 +327,6 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate }: Cat
         {/* Patička */}
         <View style={styles.footer}>
           <Text>AZ-Composites s.r.o. | Všechny uvedené ceny jsou bez DPH a nezahrnují finální dopravu ke klientovi.</Text>
-          <Text>Tento ceník byl automaticky vygenerován systémem AZ-ERP dne {today}.</Text>
         </View>
       </Page>
     </Document>

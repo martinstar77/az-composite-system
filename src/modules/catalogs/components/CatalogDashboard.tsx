@@ -8,7 +8,7 @@ import { calculateProductPricing, PricingBreakdown } from "@/modules/finance/uti
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/shared/components/ui/table"
 import { Badge } from "@/shared/components/ui/badge"
-import { Calculator, FileDown, Eye, FileText, Download } from "lucide-react"
+import { Calculator, FileDown, Eye, FileText, Download, Search, FilterX, ArrowUpDown } from "lucide-react"
 import { Button } from "@/shared/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/shared/components/ui/select"
 import { Input } from "@/shared/components/ui/input"
@@ -35,7 +35,10 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
   const [searchTerm, setSearchTerm] = useState("")
   const [exportTier, setExportTier] = useState<"retail" | "partner" | "partner_5" | "partner_10" | "partner_15" | "partner_20">("partner")
   const [exportCurrency, setExportCurrency] = useState<"CZK" | "EUR" | "USD">("EUR")
-  const [exportCategory, setExportCategory] = useState<string>("all")
+  const [categoryFilter, setCategoryFilter] = useState<string>("all")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [sortField, setSortField] = useState<"nazev" | "sku" | "kategorie" | "landed_cost" | null>("nazev")
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
   const [isGeneratingExcel, setIsGeneratingExcel] = useState(false)
@@ -69,14 +72,83 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
     })
   }, [products, rates, settings, templates])
 
-  // Filtrace pro tabulku a exporty
+  // Získání unikátních kategorií z produktů
+  const availableCategories = useMemo(() => {
+    const list: { id: string; name: string }[] = [];
+    products.forEach(p => {
+      if (p.kategorie_id && !list.some(item => item.id === p.kategorie_id)) {
+        list.push({ id: p.kategorie_id, name: p.c_kategorie?.nazev || p.kategorie_id });
+      }
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+  }, [products]);
+
+  // Získání unikátních stavů z produktů
+  const availableStatuses = useMemo(() => {
+    const list: { id: string; name: string }[] = [];
+    products.forEach(p => {
+      if (p.stav_katalogu_id && !list.some(item => item.id === p.stav_katalogu_id)) {
+        list.push({ id: p.stav_katalogu_id, name: p.c_stavy_produktu?.nazev || p.stav_katalogu_id });
+      }
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+  }, [products]);
+
+  // Filtrace a řazení pro tabulku a exporty
   const filteredProducts = useMemo(() => {
-    return pricedProducts.filter(p => {
-      const matchesSearch = p.nazev.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.toLowerCase().includes(searchTerm.toLowerCase())
-      const matchesCategory = exportCategory === "all" || p.kategorie_id === exportCategory
-      return matchesSearch && matchesCategory
-    })
-  }, [pricedProducts, searchTerm, exportCategory])
+    let result = pricedProducts.filter(p => {
+      const matchesSearch = 
+        p.nazev.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        p.sku.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesCategory = categoryFilter === "all" || p.kategorie_id === categoryFilter;
+      const matchesStatus = statusFilter === "all" || p.stav_katalogu_id === statusFilter;
+      
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+
+    if (sortField) {
+      result = [...result].sort((a, b) => {
+        let valA: any = "";
+        let valB: any = "";
+
+        if (sortField === "nazev") {
+          valA = a.nazev || "";
+          valB = b.nazev || "";
+        } else if (sortField === "sku") {
+          valA = a.sku || "";
+          valB = b.sku || "";
+        } else if (sortField === "kategorie") {
+          valA = a.c_kategorie?.nazev || "";
+          valB = b.c_kategorie?.nazev || "";
+        } else if (sortField === "landed_cost") {
+          valA = a.pricing?.unitLandedCostWithBuffer || 0;
+          valB = b.pricing?.unitLandedCostWithBuffer || 0;
+        }
+
+        if (typeof valA === "string") {
+          return sortDirection === "asc" 
+            ? valA.localeCompare(valB, 'cs') 
+            : valB.localeCompare(valA, 'cs');
+        } else {
+          return sortDirection === "asc" 
+            ? valA - valB 
+            : valB - valA;
+        }
+      });
+    }
+
+    return result;
+  }, [pricedProducts, searchTerm, categoryFilter, statusFilter, sortField, sortDirection])
+
+  const handleSort = (field: "nazev" | "sku" | "kategorie" | "landed_cost") => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
 
   // Získání kurzu pro cílovou měnu
   const getTargetExchangeRate = () => {
@@ -134,9 +206,6 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
     return new Intl.NumberFormat('cs-CZ', { style: 'percent', minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(val / 100)
   }
 
-  // Unikátní kategorie pro filtr
-  const categories = Array.from(new Set(products.map(p => p.c_kategorie?.nazev).filter(Boolean))) as string[]
-
   return (
     <Tabs defaultValue="matrix" className="w-full">
       <TabsList className="bg-zinc-900 border border-zinc-800 p-1 mb-8">
@@ -150,15 +219,63 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
 
       <TabsContent value="matrix" className="space-y-4">
         {/* Filtry pro Matrix */}
-        <div className="flex gap-4 items-center bg-zinc-900/50 p-3 rounded-lg border border-zinc-800">
-          <Input 
-            placeholder="Hledat produkt..." 
-            value={searchTerm} 
-            onChange={e => setSearchTerm(e.target.value)}
-            className="max-w-sm bg-zinc-950 border-zinc-800"
-          />
+        <div className="flex flex-col md:flex-row gap-3 items-center justify-between bg-zinc-900/50 p-3 rounded-lg border border-zinc-800">
+          <div className="flex flex-1 flex-wrap items-center gap-3 w-full">
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
+              <Input 
+                placeholder="Hledat podle názvu nebo SKU..." 
+                value={searchTerm} 
+                onChange={e => setSearchTerm(e.target.value)}
+                className="pl-9 bg-zinc-950 border-zinc-800 h-9 text-sm"
+              />
+            </div>
+
+            <div className="w-[180px]">
+              <Select value={categoryFilter} onValueChange={(val) => setCategoryFilter(val || "all")}>
+                <SelectTrigger className="bg-zinc-950 border-zinc-800 h-9 text-xs">
+                  <SelectValue placeholder="Všechny kategorie" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-950 border-zinc-800">
+                  <SelectItem value="all">Všechny kategorie</SelectItem>
+                  {availableCategories.map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="w-[150px]">
+              <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || "all")}>
+                <SelectTrigger className="bg-zinc-950 border-zinc-800 h-9 text-xs">
+                  <SelectValue placeholder="Všechny stavy" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-950 border-zinc-800">
+                  <SelectItem value="all">Všechny stavy</SelectItem>
+                  {availableStatuses.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(searchTerm || categoryFilter !== "all" || statusFilter !== "all") && (
+              <Button 
+                variant="ghost" 
+                onClick={() => {
+                  setSearchTerm("");
+                  setCategoryFilter("all");
+                  setStatusFilter("all");
+                }}
+                className="h-9 px-2 text-zinc-500 hover:text-zinc-200 text-xs"
+              >
+                <FilterX className="h-4 w-4 mr-2" /> Reset
+              </Button>
+            )}
+          </div>
+
           <div className="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">
-            Zobrazeno {filteredProducts.length} položek
+            Zobrazeno {filteredProducts.length} z {products.length} položek
           </div>
         </div>
 
@@ -167,9 +284,27 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
           <Table className="whitespace-nowrap">
             <TableHeader className="bg-zinc-900/80">
               <TableRow className="hover:bg-transparent border-zinc-800">
-                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase">Produkt & SKU</TableHead>
+                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase">
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => handleSort("nazev")} 
+                    className="text-zinc-400 hover:text-zinc-200 font-bold text-[10px] uppercase tracking-wider h-8 p-1 -ml-1 hover:bg-transparent"
+                  >
+                    Produkt & SKU
+                    <ArrowUpDown className="ml-1 h-3 w-3 inline-block" />
+                  </Button>
+                </TableHead>
                 <TableHead className="text-zinc-400 font-bold text-[10px] uppercase">Sourcing (1 MJ)</TableHead>
-                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right">Landed Cost (CZK)</TableHead>
+                <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right">
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => handleSort("landed_cost")} 
+                    className="text-zinc-400 hover:text-zinc-200 font-bold text-[10px] uppercase tracking-wider h-8 p-1 ml-auto hover:bg-transparent"
+                  >
+                    Landed Cost (CZK)
+                    <ArrowUpDown className="ml-1 h-3 w-3 inline-block" />
+                  </Button>
+                </TableHead>
                 <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right">B2C Retail</TableHead>
                 <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right border-l border-zinc-800 bg-blue-500/5">B2B Partner</TableHead>
                 <TableHead className="text-zinc-400 font-bold text-[10px] uppercase text-right bg-blue-500/5">B2B -5 %</TableHead>
@@ -336,18 +471,13 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
 
             <div className="space-y-2 col-span-2">
               <Label>Filtr Kategorie (Volitelné)</Label>
-              <Select value={exportCategory} onValueChange={(val) => setExportCategory(val || "")}>
+              <Select value={categoryFilter} onValueChange={(val) => setCategoryFilter(val || "all")}>
                 <SelectTrigger className="bg-zinc-900 border-zinc-800">
                   <SelectValue placeholder="Všechny kategorie" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Celé portfolio (Všechny kategorie)</SelectItem>
-                  {products.reduce((acc, p) => {
-                    if (p.kategorie_id && !acc.some(x => x.id === p.kategorie_id)) {
-                      acc.push({ id: p.kategorie_id, name: p.c_kategorie?.nazev || p.kategorie_id })
-                    }
-                    return acc
-                  }, [] as {id: string, name: string}[]).map(c => (
+                  {availableCategories.map(c => (
                     <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -381,4 +511,3 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
     </Tabs>
   )
 }
-

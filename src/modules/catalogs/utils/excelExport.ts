@@ -31,14 +31,18 @@ export function exportCatalogToExcel(
       }
     }
 
+    const qtyInPack = p.mnozstvi_v_baleni || 1
+    const unitAbbr = p.c_merne_jednotky_zakladni?.zkratka || ''
+    const packAbbr = p.c_merne_jednotky_baleni?.zkratka || 'bal.'
+
     return {
       'Kategorie': p.c_kategorie?.nazev || '',
-      'SKU': p.sku,
-      'Název produktu': p.nazev,
-      'Měrná jednotka (MJ)': p.c_merne_jednotky_zakladni?.zkratka || '',
-      'Dostupné balení': p.mnozstvi_v_baleni ? `${p.mnozstvi_v_baleni} ${p.c_merne_jednotky_baleni?.zkratka || ''}` : '',
-      'Minimální odběr (MOQ)': p.produkt_dodavatel?.find(s => s.is_primary)?.moq || '1',
-      [`Prodejní Cena za 1 MJ (${targetCurrency})`]: pr ? Number(price.toFixed(2)) : 'Na dotaz',
+      'Číslo produktu': p.sku,
+      'Název': p.nazev,
+      'Cena za jednotku': price > 0 ? `${price.toFixed(2)} ${targetCurrency} / ${unitAbbr}` : 'Na dotaz',
+      'Počet jednotek': `${qtyInPack} ${unitAbbr}`,
+      'Celková cena': price > 0 ? `${(price * qtyInPack).toFixed(2)} ${targetCurrency}` : 'Na dotaz',
+      'Velikost balení': `1 ${packAbbr}`
     }
   })
 
@@ -49,13 +53,13 @@ export function exportCatalogToExcel(
   
   // Rozšíření šířky sloupců pro lepší čitelnost
   const colWidths = [
-    { wch: 25 }, // Kategorie
-    { wch: 25 }, // SKU
-    { wch: 50 }, // Nazev
-    { wch: 15 }, // MJ
-    { wch: 20 }, // Baleni
-    { wch: 25 }, // MOQ
-    { wch: 25 }, // Cena
+    { wch: 20 }, // Kategorie
+    { wch: 20 }, // Číslo produktu
+    { wch: 45 }, // Název
+    { wch: 25 }, // Cena za jednotku
+    { wch: 18 }, // Počet jednotek
+    { wch: 22 }, // Celková cena
+    { wch: 18 }, // Velikost balení
   ];
   worksheet['!cols'] = colWidths;
 
