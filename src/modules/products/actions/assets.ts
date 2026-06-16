@@ -9,10 +9,13 @@ export interface ProductFile {
   typ_dokumentu_id: string
   nazev: string
   file_path: string
-  file_size_bytes: number
+  file_size_bytes: number | null
   content_type: string
+  is_external: boolean
   vytvoril_id: string
+  upravil_id?: string
   vytvoreno_at: string
+  upraveno_at?: string
   c_typy_dokumentu?: {
     nazev: string
   }
@@ -47,6 +50,14 @@ export async function getProductFiles(productId: string): Promise<{ data: Produc
   // 2. Generate signed URLs for each private file (valid for 1 hour)
   const filesWithUrls = await Promise.all(
     files.map(async (file) => {
+      // For external links, use the stored URL directly
+      if (file.is_external) {
+        return {
+          ...file,
+          signedUrl: file.file_path
+        }
+      }
+
       try {
         const { data, error } = await supabase
           .storage
@@ -72,19 +83,22 @@ export async function saveProductFileMetadata(data: {
   typ_dokumentu_id: string
   nazev: string
   file_path: string
-  file_size_bytes: number
+  file_size_bytes: number | null
   content_type: string
+  is_external?: boolean
 }) {
   const supabase = await createClient()
 
-  // Get current user session to set auditor field
+  // Get current user session to set auditor fields
   const { data: { user } } = await supabase.auth.getUser()
 
   const { data: fileRecord, error } = await supabase
     .from('produkt_soubory')
     .insert([{
       ...data,
-      vytvoril_id: user?.id
+      is_external: data.is_external ?? false,
+      vytvoril_id: user?.id,
+      upravil_id: user?.id
     }])
     .select()
 
@@ -95,18 +109,20 @@ export async function saveProductFileMetadata(data: {
   return { data: fileRecord, error }
 }
 
-export async function deleteProductFile(fileId: string, filePath: string, productId: string) {
+export async function deleteProductFile(fileId: string, filePath: string, productId: string, isExternal: boolean = false) {
   const supabase = await createClient()
 
-  // 1. Delete from Supabase Storage bucket
-  const { error: storageError } = await supabase
-    .storage
-    .from('product-assets')
-    .remove([filePath])
+  // 1. Delete from Supabase Storage bucket only if it is not an external link
+  if (!isExternal) {
+    const { error: storageError } = await supabase
+      .storage
+      .from('product-assets')
+      .remove([filePath])
 
-  if (storageError) {
-    console.error("Error removing file from storage:", storageError.message)
-    // We proceed to DB delete anyway to prevent orphaned metadata in DB if file was already missing
+    if (storageError) {
+      console.error("Error removing file from storage:", storageError.message)
+      // We proceed to DB delete anyway to prevent orphaned metadata in DB if file was already missing
+    }
   }
 
   // 2. Delete database record

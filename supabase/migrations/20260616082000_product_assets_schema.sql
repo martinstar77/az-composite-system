@@ -18,11 +18,14 @@ CREATE TABLE IF NOT EXISTS produkt_soubory (
     produkt_id UUID REFERENCES produkty(id) ON DELETE CASCADE NOT NULL,
     typ_dokumentu_id TEXT REFERENCES c_typy_dokumentu(id) NOT NULL,
     nazev TEXT NOT NULL,
-    file_path TEXT NOT NULL, -- např. "produkty/[produkt_id]/[file_id].pdf"
-    file_size_bytes BIGINT NOT NULL,
-    content_type TEXT NOT NULL,
+    file_path TEXT NOT NULL, -- Obsahuje buď cestu v storage (např. "produkty/..."), nebo plnou URL adresu pro externí odkaz (např. "https://drive.google.com/...")
+    file_size_bytes BIGINT, -- Změněno na NULLABLE pro externí odkazy
+    content_type TEXT NOT NULL, -- např. "application/pdf" nebo "url"
+    is_external BOOLEAN DEFAULT false NOT NULL, -- TRUE = Google Drive/Externí link, FALSE = Supabase Storage
     vytvoril_id UUID REFERENCES auth.users(id),
-    vytvoreno_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+    upravil_id UUID REFERENCES auth.users(id),
+    vytvoreno_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    upraveno_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_produkt_soubory_produkt_id ON produkt_soubory(produkt_id);
