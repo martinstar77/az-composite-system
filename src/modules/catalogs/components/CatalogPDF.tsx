@@ -1,36 +1,56 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
 import { Product } from '@/modules/products/types';
 import { PricingBreakdown } from '@/modules/finance/utils/calculations';
+
+// Register Roboto font to support Czech diacritics (served locally)
+Font.register({
+  family: 'Roboto',
+  fonts: [
+    { src: '/fonts/Roboto-Regular.ttf' },
+    { src: '/fonts/Roboto-Bold.ttf', fontWeight: 'bold' }
+  ]
+});
 
 const styles = StyleSheet.create({
   page: {
     padding: 30,
-    fontFamily: 'Helvetica',
+    fontFamily: 'Roboto',
     backgroundColor: '#ffffff',
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 30,
-    borderBottomWidth: 2,
-    borderBottomColor: '#8A0485', // AZ-Composites Primary Color
-    paddingBottom: 10,
+  headerContainer: {
+    position: 'relative',
+    width: '100%',
+    height: 55, // Calculated based on image aspect ratio of ~10.26 (535pt width / 10.26 ≈ 52pt) plus small buffer
+    marginBottom: 20,
   },
-  logo: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#8A0485',
+  headerImage: {
+    position: 'absolute',
+    top: -15, // Move the template image higher up into padding area
+    left: 0,
+    width: '100%',
+    height: 52,
+  },
+  headerTextContainer: {
+    position: 'absolute',
+    top: 12, // Position text block cleanly below the purple line
+    right: 15,
+    alignItems: 'flex-end',
   },
   title: {
-    fontSize: 16,
-    color: '#333333',
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#8A0485', // Brand primary color
   },
   infoText: {
-    fontSize: 10,
+    fontSize: 8,
     color: '#666666',
-    marginTop: 4,
+    marginTop: 2,
+  },
+  infoTextSmall: {
+    fontSize: 7,
+    color: '#888888',
+    marginTop: 1,
   },
   table: {
     width: 'auto',
@@ -45,7 +65,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   tableColHeaderSku: {
-    width: '15%',
+    width: '23%',
     borderStyle: 'solid',
     borderWidth: 1,
     borderColor: '#e4e4e7',
@@ -65,7 +85,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   tableColHeaderUnitPrice: {
-    width: '20%',
+    width: '19%',
     borderStyle: 'solid',
     borderWidth: 1,
     borderColor: '#e4e4e7',
@@ -75,7 +95,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   tableColHeaderUnitCount: {
-    width: '13%',
+    width: '10%',
     borderStyle: 'solid',
     borderWidth: 1,
     borderColor: '#e4e4e7',
@@ -85,7 +105,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   tableColHeaderTotalPrice: {
-    width: '17%',
+    width: '13%',
     borderStyle: 'solid',
     borderWidth: 1,
     borderColor: '#e4e4e7',
@@ -105,7 +125,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   tableColSku: {
-    width: '15%',
+    width: '23%',
     borderStyle: 'solid',
     borderWidth: 1,
     borderColor: '#e4e4e7',
@@ -123,7 +143,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   tableColUnitPrice: {
-    width: '20%',
+    width: '19%',
     borderStyle: 'solid',
     borderWidth: 1,
     borderColor: '#e4e4e7',
@@ -132,7 +152,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   tableColUnitCount: {
-    width: '13%',
+    width: '10%',
     borderStyle: 'solid',
     borderWidth: 1,
     borderColor: '#e4e4e7',
@@ -141,7 +161,7 @@ const styles = StyleSheet.create({
     padding: 6,
   },
   tableColTotalPrice: {
-    width: '17%',
+    width: '13%',
     borderStyle: 'solid',
     borderWidth: 1,
     borderColor: '#e4e4e7',
@@ -167,6 +187,11 @@ const styles = StyleSheet.create({
   tableCell: {
     margin: 'auto',
     fontSize: 8,
+    color: '#3f3f46',
+  },
+  tableCellSku: {
+    margin: 'auto',
+    fontSize: 7,
     color: '#3f3f46',
   },
   tableCellName: {
@@ -202,14 +227,19 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate }: Cat
   
   const getTierLabel = () => {
     switch (tier) {
-      case 'retail': return 'Maloobchodní ceník (B2C)';
-      case 'partner': return 'Základní partnerský ceník (B2B)';
-      case 'partner_5': return 'Partnerský ceník B2B (sleva 5 %)';
-      case 'partner_10': return 'Partnerský ceník B2B (sleva 10 %)';
-      case 'partner_15': return 'Partnerský ceník B2B (sleva 15 %)';
-      case 'partner_20': return 'Partnerský ceník B2B (sleva 20 %)';
-      default: return 'Ceník produktů';
+      case 'retail': return 'Maloobchodní nabídka';
+      case 'partner': return 'Velkoobchodní nabídka';
+      case 'partner_5': return 'Velkoobchodní nabídka (sleva 5 %)';
+      case 'partner_10': return 'Velkoobchodní nabídka (sleva 10 %)';
+      case 'partner_15': return 'Velkoobchodní nabídka (sleva 15 %)';
+      case 'partner_20': return 'Velkoobchodní nabídka (sleva 20 %)';
+      default: return 'Produktová nabídka';
     }
+  };
+
+  const formatSkuForPdf = (sku: string) => {
+    if (!sku) return '';
+    return sku.replace(/-/g, '-\u200B');
   };
 
   const getNumericPrice = (pr: PricingBreakdown | null) => {
@@ -242,16 +272,12 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate }: Cat
     <Document>
       <Page size="A4" style={styles.page}>
         {/* Branding Hlavička */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.logo}>AZ-COMPOSITES</Text>
-            <Text style={styles.infoText}>Profesionální materiály</Text>
-          </View>
-          <View style={{ alignItems: 'flex-end' }}>
+        <View style={styles.headerContainer}>
+          <Image src="/brand/katalog-hlavicka.png" style={styles.headerImage} />
+          <View style={styles.headerTextContainer}>
             <Text style={styles.title}>{getTierLabel()}</Text>
-            <Text style={styles.infoText}>Platnost k: {today}</Text>
-            <Text style={styles.infoText}>Ceník má platnost 14 dní od tohoto data</Text>
-            <Text style={styles.infoText}>Měna: {targetCurrency}</Text>
+            <Text style={styles.infoText}>Platnost k: {today} | Měna: {targetCurrency}</Text>
+            <Text style={styles.infoTextSmall}>Ceník má platnost 14 dní od tohoto data</Text>
           </View>
         </View>
 
@@ -259,17 +285,17 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate }: Cat
         {Object.entries(groupedProducts).map(([catName, catProducts]) => (
           <View key={catName} style={{ marginBottom: 20 }}>
             <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#8A0485', marginBottom: 10, marginTop: 10 }}>
-              Kategorie: {catName}
+              {catName}
             </Text>
 
             <View style={styles.table}>
               {/* Table Header */}
               <View style={styles.tableRow}>
-                <View style={styles.tableColHeaderSku}>
-                  <Text style={styles.tableCellHeader}>Číslo produktu</Text>
-                </View>
                 <View style={styles.tableColHeaderName}>
                   <Text style={styles.tableCellHeader}>Název</Text>
+                </View>
+                <View style={styles.tableColHeaderSku}>
+                  <Text style={styles.tableCellHeader}>Číslo produktu</Text>
                 </View>
                 <View style={styles.tableColHeaderUnitPrice}>
                   <Text style={styles.tableCellHeader}>Cena za jednotku</Text>
@@ -295,11 +321,11 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate }: Cat
 
                 return (
                   <View style={styles.tableRow} key={p.id}>
-                    <View style={styles.tableColSku}>
-                      <Text style={styles.tableCell}>{p.sku}</Text>
-                    </View>
                     <View style={styles.tableColName}>
                       <Text style={styles.tableCellName}>{p.nazev}</Text>
+                    </View>
+                    <View style={styles.tableColSku}>
+                      <Text style={styles.tableCellSku}>{formatSkuForPdf(p.sku)}</Text>
                     </View>
                     <View style={styles.tableColUnitPrice}>
                       <Text style={styles.tableCell}>

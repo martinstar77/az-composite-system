@@ -164,6 +164,10 @@ Cíl: Makroekonomický pohled na zdraví firmy, řízení cash-flow a strategick
 *   **Logika:** Evidence investic (stroje, vybavení) a fixních měsíčních nákladů (nájem, energie).
 *   **Amortizace:** Rozpuštění investičních nákladů do celkového finančního zdraví firmy.
 
+### 6.5: Competitor Pricing Database (Benchmarking) - [PLÁNOVÁNO]
+*   **Logika:** Možnost ukládat k našim produktům konkurenční nabídky – ceny konkurence, jejich základní parametry, odkazy na e-shopy/weby konkurentů a poznámky.
+*   **Cíl:** Vytvořit databázi pro průběžné tržní porovnání a analýzu konkurenceschopnosti našich cen (aktuálně nízká priorita).
+
 ## Phase 7: Omnichannel E-commerce (Budoucnost)
 ...
 ## Phase 8: Production Hardening & Reliability (Provoz na webu)
