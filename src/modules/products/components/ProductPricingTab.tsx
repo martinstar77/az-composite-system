@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { DollarSign, Info, Calculator, TrendingUp, AlertTriangle, Truck, Banknote, ShieldCheck, ArrowRightLeft, Edit2, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/shared/components/ui/button"
@@ -36,8 +36,9 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
     retail: product.cilova_marze_retail_procenta || 30,
     partner: product.cilova_marze_partner_procenta || 20
   })
-  const primarySourcing = sourcingData.find(s => s.is_primary) || sourcingData[0]
-  const hasPrimary = sourcingData.some(s => s.is_primary)
+  const activeSourcing = useMemo(() => sourcingData.filter(s => !s.deleted_at), [sourcingData])
+  const primarySourcing = activeSourcing.find(s => s.is_primary) || activeSourcing[0]
+  const hasPrimary = activeSourcing.some(s => s.is_primary)
   
   const template = primarySourcing?.logisticka_sablona_id 
     ? templates.find(t => t.id === primarySourcing.logisticka_sablona_id)

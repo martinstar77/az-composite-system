@@ -106,8 +106,8 @@ export async function getProductSourcing(productId: string): Promise<{ data: any
       upravil:upravil_id ( jmeno )
     `)
     .eq('produkt_id', productId)
-    .is('deleted_at', null)
     .order('is_primary', { ascending: false })
+    .order('aktualizovano_at', { ascending: false })
   
   return { data, error }
 }
