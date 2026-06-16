@@ -347,7 +347,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     <div className="space-y-2">
       <Label className="text-xs text-muted-foreground">{label}</Label>
       <Select onValueChange={(v) => setter(v || "")} value={value}>
-        <SelectTrigger className="h-8">
+        <SelectTrigger className="h-8 w-full">
           <SelectValue>
             {options.find(o => o.val === value)?.label}
           </SelectValue>
@@ -369,7 +369,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         <div className="space-y-2">
           <Label>Kategorie</Label>
           <Select onValueChange={handleCategoryChange} value={kategorieId || ""}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Vyberte kategorii">
                 {lookups.categories.find(c => c.id === kategorieId)?.nazev}
               </SelectValue>
@@ -623,7 +623,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         <div className="space-y-2">
           <Label>Stav v katalogu</Label>
           <Select onValueChange={(val: string | null) => setValue("stav_katalogu_id", val || "")} value={stavId || ""}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Vyberte stav">
                 {lookups.statuses.find(s => s.id === stavId)?.nazev}
               </SelectValue>
@@ -638,7 +638,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         <div className="space-y-2">
           <Label>Základní měrná jednotka</Label>
           <Select onValueChange={(val: string | null) => setValue("zakladni_mj_id", val || "")} value={zakladniMjId || ""}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Vyberte jednotku">
                 {(() => {
                   const u = lookups.units.find(u => u.id === zakladniMjId);
@@ -660,7 +660,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         <div className="space-y-2">
           <Label>Typ labelu</Label>
           <Select onValueChange={(val: string | null) => setValue("def_typ_labelu_id", val || "")} value={labelId || ""}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Vyberte typ labelu">
                 {lookups.labels.find(l => l.id === labelId)?.nazev}
               </SelectValue>
@@ -676,7 +676,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         <div className="space-y-2">
           <Label>Proces odeslání</Label>
           <Select onValueChange={(val: string | null) => setValue("def_proces_odeslani_id", val || "")} value={procesId || ""}>
-            <SelectTrigger>
+            <SelectTrigger className="w-full">
               <SelectValue placeholder="Vyberte proces">
                 {lookups.processes.find(p => p.id === procesId)?.nazev}
               </SelectValue>
@@ -760,7 +760,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             value={jednotkaBaleniId || ""}
             disabled={kategorieId === "vyztuzne_materialy"}
           >
-            <SelectTrigger className={kategorieId === "vyztuzne_materialy" ? "bg-muted text-muted-foreground opacity-90 cursor-not-allowed" : ""}>
+            <SelectTrigger className={`w-full ${kategorieId === "vyztuzne_materialy" ? "bg-muted text-muted-foreground opacity-90 cursor-not-allowed" : ""}`}>
               <SelectValue placeholder="Vyberte jednotku">
                 {lookups.units.find(u => u.id === jednotkaBaleniId)?.zkratka}
               </SelectValue>
