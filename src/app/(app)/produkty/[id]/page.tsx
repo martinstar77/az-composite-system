@@ -3,11 +3,13 @@ export const dynamic = 'force-dynamic'
 import { getProduct, getUnits } from '@/modules/products/actions'
 import { getProductSourcing, getSuppliers } from '@/modules/sourcing/actions'
 import { getLatestRates, getGlobalFinanceSettings, getLogisticsTemplates } from '@/modules/finance/actions'
+import { getProductFiles, getDocumentTypes } from '@/modules/products/actions/assets'
 import { ProductSourcingTab } from '@/modules/sourcing/components/ProductSourcingTab'
 import { ProductPricingTab } from '@/modules/products/components/ProductPricingTab'
+import { ProductDocumentsTab } from '@/modules/products/components/ProductDocumentsTab'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Badge } from "@/shared/components/ui/badge"
-import { ChevronLeft, Package, Truck, DollarSign, Users } from "lucide-react"
+import { ChevronLeft, Package, Truck, DollarSign, Users, FileText } from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 
@@ -21,7 +23,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     { data: rates },
     { data: settings },
     { data: templates },
-    { data: units }
+    { data: units },
+    { data: files },
+    { data: docTypes }
   ] = await Promise.all([
     getProduct(id),
     getProductSourcing(id),
@@ -29,7 +33,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     getLatestRates(),
     getGlobalFinanceSettings(),
     getLogisticsTemplates(),
-    getUnits()
+    getUnits(),
+    getProductFiles(id),
+    getDocumentTypes()
   ])
 
   if (productError || !product) {
@@ -86,6 +92,9 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           </TabsTrigger>
           <TabsTrigger value="inventory" className="gap-2 data-[state=active]:bg-zinc-800">
             <Truck className="h-4 w-4" /> Skladové šarže
+          </TabsTrigger>
+          <TabsTrigger value="documents" className="gap-2 data-[state=active]:bg-zinc-800">
+            <FileText className="h-4 w-4" /> Dokumenty a soubory
           </TabsTrigger>
         </TabsList>
 
@@ -146,6 +155,14 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
            <Truck className="h-12 w-12 text-zinc-700 mx-auto mb-4" />
            <h3 className="text-xl font-bold text-zinc-500">Modul Skladové šarže</h3>
            <p className="text-zinc-600 max-w-sm mx-auto">Tento modul bude implementován v rámci Fáze 4 Master Plánu.</p>
+        </TabsContent>
+
+        <TabsContent value="documents" className="bg-zinc-900/20 p-6 rounded-xl border border-dashed border-zinc-800">
+          <ProductDocumentsTab 
+            productId={product.id}
+            initialFiles={files || []}
+            documentTypes={docTypes || []}
+          />
         </TabsContent>
       </Tabs>
     </div>
