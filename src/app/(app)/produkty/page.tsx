@@ -1,12 +1,12 @@
 export const dynamic = 'force-dynamic'
 
-import { getProducts, getProductLookups } from '@/modules/products/actions'
+import { getProductsPaged, getProductLookups } from '@/modules/products/actions'
 import { ProductDataTable } from '@/modules/products/components/ProductDataTable'
 import { CreateProductDialog } from '@/modules/products/components/forms/CreateProductDialog'
 
 export default async function ProduktyPage() {
-  const [{ data: produkty, error }, lookups] = await Promise.all([
-    getProducts(),
+  const [{ data: produkty, error, totalCount }, lookups] = await Promise.all([
+    getProductsPaged({ page: 0, limit: 30 }),
     getProductLookups()
   ])
 
@@ -24,7 +24,11 @@ export default async function ProduktyPage() {
         <CreateProductDialog lookups={lookups} />
       </div>
       
-      <ProductDataTable data={produkty || []} lookups={lookups} />
+      <ProductDataTable 
+        initialData={produkty || []} 
+        initialTotalCount={totalCount || 0} 
+        lookups={lookups} 
+      />
     </div>
   )
 }

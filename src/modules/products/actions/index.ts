@@ -42,6 +42,84 @@ export async function getProducts(): Promise<{ data: Product[] | null, error: an
   return { data, error }
 }
 
+export async function getProductsPaged({
+  page = 0,
+  limit = 30,
+  search = '',
+  categories = [],
+  statuses = [],
+  sortBy = 'nazev',
+  sortDesc = false
+}: {
+  page?: number
+  limit?: number
+  search?: string
+  categories?: string[]
+  statuses?: string[]
+  sortBy?: string
+  sortDesc?: boolean
+} = {}): Promise<{ data: Product[] | null, error: any, totalCount?: number }> {
+  const supabase = await createClient()
+  
+  let query = supabase
+    .from('produkty')
+    .select(`
+      *,
+      c_kategorie ( nazev ),
+      c_merne_jednotky_zakladni:zakladni_mj_id ( nazev, zkratka ),
+      c_merne_jednotky_baleni:jednotka_baleni_id ( nazev, zkratka ),
+      c_procesy_odeslani ( nazev ),
+      c_typy_labelu ( nazev ),
+      c_stavy_produktu ( nazev ),
+      vytvoril:vytvoril_id ( jmeno ),
+      upravil:upravil_id ( jmeno ),
+      produkt_dodavatel (
+        nakupni_cena,
+        mena,
+        is_primary,
+        logisticka_sablona_id,
+        prevodni_pomer_na_zakladni,
+        moq,
+        logisticke_sablony ( nazev )
+      ),
+      produkt_mnozstevni_slevy (
+        id,
+        mnozstvi_od,
+        typ_zakaznika,
+        sleva_procenta
+      )
+    `, { count: 'exact' })
+    .is('deleted_at', null)
+    .is('produkt_dodavatel.deleted_at', null)
+
+  if (search && search.trim()) {
+    query = query.or(`nazev.ilike.%${search.trim()}%,sku.ilike.%${search.trim()}%`)
+  }
+
+  if (categories && categories.length > 0) {
+    query = query.in('kategorie_id', categories)
+  }
+
+  if (statuses && statuses.length > 0) {
+    query = query.in('stav_katalogu_id', statuses)
+  }
+
+  if (sortBy) {
+    query = query.order(sortBy, { ascending: !sortDesc })
+  } else {
+    query = query.order('nazev', { ascending: true })
+  }
+
+  const from = page * limit
+  const to = (page + 1) * limit - 1
+  query = query.range(from, to)
+
+  const { data, error, count } = await query
+  
+  return { data: data as Product[] | null, error, totalCount: count || undefined }
+}
+
+
 export async function getProduct(id: string): Promise<{ data: Product | null, error: any }> {
   const supabase = await createClient()
   const { data, error } = await supabase

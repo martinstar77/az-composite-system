@@ -18,6 +18,7 @@ interface EditProductDialogProps {
   product: Product
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSuccess?: () => void
   lookups: {
     categories: any[]
     units: any[]
@@ -27,7 +28,7 @@ interface EditProductDialogProps {
   }
 }
 
-export function EditProductDialog({ product, open, onOpenChange, lookups }: EditProductDialogProps) {
+export function EditProductDialog({ product, open, onOpenChange, onSuccess, lookups }: EditProductDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
 
@@ -39,6 +40,7 @@ export function EditProductDialog({ product, open, onOpenChange, lookups }: Edit
         alert("Chyba při aktualizaci: " + error.message)
       } else {
         onOpenChange(false)
+        if (onSuccess) onSuccess()
         router.refresh()
       }
     } finally {

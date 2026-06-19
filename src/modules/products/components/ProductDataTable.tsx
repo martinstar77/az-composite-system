@@ -6,11 +6,8 @@ import {
   flexRender,
   getCoreRowModel,
   useReactTable,
-  getPaginationRowModel,
   SortingState,
-  getSortedRowModel,
   ColumnFiltersState,
-  getFilteredRowModel,
   RowSelectionState,
 } from "@tanstack/react-table"
 import Link from "next/link"
@@ -53,11 +50,12 @@ import { DataTableFacetedFilter } from "@/shared/components/DataTableFacetedFilt
 import { BulkEditMarginsDialog } from "./forms/BulkEditMarginsDialog"
 import { BulkEditLogisticsDialog } from "./forms/BulkEditLogisticsDialog"
 import { LogisticsTemplate } from "@/modules/finance/types/logistics"
-import { cloneProduct, deleteProduct } from "../actions"
+import { cloneProduct, deleteProduct, getProductsPaged } from "../actions"
 import { toast } from "sonner"
 
 interface ProductDataTableProps {
-  data: Product[]
+  initialData: Product[]
+  initialTotalCount: number
   lookups: {
     categories: any[]
     units: any[]
@@ -68,10 +66,20 @@ interface ProductDataTableProps {
   }
 }
 
-export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
+export function ProductDataTable({ initialData, initialTotalCount, lookups }: ProductDataTableProps) {
+  // Infinite Scroll & Client State
+  const [products, setProducts] = React.useState<Product[]>(initialData)
+  const [totalCount, setTotalCount] = React.useState(initialTotalCount)
+  const [page, setPage] = React.useState(0)
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [hasMore, setHasMore] = React.useState(initialData.length < initialTotalCount)
+
+  // Filtering & Sorting State
   const [sorting, setSorting] = React.useState<SortingState>([{ id: "nazev", desc: false }])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = React.useState("")
+  const [debouncedSearch, setDebouncedSearch] = React.useState("")
+  
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null)
   const [productToDelete, setProductToDelete] = React.useState<Product | null>(null)
@@ -80,6 +88,194 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
   const [isBulkMarginsOpen, setIsBulkMarginsOpen] = React.useState(false)
   const [isBulkLogisticsOpen, setIsBulkLogisticsOpen] = React.useState(false)
 
+  const observerTargetRef = React.useRef<HTMLDivElement>(null)
+  const isFirstRender = React.useRef(true)
+
+  // Debounce search input to avoid database overload
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(globalFilter)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [globalFilter])
+
+  // Reset local state if server-rendered initial data changes (e.g. page refresh)
+  React.useEffect(() => {
+    setProducts(initialData)
+    setTotalCount(initialTotalCount)
+    setPage(0)
+    setHasMore(initialData.length < initialTotalCount)
+  }, [initialData, initialTotalCount])
+
+  // Helper to load paginated data based on filters & sorting
+  const loadMore = React.useCallback(async () => {
+    if (isLoading || !hasMore) return
+
+    setIsLoading(true)
+    try {
+      const nextPage = page + 1
+      const selectedCategories = columnFilters.find(f => f.id === 'kategorie_id')?.value as string[] | undefined
+      const selectedStatuses = columnFilters.find(f => f.id === 'stav_katalogu_id')?.value as string[] | undefined
+      const sortBy = sorting[0]?.id || 'nazev'
+      const sortDesc = sorting[0]?.desc || false
+
+      const res = await getProductsPaged({
+        page: nextPage,
+        limit: 30,
+        search: debouncedSearch,
+        categories: selectedCategories,
+        statuses: selectedStatuses,
+        sortBy,
+        sortDesc
+      })
+
+      if (res.error) {
+        toast.error("Chyba při načítání dalších produktů: " + res.error.message)
+        return
+      }
+
+      const newProducts = res.data || []
+      if (newProducts.length === 0) {
+        setHasMore(false)
+        return
+      }
+
+      const loadedCount = res.totalCount || 0
+      setProducts(prev => {
+        const existingIds = new Set(prev.map(p => p.id))
+        const filteredNew = newProducts.filter(p => !existingIds.has(p.id))
+        const nextProducts = [...prev, ...filteredNew]
+        setHasMore(nextProducts.length < loadedCount)
+        return nextProducts
+      })
+      setPage(nextPage)
+    } catch (e: any) {
+      toast.error("Chyba při načítání: " + e.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [page, isLoading, hasMore, debouncedSearch, columnFilters, sorting])
+
+  // Reset to page 0 and load fresh data when filters/search/sorting change
+  const resetAndReload = React.useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const selectedCategories = columnFilters.find(f => f.id === 'kategorie_id')?.value as string[] | undefined
+      const selectedStatuses = columnFilters.find(f => f.id === 'stav_katalogu_id')?.value as string[] | undefined
+      const sortBy = sorting[0]?.id || 'nazev'
+      const sortDesc = sorting[0]?.desc || false
+
+      const res = await getProductsPaged({
+        page: 0,
+        limit: 30,
+        search: debouncedSearch,
+        categories: selectedCategories,
+        statuses: selectedStatuses,
+        sortBy,
+        sortDesc
+      })
+
+      if (res.error) {
+        toast.error("Chyba při načítání produktů: " + res.error.message)
+        return
+      }
+
+      const loadedProducts = res.data || []
+      setProducts(loadedProducts)
+      setTotalCount(res.totalCount || 0)
+      setPage(0)
+      setHasMore(loadedProducts.length < (res.totalCount || 0))
+    } catch (e: any) {
+      toast.error("Neočekávaná chyba při načítání: " + e.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [debouncedSearch, columnFilters, sorting])
+
+  // IntersectionObserver to trigger loading when reaching the bottom margin
+  React.useEffect(() => {
+    const target = observerTargetRef.current
+    if (!target || !hasMore || isLoading) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+
+    observer.observe(target)
+    return () => {
+      observer.unobserve(target)
+    }
+  }, [loadMore, hasMore, isLoading])
+
+  // Fetch updated data when filters/sorting/search change
+  React.useEffect(() => {
+    let active = true
+
+    async function loadInitialData() {
+      setIsLoading(true)
+      try {
+        const selectedCategories = columnFilters.find(f => f.id === 'kategorie_id')?.value as string[] | undefined
+        const selectedStatuses = columnFilters.find(f => f.id === 'stav_katalogu_id')?.value as string[] | undefined
+        const sortBy = sorting[0]?.id || 'nazev'
+        const sortDesc = sorting[0]?.desc || false
+
+        const res = await getProductsPaged({
+          page: 0,
+          limit: 30,
+          search: debouncedSearch,
+          categories: selectedCategories,
+          statuses: selectedStatuses,
+          sortBy,
+          sortDesc
+        })
+
+        if (!active) return
+
+        if (res.error) {
+          toast.error("Chyba při načítání produktů: " + res.error.message)
+          return
+        }
+
+        const loadedProducts = res.data || []
+        setProducts(loadedProducts)
+        setTotalCount(res.totalCount || 0)
+        setPage(0)
+        setHasMore(loadedProducts.length < (res.totalCount || 0))
+      } catch (e: any) {
+        if (active) {
+          toast.error("Neočekávaná chyba při načítání: " + e.message)
+        }
+      } finally {
+        if (active) setIsLoading(false)
+      }
+    }
+
+
+
+    // Skip the very first run on mount if the filters/sorting are at their default values
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      const hasNoActiveFilters = 
+        !debouncedSearch && 
+        columnFilters.length === 0 && 
+        sorting.length === 1 && sorting[0].id === 'nazev' && !sorting[0].desc
+
+      if (hasNoActiveFilters) {
+        return
+      }
+    }
+
+    loadInitialData()
+
+    return () => {
+      active = false
+    }
+  }, [debouncedSearch, columnFilters, sorting])
 
   const handleCloneProduct = async (product: Product) => {
     try {
@@ -87,6 +283,7 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
       const result = await cloneProduct(product.id)
       if (result.error) throw result.error
       toast.success("Produkt úspěšně zduplikován", { id: "clone" })
+      resetAndReload()
     } catch (e: any) {
       toast.error("Chyba při duplikaci", { description: e.message, id: "clone" })
     }
@@ -99,6 +296,8 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
       const { error } = await deleteProduct(productToDelete.id)
       if (error) throw error
       toast.success("Produkt úspěšně odstraněn", { id: "delete" })
+      setProducts(prev => prev.filter(p => p.id !== productToDelete.id))
+      setTotalCount(prev => Math.max(0, prev - 1))
     } catch (e: any) {
       toast.error("Chyba při odstraňování", { description: e.message, id: "delete" })
     } finally {
@@ -111,8 +310,8 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
       id: "select",
       header: ({ table }) => (
         <Checkbox
-          checked={table.getIsAllPageRowsSelected()}
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          checked={table.getIsAllRowsSelected()}
+          onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
           aria-label="Vybrat vše"
           className="translate-y-[2px]"
         />
@@ -166,9 +365,6 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
           </Badge>
         )
       },
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id))
-      },
     },
     {
       accessorKey: "stav_katalogu_id",
@@ -186,9 +382,6 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
             <span className="text-[10px] font-medium text-muted-foreground">{status}</span>
           </div>
         )
-      },
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id))
       },
     },
     {
@@ -308,16 +501,14 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
   ]
 
   const table = useReactTable({
-    data,
+    data: products,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
-    getFilteredRowModel: getFilteredRowModel(),
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
+    getRowId: (row) => row.id,
     state: {
       sorting,
       columnFilters,
@@ -326,7 +517,7 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
     },
   })
 
-  const selectedRows = table.getFilteredSelectedRowModel().rows
+  const selectedRows = table.getSelectedRowModel().rows
   const selectedProductIds = selectedRows.map(row => row.original.id)
 
   return (
@@ -355,7 +546,10 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
         open={isBulkMarginsOpen}
         onOpenChange={setIsBulkMarginsOpen}
         selectedProductIds={selectedProductIds}
-        onSuccess={() => table.toggleAllRowsSelected(false)}
+        onSuccess={() => {
+          table.toggleAllRowsSelected(false)
+          resetAndReload()
+        }}
       />
 
       {/* Bulk Logistics Dialog */}
@@ -363,7 +557,10 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
         open={isBulkLogisticsOpen}
         onOpenChange={setIsBulkLogisticsOpen}
         selectedProductIds={selectedProductIds}
-        onSuccess={() => table.toggleAllRowsSelected(false)}
+        onSuccess={() => {
+          table.toggleAllRowsSelected(false)
+          resetAndReload()
+        }}
         templates={lookups.templates || []}
       />
 
@@ -404,7 +601,7 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
         </div>
         
         <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
-          Zobrazeno {table.getFilteredRowModel().rows.length} z {data.length}
+          Zobrazeno {products.length} z {totalCount}
         </div>
       </div>
 
@@ -444,31 +641,17 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
         </Table>
       </div>
 
-      {/* Pagination Controls */}
-      <div className="flex items-center justify-between px-2">
-        <div className="text-[10px] text-zinc-500 font-bold uppercase">
-          Strana {table.getState().pagination.pageIndex + 1} z {table.getPageCount()}
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            className="h-7 text-[10px] uppercase font-bold border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-100"
-          >
-            Předchozí
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            className="h-7 text-[10px] uppercase font-bold border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-zinc-100"
-          >
-            Další
-          </Button>
-        </div>
+      {/* Observer Target & Loading State */}
+      <div ref={observerTargetRef} className="h-16 flex items-center justify-center text-xs text-zinc-500 font-medium">
+        {isLoading && (
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+            <span>Načítám další produkty...</span>
+          </div>
+        )}
+        {!hasMore && products.length > 0 && (
+          <span>Zobrazeno všech {totalCount} produktů</span>
+        )}
       </div>
 
       {/* Edit Dialog - Lazy loaded when a product is clicked */}
@@ -477,6 +660,7 @@ export function ProductDataTable({ data, lookups }: ProductDataTableProps) {
           product={editingProduct} 
           open={!!editingProduct} 
           onOpenChange={(open) => !open && setEditingProduct(null)}
+          onSuccess={resetAndReload}
           lookups={lookups}
         />
       )}
