@@ -27,6 +27,8 @@ export async function createSupplier(formData: SupplierFormValues) {
   const dbPayload = {
     kod: formData.kod,
     nazev_spolecnosti: formData.nazev_spolecnosti,
+    ico: formData.ico || null,
+    dic: formData.dic || null,
     zeme_puvodu: formData.zeme_puvodu,
     vychozi_mena: formData.vychozi_mena,
     platebni_podminky_splatnost_dni: formData.platebni_podminky_splatnost_dni,
@@ -62,6 +64,8 @@ export async function updateSupplier(id: string, formData: SupplierFormValues) {
   const dbPayload = {
     kod: formData.kod,
     nazev_spolecnosti: formData.nazev_spolecnosti,
+    ico: formData.ico || null,
+    dic: formData.dic || null,
     zeme_puvodu: formData.zeme_puvodu,
     vychozi_mena: formData.vychozi_mena,
     platebni_podminky_splatnost_dni: formData.platebni_podminky_splatnost_dni,

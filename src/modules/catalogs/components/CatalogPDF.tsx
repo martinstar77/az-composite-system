@@ -2,21 +2,48 @@ import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
 import { Product } from '@/modules/products/types';
 import { PricingBreakdown } from '@/modules/finance/utils/calculations';
+import { getThemeTokens } from '@/shared/utils/theme';
+import path from 'path';
 
-// Register Roboto font to support Czech diacritics (served locally)
-Font.register({
-  family: 'Roboto',
-  fonts: [
-    { src: '/fonts/Roboto-Regular.ttf' },
-    { src: '/fonts/Roboto-Bold.ttf', fontWeight: 'bold' }
-  ]
-});
+// Extract theme tokens dynamically from globals.css
+const tokens = getThemeTokens();
+const COLORS = {
+  primary:    tokens.primary || '#8A0485',
+  foreground: tokens.foreground || '#18181b',
+  border:     tokens.border || '#e4e4e7',
+  muted:      tokens['muted-foreground'] || '#71717a',
+  background: tokens.muted || '#f4f4f5',
+  white:      '#ffffff',
+};
+
+// Register Roboto font to support Czech diacritics
+// Use Node-specific process check to bypass static Next.js browser optimization
+const isNode = typeof process !== 'undefined' && process.versions && !!process.versions.node;
+if (isNode) {
+  const fontsDir = path.join(process.cwd(), 'public', 'fonts');
+  Font.register({
+    family: 'Roboto',
+    fonts: [
+      { src: path.join(fontsDir, 'Roboto-Regular.ttf') },
+      { src: path.join(fontsDir, 'Roboto-Bold.ttf'), fontWeight: 'bold' }
+    ]
+  });
+} else {
+  Font.register({
+    family: 'Roboto',
+    fonts: [
+      { src: '/fonts/Roboto-Regular.ttf' },
+      { src: '/fonts/Roboto-Bold.ttf', fontWeight: 'bold' }
+    ]
+  });
+}
+
 
 const styles = StyleSheet.create({
   page: {
     padding: 30,
     fontFamily: 'Roboto',
-    backgroundColor: '#ffffff',
+    backgroundColor: COLORS.white,
   },
   headerContainer: {
     position: 'relative',
@@ -40,23 +67,23 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 11,
     fontWeight: 'bold',
-    color: '#8A0485', // Brand primary color
+    color: COLORS.primary, // Brand primary color
   },
   infoText: {
     fontSize: 8,
-    color: '#666666',
+    color: COLORS.muted,
     marginTop: 2,
   },
   infoTextSmall: {
     fontSize: 7,
-    color: '#888888',
+    color: COLORS.muted,
     marginTop: 1,
   },
   table: {
     width: 'auto',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
+    borderColor: COLORS.border,
     borderRightWidth: 0,
     borderBottomWidth: 0,
   },
@@ -68,67 +95,67 @@ const styles = StyleSheet.create({
     width: '23%',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
+    borderColor: COLORS.border,
     borderLeftWidth: 0,
     borderTopWidth: 0,
-    backgroundColor: '#f4f4f5',
+    backgroundColor: COLORS.background,
     padding: 6,
   },
   tableColHeaderName: {
     width: '25%',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
+    borderColor: COLORS.border,
     borderLeftWidth: 0,
     borderTopWidth: 0,
-    backgroundColor: '#f4f4f5',
+    backgroundColor: COLORS.background,
     padding: 6,
   },
   tableColHeaderUnitPrice: {
     width: '19%',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
+    borderColor: COLORS.border,
     borderLeftWidth: 0,
     borderTopWidth: 0,
-    backgroundColor: '#f4f4f5',
+    backgroundColor: COLORS.background,
     padding: 6,
   },
   tableColHeaderUnitCount: {
     width: '10%',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
+    borderColor: COLORS.border,
     borderLeftWidth: 0,
     borderTopWidth: 0,
-    backgroundColor: '#f4f4f5',
+    backgroundColor: COLORS.background,
     padding: 6,
   },
   tableColHeaderTotalPrice: {
     width: '13%',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
+    borderColor: COLORS.border,
     borderLeftWidth: 0,
     borderTopWidth: 0,
-    backgroundColor: '#f4f4f5',
+    backgroundColor: COLORS.background,
     padding: 6,
   },
   tableColHeaderPackSize: {
     width: '10%',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
+    borderColor: COLORS.border,
     borderLeftWidth: 0,
     borderTopWidth: 0,
-    backgroundColor: '#f4f4f5',
+    backgroundColor: COLORS.background,
     padding: 6,
   },
   tableColSku: {
     width: '23%',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
+    borderColor: COLORS.border,
     borderLeftWidth: 0,
     borderTopWidth: 0,
     padding: 6,
@@ -137,7 +164,7 @@ const styles = StyleSheet.create({
     width: '25%',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
+    borderColor: COLORS.border,
     borderLeftWidth: 0,
     borderTopWidth: 0,
     padding: 6,
@@ -146,7 +173,7 @@ const styles = StyleSheet.create({
     width: '19%',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
+    borderColor: COLORS.border,
     borderLeftWidth: 0,
     borderTopWidth: 0,
     padding: 6,
@@ -155,7 +182,7 @@ const styles = StyleSheet.create({
     width: '10%',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
+    borderColor: COLORS.border,
     borderLeftWidth: 0,
     borderTopWidth: 0,
     padding: 6,
@@ -164,7 +191,7 @@ const styles = StyleSheet.create({
     width: '13%',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
+    borderColor: COLORS.border,
     borderLeftWidth: 0,
     borderTopWidth: 0,
     padding: 6,
@@ -173,7 +200,7 @@ const styles = StyleSheet.create({
     width: '10%',
     borderStyle: 'solid',
     borderWidth: 1,
-    borderColor: '#e4e4e7',
+    borderColor: COLORS.border,
     borderLeftWidth: 0,
     borderTopWidth: 0,
     padding: 6,
@@ -182,21 +209,21 @@ const styles = StyleSheet.create({
     margin: 'auto',
     fontSize: 9,
     fontWeight: 'bold',
-    color: '#18181b',
+    color: COLORS.foreground,
   },
   tableCell: {
     margin: 'auto',
     fontSize: 8,
-    color: '#3f3f46',
+    color: COLORS.foreground,
   },
   tableCellSku: {
     margin: 'auto',
     fontSize: 7,
-    color: '#3f3f46',
+    color: COLORS.muted,
   },
   tableCellName: {
     fontSize: 8,
-    color: '#3f3f46',
+    color: COLORS.foreground,
   },
   footer: {
     position: 'absolute',
@@ -204,10 +231,10 @@ const styles = StyleSheet.create({
     left: 30,
     right: 30,
     textAlign: 'center',
-    color: '#a1a1aa',
+    color: COLORS.muted,
     fontSize: 8,
     borderTopWidth: 1,
-    borderTopColor: '#e4e4e7',
+    borderTopColor: COLORS.border,
     paddingTop: 10,
   }
 });

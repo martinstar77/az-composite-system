@@ -28,6 +28,8 @@ export function SupplierForm({ initialData, onSubmit, isSubmitting, onCancel }: 
     defaultValues: {
       kod: initialData?.kod || "",
       nazev_spolecnosti: initialData?.nazev_spolecnosti || "",
+      ico: initialData?.ico || "",
+      dic: initialData?.dic || "",
       zeme_puvodu: initialData?.zeme_puvodu || "",
       vychozi_mena: initialData?.vychozi_mena || "EUR",
       platebni_podminky_splatnost_dni: initialData?.platebni_podminky_splatnost_dni || 0,
@@ -56,6 +58,17 @@ export function SupplierForm({ initialData, onSubmit, isSubmitting, onCancel }: 
           <Label htmlFor="nazev_spolecnosti">Název společnosti</Label>
           <Input id="nazev_spolecnosti" placeholder="HITEX Composites Ltd." {...register("nazev_spolecnosti")} />
           {errors.nazev_spolecnosti && <p className="text-xs text-destructive">{errors.nazev_spolecnosti.message}</p>}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="ico">IČO</Label>
+          <Input id="ico" placeholder="12345678" {...register("ico")} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="dic">DIČ</Label>
+          <Input id="dic" placeholder="CZ12345678" {...register("dic")} />
         </div>
       </div>
 

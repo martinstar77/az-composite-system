@@ -2,6 +2,8 @@ export interface Supplier {
   id: string
   kod: string
   nazev_spolecnosti: string
+  ico?: string | null
+  dic?: string | null
   zeme_puvodu: string | null
   vychozi_mena: string
   platebni_podminky_splatnost_dni: number

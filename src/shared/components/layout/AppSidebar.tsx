@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
-import { Package, Truck, LayoutDashboard, Settings, DollarSign, Users, HelpCircle, FileText, Notebook } from "lucide-react"
+import { Package, Truck, LayoutDashboard, Settings, DollarSign, Users, HelpCircle, FileText, Notebook, Receipt, Building } from "lucide-react"
 
 import {
   Sidebar,
@@ -39,6 +39,8 @@ const navItems = [
     title: "Obchod a Nákup",
     items: [
       { title: "Dodavatelé", url: "/dodavatele", icon: Users },
+      { title: "Zákazníci", url: "/zakaznici", icon: Users },
+      { title: "Doklady & Fakturace", url: "/faktury", icon: Receipt },
       { title: "Cenotvorba", url: "/finance", icon: DollarSign },
       { title: "Katalogy a Ceníky", url: "/katalogy", icon: FileText },
     ],
@@ -46,6 +48,7 @@ const navItems = [
   {
     title: "Správa",
     items: [
+      { title: "Nastavení firmy", url: "/nastaveni/firma", icon: Building },
       { title: "Uživatelé a Tým", url: "/nastaveni/uzivatele", icon: Users },
       { title: "Manuál & Nápověda", url: "/manual", icon: HelpCircle },
     ],
