@@ -40,12 +40,41 @@ export interface Product {
   opt_skladova_zasoba: number | null
   deleted_at: string | null
 
+  // Sales MOQ
+  moq_prodejni: number | null
+  moq_poznamka: string | null
+  poznamka: string | null
+
   // Pricing & Margins
   cilova_marze_retail_procenta: number
   cilova_marze_partner_procenta: number
   cilova_marze_vip_procenta: number
   cilova_marze_premarket_open_procenta: number
   clo_procenta: number
+
+  // Packaging & Shipping Engine v2
+  balici_profil_id: string | null
+  balik_delka_cm_override: number | null
+  balik_sirka_cm_override: number | null
+  balik_vyska_cm_override: number | null
+  c_balici_profily?: {
+    id: string
+    nazev: string
+    typ_obalu: string
+    delka_cm: number | null
+    sirka_cm: number | null
+    vyska_cm: number | null
+    je_delka_fixni: boolean
+    je_sirka_fixni: boolean
+    je_vyska_fixni: boolean
+    max_hmotnost_kg: number | null
+    koeficient_objemove_hmotnosti: number
+    padding_delka_cm: number
+    padding_sirka_cm: number
+    padding_vyska_cm: number
+    hustota_kg_dm3: number
+    poznamka: string | null
+  } | null
 
   // Audit Fields
   vytvoril_id: string | null

@@ -57,7 +57,13 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
         },
         rates,
         settings,
-        template
+        template,
+        (product.c_balici_profily as any) || null,
+        {
+          delka: product.balik_delka_cm_override,
+          sirka: product.balik_sirka_cm_override,
+          vyska: product.balik_vyska_cm_override
+        }
       )
     : null
 
@@ -274,7 +280,7 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
                   <span className={`font-mono text-white font-bold text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>{formatCzk(breakdown.unitPurchasePriceCzk)}</span>
                 </div>
                 
-                <div className="grid grid-cols-3 items-center text-sm group p-1 hover:bg-zinc-800/30 rounded transition-colors">
+                 <div className="grid grid-cols-3 items-center text-sm group p-1 hover:bg-zinc-800/30 rounded transition-colors">
                   <div className="flex items-center gap-2 col-span-1">
                     <Truck className="h-3 w-3 text-zinc-600" />
                     <span className="text-zinc-500">Doprava</span>
@@ -284,6 +290,16 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
                   )}
                   <span className={`font-mono text-zinc-300 text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>{formatCzk(breakdown.unitShippingCostCzk)}</span>
                 </div>
+
+                {breakdown.packagingDimensions && breakdown.packagingDimensions.delka_cm > 0 && (
+                  <div className="text-[10px] text-zinc-500 px-5 flex flex-wrap gap-x-4 gap-y-1 mt-0.5 pb-2">
+                    <span>Rozměry: <strong className="text-zinc-400">{breakdown.packagingDimensions.delka_cm}×{breakdown.packagingDimensions.sirka_cm}×{breakdown.packagingDimensions.vyska_cm} cm</strong></span>
+                    <span>Hmotnost: <strong className="text-zinc-400">reálná {product.hmotnost_baliku_kg || 0} kg / účtovaná {breakdown.billedWeightKg || 0} kg</strong></span>
+                    {breakdown.volumetricWeightKg && breakdown.volumetricWeightKg > (product.hmotnost_baliku_kg || 0) && (
+                      <span className="text-amber-500 font-bold">Aplikována objemová hmotnost ({breakdown.volumetricWeightKg} kg)</span>
+                    )}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-3 items-center text-sm group p-1 hover:bg-zinc-800/30 rounded transition-colors">
                   <div className="flex items-center gap-2 col-span-1">
@@ -304,6 +320,32 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
                     )}
                     <span className={`text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>{formatCzk(breakdown.unitBankFeesCzk)}</span>
                   </div>
+                  {breakdown.currency !== 'CZK' && (
+                    <div className="pl-4 space-y-0.5 border-l border-zinc-800 ml-2">
+                      {breakdown.swiftRoklenFeeCzk !== undefined && breakdown.swiftRoklenFeeCzk > 0 && (
+                        <div className="grid grid-cols-3 items-center text-[10px] text-zinc-650 italic">
+                          <span className="col-span-1">↳ SWIFT Poplatek Roklen</span>
+                          {breakdown.totalUnits > 1 && (
+                            <span className="text-right">{formatCzk(breakdown.swiftRoklenFeeCzk)}</span>
+                          )}
+                          <span className={`text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>
+                            {formatCzk(breakdown.swiftRoklenFeeCzk / breakdown.totalUnits)}
+                          </span>
+                        </div>
+                      )}
+                      {breakdown.swiftOurFeeCzk !== undefined && breakdown.swiftOurFeeCzk > 0 && (
+                        <div className="grid grid-cols-3 items-center text-[10px] text-zinc-650 italic">
+                          <span className="col-span-1">↳ SWIFT OUR Transfer</span>
+                          {breakdown.totalUnits > 1 && (
+                            <span className="text-right">{formatCzk(breakdown.swiftOurFeeCzk)}</span>
+                          )}
+                          <span className={`text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>
+                            {formatCzk(breakdown.swiftOurFeeCzk / breakdown.totalUnits)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="grid grid-cols-3 items-center text-[11px] text-zinc-500 italic px-1">
                     <span className="col-span-1">Proclení & Dokumenty</span>
                     {breakdown.totalUnits > 1 && (
@@ -325,6 +367,15 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
                     )}
                     <span className={`text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>{formatCzk(breakdown.unitPackagingFeesCzk)}</span>
                   </div>
+                  {breakdown.shippingSafetyBufferCzk !== undefined && breakdown.shippingSafetyBufferCzk > 0 && (
+                    <div className="grid grid-cols-3 items-center text-[11px] text-zinc-550 italic px-1">
+                      <span className="col-span-1">Rezerva dopravy (bezpečnostní)</span>
+                      {breakdown.totalUnits > 1 && (
+                        <span className="text-right">+{formatCzk(breakdown.shippingSafetyBufferCzk)}</span>
+                      )}
+                      <span className={`text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>+{formatCzk(breakdown.shippingSafetyBufferCzk / breakdown.totalUnits)}</span>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="pt-4 border-t border-zinc-800 grid grid-cols-3 items-center">
@@ -359,6 +410,11 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
                     <p className="text-[10px] font-mono text-primary/60">
                       ~ {(breakdown.unitLandedCostWithBuffer / breakdown.exchangeRateUsed).toFixed(2)} {breakdown.currency}
                     </p>
+                    {breakdown.currency !== 'CZK' && breakdown.roklenMarginApplied !== undefined && breakdown.roklenMarginApplied > 0 && (
+                      <p className="text-[9px] text-zinc-500 italic mt-0.5" title={`Základní kurz: ${breakdown.exchangeRateRaw?.toFixed(4)} + ${((breakdown.roklenMarginApplied || 0) * 100).toFixed(2)}% marže RoklenFX`}>
+                        vč. marže RoklenFX {((breakdown.roklenMarginApplied || 0) * 100).toFixed(2)}%
+                      </p>
+                    )}
                   </div>
                 </div>
              </div>

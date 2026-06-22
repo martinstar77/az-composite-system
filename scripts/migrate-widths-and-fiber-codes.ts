@@ -19,7 +19,8 @@ const MATERIAL_NAMES: Record<string, string> = {
   CF: "Carbon",
   GF: "Glass",
   AF: "Aramid",
-  BF: "Bio",
+  BIOF: "Bio Flax",
+  BIOH: "Bio Hemp",
   OF: "Other",
   HF: "Hybrid"
 };
@@ -34,7 +35,13 @@ const FORM_NAMES: Record<string, string> = {
 const WEAVE_NAMES: Record<string, string> = {
   P: "Plain",
   T22: "Twill 2/2",
-  T44: "Twill 4/4"
+  T44: "Twill 4/4",
+  NP: "Needle punched",
+  EM: "Emulsion",
+  PB: "Powder binder",
+  ST: "Stitched",
+  "090": "0/90°",
+  "45": "±45°"
 };
 
 const FIBER_CODES: Record<string, string> = {
@@ -73,13 +80,18 @@ function generateName(specs: any): string {
   const weaveStr = WEAVE_NAMES[specs.vazba] || specs.vazba || "";
   const widthStr = specs.sirka_cm ? `${specs.sirka_cm}cm` : "";
 
+  function getFiberCodeLabel(codeId: string) {
+    if (!codeId || codeId.toLowerCase() === "na") return "";
+    return FIBER_CODES[codeId.toLowerCase()] || codeId.toUpperCase();
+  }
+
   let fiberCodeStr = "";
   if (specs.materiál === "HF") {
-    const fc1 = FIBER_CODES[specs.kod_vlakna1] || specs.kod_vlakna1?.toUpperCase() || "";
-    const fc2 = FIBER_CODES[specs.kod_vlakna2] || specs.kod_vlakna2?.toUpperCase() || "";
+    const fc1 = getFiberCodeLabel(specs.kod_vlakna1);
+    const fc2 = getFiberCodeLabel(specs.kod_vlakna2);
     fiberCodeStr = fc1 && fc2 ? `${fc1} / ${fc2}` : (fc1 || fc2 || "");
   } else {
-    fiberCodeStr = FIBER_CODES[specs.kód_vlákna] || specs.kód_vlákna?.toUpperCase() || "";
+    fiberCodeStr = getFiberCodeLabel(specs.kód_vlákna);
   }
 
   const useStr = QUALITY_TIERS[specs.použití] || "";

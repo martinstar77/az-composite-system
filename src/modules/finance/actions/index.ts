@@ -2,8 +2,7 @@
 
 import { createClient } from '@/shared/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { ExchangeRate, GlobalFinanceSettings } from '../types'
-import { LogisticsTemplate } from '../types/logistics'
+import { ExchangeRate, GlobalFinanceSettings, LogisticsTemplate, BaliciProfil, StandardBoxSize } from '../types'
 
 /**
  * Logistics Templates Actions
@@ -254,3 +253,128 @@ export async function updateFinanceSettings(updates: Partial<GlobalFinanceSettin
   if (!error) revalidatePath('/finance')
   return { data, error }
 }
+
+/**
+ * Packaging Profiles Actions
+ */
+
+export async function getPackagingProfiles(): Promise<{ data: BaliciProfil[] | null, error: any }> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('c_balici_profily')
+    .select(`
+      *,
+      vytvoril:vytvoril_id ( jmeno ),
+      upravil:upravil_id ( jmeno )
+    `)
+    .order('nazev')
+  
+  return { data, error }
+}
+
+export async function createPackagingProfile(formData: any) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  const { data, error } = await supabase
+    .from('c_balici_profily')
+    .insert([{
+      ...formData,
+      vytvoril_id: user?.id,
+      upravil_id: user?.id
+    }])
+    .select()
+
+  if (!error) revalidatePath('/finance')
+  return { data, error }
+}
+
+export async function updatePackagingProfile(id: string, formData: any) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  const { data, error } = await supabase
+    .from('c_balici_profily')
+    .update({
+      ...formData,
+      upravil_id: user?.id,
+      aktualizovano_at: new Date().toISOString()
+    })
+    .eq('id', id)
+    .select()
+
+  if (!error) revalidatePath('/finance')
+  return { data, error }
+}
+
+export async function deletePackagingProfile(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('c_balici_profily')
+    .delete()
+    .eq('id', id)
+  
+  if (!error) revalidatePath('/finance')
+  return { error }
+}
+
+/**
+ * Standard Box Sizes Actions
+ */
+
+export async function getStandardBoxSizes(): Promise<{ data: StandardBoxSize[] | null, error: any }> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('c_standard_box_sizes')
+    .select('*')
+    .order('poradi')
+  
+  return { data, error }
+}
+
+export async function createStandardBoxSize(formData: any) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  const { data, error } = await supabase
+    .from('c_standard_box_sizes')
+    .insert([{
+      ...formData,
+      vytvoril_id: user?.id,
+      upravil_id: user?.id
+    }])
+    .select()
+
+  if (!error) revalidatePath('/finance')
+  return { data, error }
+}
+
+export async function updateStandardBoxSize(id: string, formData: any) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  const { data, error } = await supabase
+    .from('c_standard_box_sizes')
+    .update({
+      ...formData,
+      upravil_id: user?.id,
+      aktualizovano_at: new Date().toISOString()
+    })
+    .eq('id', id)
+    .select()
+
+  if (!error) revalidatePath('/finance')
+  return { data, error }
+}
+
+export async function deleteStandardBoxSize(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase
+    .from('c_standard_box_sizes')
+    .delete()
+    .eq('id', id)
+  
+  if (!error) revalidatePath('/finance')
+  return { error }
+}
+

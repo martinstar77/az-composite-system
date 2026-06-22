@@ -79,6 +79,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = React.useState("")
   const [debouncedSearch, setDebouncedSearch] = React.useState("")
+  const [selectedSubcategories, setSelectedSubcategories] = React.useState<string[]>([])
   
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null)
@@ -91,6 +92,55 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
   const observerTargetRef = React.useRef<HTMLDivElement>(null)
   const isFirstRender = React.useRef(true)
 
+  // Memoized filters
+  const selectedCategories = React.useMemo(() => {
+    return columnFilters.find(f => f.id === 'kategorie_id')?.value as string[] | undefined
+  }, [columnFilters])
+
+  const selectedStatuses = React.useMemo(() => {
+    return columnFilters.find(f => f.id === 'stav_katalogu_id')?.value as string[] | undefined
+  }, [columnFilters])
+
+  const showSubcategoryFilter = React.useMemo(() => {
+    return selectedCategories && (selectedCategories.includes('consumables') || selectedCategories.includes('nastroje'))
+  }, [selectedCategories])
+
+  const subcategoryOptions = React.useMemo(() => {
+    const opts: { label: string, value: string }[] = []
+    if (!selectedCategories) return opts
+
+    if (selectedCategories.includes('consumables')) {
+      opts.push(
+        { label: "BF (Vakuová fólie)", value: "BF" },
+        { label: "RF (Separační fólie)", value: "RF" },
+        { label: "PP (Strhávací tkanina)", value: "PP" },
+        { label: "PP-PTFE (Teflonová strhávací tkanina)", value: "PP-PTFE" },
+        { label: "BC (Odsávací netkaná textilie)", value: "BC" },
+        { label: "ST (Těsnící páska)", value: "ST" },
+        { label: "FT (Flash tape páska)", value: "FT" },
+        { label: "FM (Distribuční síťka)", value: "FM" },
+        { label: "FCH (Distribuční kanálek)", value: "FCH" },
+        { label: "K (Konektory a fitinky)", value: "K" }
+      )
+    }
+    if (selectedCategories.includes('nastroje')) {
+      opts.push(
+        { label: "BU (Průchodky)", value: "BU" },
+        { label: "QR (Rychlospojky)", value: "QR" },
+        { label: "SQ (Hadice a spirály)", value: "SQ" },
+        { label: "V (Ventily)", value: "V" }
+      )
+    }
+    return opts
+  }, [selectedCategories])
+
+  const mockSubcategoryColumn = React.useMemo(() => ({
+    getFilterValue: () => selectedSubcategories,
+    setFilterValue: (val: any) => {
+      setSelectedSubcategories(val || [])
+    }
+  }), [selectedSubcategories])
+
   // Debounce search input to avoid database overload
   React.useEffect(() => {
     const timer = setTimeout(() => {
@@ -99,13 +149,53 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     return () => clearTimeout(timer)
   }, [globalFilter])
 
-  // Reset local state if server-rendered initial data changes (e.g. page refresh)
+  // Reset selected subcategories if category filter no longer has Consumables or Tools
   React.useEffect(() => {
-    setProducts(initialData)
+    const isApplicable = selectedCategories && (selectedCategories.includes('consumables') || selectedCategories.includes('nastroje'))
+    if (!isApplicable && selectedSubcategories.length > 0) {
+      setSelectedSubcategories([])
+    }
+  }, [selectedCategories, selectedSubcategories.length])
+
+  // Merge server-rendered initial data updates without shrinking the list or resetting page to 0
+  React.useEffect(() => {
+    const matchesFilters = (p: Product) => {
+      if (debouncedSearch && debouncedSearch.trim()) {
+        const s = debouncedSearch.trim().toLowerCase()
+        const nameMatch = p.nazev?.toLowerCase().includes(s)
+        const skuMatch = p.sku?.toLowerCase().includes(s)
+        if (!nameMatch && !skuMatch) return false
+      }
+      if (selectedCategories && selectedCategories.length > 0) {
+        if (!p.kategorie_id || !selectedCategories.includes(p.kategorie_id)) return false
+      }
+      if (selectedStatuses && selectedStatuses.length > 0) {
+        if (!p.stav_katalogu_id || !selectedStatuses.includes(p.stav_katalogu_id)) return false
+      }
+      if (selectedSubcategories && selectedSubcategories.length > 0) {
+        const sub = p.specifikace?.podkategorie
+        if (!sub || !selectedSubcategories.includes(sub)) return false
+      }
+      return true
+    }
+
+    setProducts(prev => {
+      // Update existing products with new data from initialData if they exist, or preserve them
+      const updatedPrev = prev.map(p => {
+        const matchingInitial = initialData.find(init => init.id === p.id)
+        return matchingInitial ? { ...p, ...matchingInitial } : p
+      })
+
+      // Add any new products from initialData that are not in the current list
+      const existingIds = new Set(updatedPrev.map(p => p.id))
+      const brandNew = initialData.filter(init => !existingIds.has(init.id))
+      const nextProducts = [...brandNew, ...updatedPrev].filter(matchesFilters)
+      
+      setHasMore(nextProducts.length < initialTotalCount)
+      return nextProducts
+    })
     setTotalCount(initialTotalCount)
-    setPage(0)
-    setHasMore(initialData.length < initialTotalCount)
-  }, [initialData, initialTotalCount])
+  }, [initialData, initialTotalCount, debouncedSearch, selectedCategories, selectedStatuses, selectedSubcategories])
 
   // Helper to load paginated data based on filters & sorting
   const loadMore = React.useCallback(async () => {
@@ -114,8 +204,6 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     setIsLoading(true)
     try {
       const nextPage = page + 1
-      const selectedCategories = columnFilters.find(f => f.id === 'kategorie_id')?.value as string[] | undefined
-      const selectedStatuses = columnFilters.find(f => f.id === 'stav_katalogu_id')?.value as string[] | undefined
       const sortBy = sorting[0]?.id || 'nazev'
       const sortDesc = sorting[0]?.desc || false
 
@@ -125,6 +213,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
         search: debouncedSearch,
         categories: selectedCategories,
         statuses: selectedStatuses,
+        subcategories: selectedSubcategories,
         sortBy,
         sortDesc
       })
@@ -154,14 +243,12 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     } finally {
       setIsLoading(false)
     }
-  }, [page, isLoading, hasMore, debouncedSearch, columnFilters, sorting])
+  }, [page, isLoading, hasMore, debouncedSearch, selectedCategories, selectedStatuses, selectedSubcategories, sorting])
 
   // Reset to page 0 and load fresh data when filters/search/sorting change
   const resetAndReload = React.useCallback(async () => {
     setIsLoading(true)
     try {
-      const selectedCategories = columnFilters.find(f => f.id === 'kategorie_id')?.value as string[] | undefined
-      const selectedStatuses = columnFilters.find(f => f.id === 'stav_katalogu_id')?.value as string[] | undefined
       const sortBy = sorting[0]?.id || 'nazev'
       const sortDesc = sorting[0]?.desc || false
 
@@ -171,6 +258,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
         search: debouncedSearch,
         categories: selectedCategories,
         statuses: selectedStatuses,
+        subcategories: selectedSubcategories,
         sortBy,
         sortDesc
       })
@@ -190,7 +278,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     } finally {
       setIsLoading(false)
     }
-  }, [debouncedSearch, columnFilters, sorting])
+  }, [debouncedSearch, selectedCategories, selectedStatuses, selectedSubcategories, sorting])
 
   // IntersectionObserver to trigger loading when reaching the bottom margin
   React.useEffect(() => {
@@ -219,8 +307,6 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     async function loadInitialData() {
       setIsLoading(true)
       try {
-        const selectedCategories = columnFilters.find(f => f.id === 'kategorie_id')?.value as string[] | undefined
-        const selectedStatuses = columnFilters.find(f => f.id === 'stav_katalogu_id')?.value as string[] | undefined
         const sortBy = sorting[0]?.id || 'nazev'
         const sortDesc = sorting[0]?.desc || false
 
@@ -230,6 +316,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
           search: debouncedSearch,
           categories: selectedCategories,
           statuses: selectedStatuses,
+          subcategories: selectedSubcategories,
           sortBy,
           sortDesc
         })
@@ -255,14 +342,13 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       }
     }
 
-
-
     // Skip the very first run on mount if the filters/sorting are at their default values
     if (isFirstRender.current) {
       isFirstRender.current = false
       const hasNoActiveFilters = 
         !debouncedSearch && 
         columnFilters.length === 0 && 
+        selectedSubcategories.length === 0 &&
         sorting.length === 1 && sorting[0].id === 'nazev' && !sorting[0].desc
 
       if (hasNoActiveFilters) {
@@ -275,7 +361,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     return () => {
       active = false
     }
-  }, [debouncedSearch, columnFilters, sorting])
+  }, [debouncedSearch, selectedCategories, selectedStatuses, selectedSubcategories, sorting])
 
   const handleCloneProduct = async (product: Product) => {
     try {
@@ -283,7 +369,20 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       const result = await cloneProduct(product.id)
       if (result.error) throw result.error
       toast.success("Produkt úspěšně zduplikován", { id: "clone" })
-      resetAndReload()
+      
+      const newProduct = result.data as Product
+      if (newProduct) {
+        setProducts(prev => {
+          const originalIndex = prev.findIndex(p => p.id === product.id)
+          if (originalIndex === -1) {
+            return [newProduct, ...prev]
+          }
+          const nextProducts = [...prev]
+          nextProducts.splice(originalIndex + 1, 0, newProduct)
+          return nextProducts
+        })
+        setTotalCount(prev => prev + 1)
+      }
     } catch (e: any) {
       toast.error("Chyba při duplikaci", { description: e.message, id: "clone" })
     }
@@ -589,10 +688,21 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
             options={lookups.statuses.map(s => ({ label: s.nazev, value: s.id }))}
           />
           
-          {columnFilters.length > 0 && (
+          {showSubcategoryFilter && (
+            <DataTableFacetedFilter 
+              column={mockSubcategoryColumn as any}
+              title="Podkategorie"
+              options={subcategoryOptions}
+            />
+          )}
+
+          {(columnFilters.length > 0 || selectedSubcategories.length > 0) && (
             <Button 
               variant="ghost" 
-              onClick={() => setColumnFilters([])}
+              onClick={() => {
+                setColumnFilters([])
+                setSelectedSubcategories([])
+              }}
               className="h-9 px-2 text-zinc-500 hover:text-zinc-200"
             >
               <FilterX className="h-4 w-4 mr-2" /> Reset

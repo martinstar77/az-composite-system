@@ -64,7 +64,13 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
             },
             rates,
             settings,
-            template
+            template,
+            (product.c_balici_profily as any) || null,
+            {
+              delka: product.balik_delka_cm_override,
+              sirka: product.balik_sirka_cm_override,
+              vyska: product.balik_vyska_cm_override
+            }
           )
         : null
 

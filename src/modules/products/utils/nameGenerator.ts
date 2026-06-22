@@ -8,7 +8,8 @@ export function generateProductName(
       CF: "Carbon",
       GF: "Glass",
       AF: "Aramid",
-      BF: "Bio",
+      BIOF: "Bio Flax",
+      BIOH: "Bio Hemp",
       OF: "Other",
     }
 
@@ -22,12 +23,18 @@ export function generateProductName(
     const weaveMap: Record<string, string> = {
       P: "Plain",
       T22: "Twill 2/2",
-      T44: "Twill 4/4"
+      T44: "Twill 4/4",
+      NP: "Needle punched",
+      EM: "Emulsion",
+      PB: "Powder binder",
+      ST: "Stitched",
+      "090": "0/90°",
+      "45": "±45°"
     }
 
     // Fiber Code lookup helper (looks in list, falls back to raw ID capitalized)
     function getFiberCodeLabel(codeId: string) {
-      if (!codeId) return ""
+      if (!codeId || codeId.toLowerCase() === "na") return ""
       const found = fiberCodes?.find(f => f.id === codeId.toLowerCase())
       if (found) return found.nazev
       
@@ -55,8 +62,10 @@ export function generateProductName(
     // 1. Resolve Material & Form
     let materialStr = ""
     if (specs.materiál === "HF") {
-      const mat1 = materialMap[specs.material1] || ""
-      const mat2 = materialMap[specs.material2] || ""
+      const mat1Key = specs.material1 || (specs.materiál_složení && specs.materiál_složení[0]) || ""
+      const mat2Key = specs.material2 || (specs.materiál_složení && specs.materiál_složení[1]) || ""
+      const mat1 = materialMap[mat1Key] || ""
+      const mat2 = materialMap[mat2Key] || ""
       materialStr = mat1 && mat2 ? `${mat1} / ${mat2} Hybrid` : "Hybrid"
     } else {
       materialStr = materialMap[specs.materiál] || ""
@@ -69,7 +78,22 @@ export function generateProductName(
     const weightStr = specs.gramáž ? `${specs.gramáž}g/m2` : ""
 
     // 3. Fiber size / Tow
-    const towStr = specs.vlákno && specs.vlákno !== "NA" ? specs.vlákno : ""
+    function formatTow(tow: string) {
+      if (!tow || tow === "NA") return ""
+      if (tow.endsWith("t")) {
+        return tow.replace("t", " Tex")
+      }
+      return tow
+    }
+
+    let towStr = ""
+    if (specs.materiál === "HF") {
+      const t1 = formatTow(specs.vlákno1 || (specs.vlákna_složení && specs.vlákna_složení[0]))
+      const t2 = formatTow(specs.vlákno2 || (specs.vlákna_složení && specs.vlákna_složení[1]))
+      towStr = t1 && t2 ? `${t1} / ${t2}` : (t1 || t2 || "")
+    } else {
+      towStr = formatTow(specs.vlákno)
+    }
 
     // 4. Weave
     const weaveStr = weaveMap[specs.vazba] || specs.vazba || ""
@@ -108,10 +132,10 @@ export function generateProductName(
     switch (sub) {
       case 'BF': {
         const formatMap: Record<string, string> = {
-          TUBE: "hadice",
+          TUBE: "tubus",
           SHT: "plochá",
           VSHT: "V-sklad",
-          GSC: "hadice"
+          GSC: "harmonika"
         }
         const formatStr = formatMap[specs.format] || specs.format || ""
         const thickStr = specs.tloustka_um ? `${specs.tloustka_um}µm` : ""
@@ -128,7 +152,19 @@ export function generateProductName(
         }
         const perfStr = perfMap[specs.perforace] || specs.perforace || ""
         const thickStr = specs.tloustka_um ? `${specs.tloustka_um}µm` : ""
-        const tempStr = specs.teplotni_odolnost || ""
+        const tempMap: Record<string, string> = {
+          LT: "LT",
+          HT: "HT",
+          "120": "120°C",
+          "150": "150°C",
+          "230": "230°C",
+          "260": "260°C",
+          LT120: "120°C",
+          LT150: "150°C",
+          HT230: "230°C",
+          HT260: "260°C"
+        }
+        const tempStr = tempMap[specs.teplotni_odolnost] || specs.teplotni_odolnost || ""
         const widthStr = specs.sirka_cm ? `${specs.sirka_cm}cm` : ""
         return ["Separační fólie", perfStr, thickStr, tempStr, widthStr].filter(Boolean).join(" ")
       }
@@ -144,8 +180,9 @@ export function generateProductName(
       }
       case 'PP-PTFE': {
         const adhStr = specs.je_lepici === true ? "samolepicí" : "nesamolepicí"
+        const thickStr = specs.tloustka_um ? `${specs.tloustka_um}µm` : ""
         const widthStr = specs.sirka_cm ? `${specs.sirka_cm}cm` : ""
-        return ["Teflonová strhávací tkanina", adhStr, widthStr].filter(Boolean).join(" ")
+        return ["Teflonová strhávací tkanina", adhStr, thickStr, widthStr].filter(Boolean).join(" ")
       }
       case 'BC': {
         const weightStr = specs.gramaz_gm2 ? `${specs.gramaz_gm2}g/m2` : ""

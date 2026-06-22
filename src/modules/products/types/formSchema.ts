@@ -27,10 +27,21 @@ export const productFormSchema = z.object({
   min_skladova_zasoba: z.coerce.number().min(0).default(0),
   opt_skladova_zasoba: z.coerce.number().min(0).default(0),
 
+  // Sales MOQ
+  moq_prodejni: z.coerce.number().int().min(1).default(1),
+  moq_poznamka: z.string().optional(),
+  poznamka: z.string().optional(),
+
   // Pricing & Margins
   cilova_marze_retail_procenta: z.coerce.number().min(0).default(30),
   cilova_marze_partner_procenta: z.coerce.number().min(0).default(20),
   clo_procenta: z.coerce.number().min(0).default(0),
+
+  // Packaging & Shipping Engine v2
+  balici_profil_id: z.preprocess(v => v === "" ? null : v, z.string().nullable().optional()),
+  balik_delka_cm_override: z.preprocess(v => v === "" || v === undefined ? null : v, z.coerce.number().nullable().optional()),
+  balik_sirka_cm_override: z.preprocess(v => v === "" || v === undefined ? null : v, z.coerce.number().nullable().optional()),
+  balik_vyska_cm_override: z.preprocess(v => v === "" || v === undefined ? null : v, z.coerce.number().nullable().optional()),
 
   // Generator
   is_name_generated: z.boolean().default(true),

@@ -9,9 +9,29 @@ import { ProductPricingTab } from '@/modules/products/components/ProductPricingT
 import { ProductDocumentsTab } from '@/modules/products/components/ProductDocumentsTab'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/components/ui/tabs"
 import { Badge } from "@/shared/components/ui/badge"
-import { ChevronLeft, Package, Truck, DollarSign, Users, FileText } from "lucide-react"
+import { 
+  ChevronLeft, 
+  Package, 
+  Truck, 
+  DollarSign, 
+  Users, 
+  FileText,
+  Scale,
+  Thermometer,
+  ShieldAlert,
+  Clock,
+  User,
+  ShoppingCart,
+  Calendar,
+  AlertCircle,
+  Settings,
+  Archive,
+  BarChart3,
+  BookOpen
+} from "lucide-react"
 import Link from "next/link"
 import { notFound } from "next/navigation"
+import { resolvePackageDimensions } from "@/modules/finance/utils/packagingEngine"
 
 export default async function ProductDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -48,6 +68,133 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         Chyba: Finanční nastavení nebylo nalezeno. Prosím nastavte globální parametry v sekci Finance.
       </div>
     )
+  }
+
+  const OBAL_TYPES: Record<string, string> = {
+    role: "Role (Válec)",
+    krabice_standard: "Standardní krabice",
+    krabice_dlouha: "Dlouhá krabice",
+    krabice_volna: "Custom rozměry",
+    paleta: "Paleta",
+    sacek: "Sáček / Malý karton",
+  }
+
+  const calculatedDims = resolvePackageDimensions(
+    product.hmotnost_baliku_kg || 0,
+    product.c_balici_profily as any || null,
+    {
+      delka: product.balik_delka_cm_override,
+      sirka: product.balik_sirka_cm_override,
+      vyska: product.balik_vyska_cm_override
+    }
+  )
+
+  const formatDate = (isoString: string) => {
+    if (!isoString) return '—'
+    const d = new Date(isoString)
+    return d.toLocaleString('cs-CZ', {
+      day: 'numeric',
+      month: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  // Parse specifications into readable items
+  const formattedSpecs: { label: string; value: string }[] = []
+  if (product.specifikace && typeof product.specifikace === 'object') {
+    const keyMap: Record<string, string> = {
+      typ: 'Typ materiálu',
+      material: 'Materiál',
+      materiál: 'Materiál',
+      materiál_složení: 'Složení materiálu',
+      gramaz: 'Gramáž',
+      gramáž: 'Gramáž',
+      gramaz_gm2: 'Gramáž',
+      vlakno: 'Vlákno',
+      vlákno: 'Vlákno',
+      vlákno1: 'Vlákno 1 (Osnova)',
+      vlákno2: 'Vlákno 2 (Útek)',
+      vlákna_složení: 'Složení vláken',
+      vazba: 'Vazba / Fixace / Orientace',
+      pouziti: 'Použití',
+      použití: 'Použití',
+      vyrobce_vlakna: 'Výrobce vlákna',
+      výrobce_vlákna: 'Výrobce vlákna',
+      výrobci_složení: 'Složení výrobců vláken',
+      kod_vlakna: 'Kód vlákna',
+      kód_vlákna: 'Kód vlákna',
+      kod_vlakna1: 'Kód vlákna 1',
+      kod_vlakna2: 'Kód vlákna 2',
+      kódy_vláken_složení: 'Složení kódů vláken',
+      sirka_cm: 'Šířka',
+      sirka_mm: 'Šířka',
+      delka_m: 'Délka role',
+      delka_bm: 'Délka role',
+      typ_baleni: 'Typ balení',
+      pocet_kusu: 'Počet kusů v balení',
+      podkategorie: 'Podkategorie',
+      format: 'Formát',
+      tloustka_um: 'Tloušťka',
+      tloustka_mm: 'Tloušťka',
+      teplotni_odolnost: 'Teplotní odolnost',
+      teplotni_odolnost_c: 'Teplotní odolnost',
+      vhodne_do_autoklavu: 'Vhodné do autoklávu',
+      perforace: 'Perforace',
+      polymer: 'Polymer',
+      je_teflon: 'Teflonový produkt',
+      je_lepici: 'Samolepicí úprava',
+      typ_vyroby: 'Typ výroby',
+      barva: 'Barva',
+      rychlost_proudeni: 'Rychlost proudění',
+      flexibilita: 'Flexibilita',
+      vnitrni_prumer_mm: 'Vnitřní průměr',
+      prumer_mm: 'Průměr',
+      identifikator: 'Interní identifikátor'
+    }
+
+    const formatVal = (v: any): string => {
+      if (Array.isArray(v)) {
+        return v.join(' / ')
+      }
+      return String(v)
+    }
+
+    for (const [key, val] of Object.entries(product.specifikace)) {
+      if (val === null || val === undefined || val === '') continue
+      const label = keyMap[key] || (key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '))
+      let formattedValue = formatVal(val)
+      
+      if (['gramaz', 'gramáž', 'gramaz_gm2'].includes(key)) {
+        formattedValue = `${formattedValue} g/m²`
+      } else if (['sirka_cm'].includes(key)) {
+        formattedValue = `${formattedValue} cm`
+      } else if (['sirka_mm', 'tloustka_mm', 'vnitrni_prumer_mm', 'prumer_mm'].includes(key)) {
+        formattedValue = `${formattedValue} mm`
+      } else if (['delka_m', 'delka_bm'].includes(key)) {
+        formattedValue = `${formattedValue} m`
+      } else if (['tloustka_um'].includes(key)) {
+        formattedValue = `${formattedValue} µm`
+      } else if (['teplotni_odolnost_c'].includes(key)) {
+        formattedValue = `${formattedValue} °C`
+      } else if (key === 'teplotni_odolnost' && (formattedValue === 'LT' || formattedValue === 'HT')) {
+        formattedValue = formattedValue === 'HT' ? 'HT (Vysokoteplotní)' : 'LT (Nízkoteplotní)'
+      } else if (key === 'teplotni_odolnost' && (formattedValue.startsWith('LT') || formattedValue.startsWith('HT'))) {
+        const tempNum = formattedValue.replace(/^[A-Z]+/, '')
+        formattedValue = `${formattedValue.startsWith('HT') ? 'HT' : 'LT'} (${tempNum} °C)`
+      } else if (key === 'je_teflon' || key === 'je_lepici' || key === 'vhodne_do_autoklavu') {
+        formattedValue = val === true ? 'Ano' : 'Ne'
+      } else if (key === 'pouziti' || key === 'použití') {
+        const useMap: Record<string, string> = { E: 'Economy (E)', V: 'Visual (V)', I: 'Industry (I)', NA: 'N/A' }
+        formattedValue = useMap[formattedValue] || formattedValue
+      } else if (key === 'typ_baleni') {
+        const packMap: Record<string, string> = { role: 'Role', krabice: 'Krabice (skládané přířezy)', metraz: 'Stříhaná metráž' }
+        formattedValue = packMap[formattedValue] || formattedValue
+      }
+
+      formattedSpecs.push({ label, value: formattedValue })
+    }
   }
 
   return (
@@ -98,36 +245,262 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="info" className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-6">
-            <div className="p-6 bg-zinc-900/50 border border-zinc-800 rounded-xl space-y-4 shadow-xl">
-              <h3 className="text-lg font-semibold border-b border-zinc-800 pb-2 text-primary">Logistické parametry</h3>
-              <div className="grid grid-cols-2 gap-y-4">
-                <div>
-                  <p className="text-xs text-zinc-500 uppercase font-bold">Základní jednotka</p>
-                  <p className="text-lg">{product.c_merne_jednotky_zakladni?.nazev} ({product.c_merne_jednotky_zakladni?.zkratka})</p>
+        <TabsContent value="info" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Left Column: Logistics, Storage & Stock */}
+            <div className="space-y-6">
+              
+              {/* Card 1: Logistické parametry */}
+              <div className="p-6 bg-zinc-900/40 border border-zinc-800 rounded-xl space-y-4 shadow-xl backdrop-blur-sm">
+                <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
+                  <Package className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-bold text-zinc-100">Logistické parametry</h3>
                 </div>
-                <div>
-                  <p className="text-xs text-zinc-500 uppercase font-bold">Hmotnost balíku</p>
-                  <p className="text-lg">{product.hmotnost_baliku_kg} kg</p>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500 uppercase font-bold">Balení</p>
-                  <p className="text-lg">{product.mnozstvi_v_baleni} {product.c_merne_jednotky_baleni?.zkratka}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-zinc-500 uppercase font-bold">Shelf Life</p>
-                  <p className="text-lg">{product.shelf_life_mesice} měsíců</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-5 text-sm">
+                  <div>
+                    <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Základní jednotka</p>
+                    <p className="font-semibold text-zinc-200 mt-0.5">{product.c_merne_jednotky_zakladni?.nazev || '—'} ({product.c_merne_jednotky_zakladni?.zkratka || '—'})</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Hmotnost balíku</p>
+                    <p className="font-semibold text-zinc-200 mt-0.5">{product.hmotnost_baliku_kg != null ? `${product.hmotnost_baliku_kg} kg` : '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Množství v balení</p>
+                    <p className="font-semibold text-zinc-200 mt-0.5">
+                      {product.mnozstvi_v_baleni != null ? product.mnozstvi_v_baleni : '—'} {product.c_merne_jednotky_baleni?.zkratka || ''}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Skladovací podmínky</p>
+                    <p className="font-semibold text-zinc-200 mt-0.5">
+                      {product.def_typ_skladovani === "lednice" ? "Lednice (Chlazené)" : 
+                       product.def_typ_skladovani === "mrazak" ? "Mrazák (Mražené -18°C)" : "Standardní sklad"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Trvanlivost (Shelf Life)</p>
+                    <p className="font-semibold text-zinc-200 mt-0.5">
+                      {product.shelf_life_mesice ? `${product.shelf_life_mesice} měsíců` : "Neomezená"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Typ štítku (Label)</p>
+                    <p className="font-semibold text-zinc-200 mt-0.5">{product.c_typy_labelu?.nazev || 'Standardní'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Proces odeslání ze skladu</p>
+                    <p className="font-semibold text-zinc-200 mt-0.5">{product.c_procesy_odeslani?.nazev || '—'}</p>
+                  </div>
                 </div>
               </div>
+
+              {/* Card 2: Skladové zásoby & Limity */}
+              <div className="p-6 bg-zinc-900/40 border border-zinc-800 rounded-xl space-y-4 shadow-xl backdrop-blur-sm">
+                <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
+                  <BarChart3 className="h-5 w-5 text-indigo-500" />
+                  <h3 className="text-lg font-bold text-zinc-100">Skladové zásoby & Limity</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="p-3 bg-zinc-950/40 border border-zinc-850 rounded-lg">
+                    <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Minimální zásoba</p>
+                    <p className="text-xl font-bold text-red-400 mt-1">
+                      {product.min_skladova_zasoba ?? 0} <span className="text-xs font-normal text-zinc-400">{product.c_merne_jednotky_zakladni?.zkratka}</span>
+                    </p>
+                  </div>
+                  <div className="p-3 bg-zinc-950/40 border border-zinc-850 rounded-lg">
+                    <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Optimální zásoba</p>
+                    <p className="text-xl font-bold text-emerald-400 mt-1">
+                      {product.opt_skladova_zasoba ?? 0} <span className="text-xs font-normal text-zinc-400">{product.c_merne_jednotky_zakladni?.zkratka}</span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Sales MOQ */}
+              <div className="p-6 bg-zinc-900/40 border border-zinc-800 rounded-xl space-y-4 shadow-xl backdrop-blur-sm">
+                <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
+                  <ShoppingCart className="h-5 w-5 text-amber-500" />
+                  <h3 className="text-lg font-bold text-zinc-100">Minimální prodejní množství (Sales MOQ)</h3>
+                </div>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Min. množství pro objednávku</p>
+                    <p className="text-lg font-bold text-zinc-200 mt-0.5">
+                      {product.moq_prodejni ?? 1} {product.c_merne_jednotky_zakladni?.zkratka}
+                    </p>
+                  </div>
+                  {product.moq_poznamka && (
+                    <div className="flex gap-2 items-start bg-amber-500/5 border border-amber-500/20 text-amber-200 p-3 rounded-lg text-xs leading-relaxed">
+                      <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                      <span>{product.moq_poznamka}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Card 4: Poznámka k produktu */}
+              {product.poznamka && (
+                <div className="p-6 bg-zinc-900/40 border border-zinc-800 rounded-xl space-y-3 shadow-xl backdrop-blur-sm border-l-4 border-l-primary">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 text-primary" />
+                    <h4 className="text-xs uppercase text-zinc-400 font-bold tracking-wider">Interní poznámka</h4>
+                  </div>
+                  <p className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">{product.poznamka}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Right Column: Specifications & Shipping Engine */}
+            <div className="space-y-6">
+              
+              {/* Card 5: Technické specifikace */}
+              <div className="p-6 bg-zinc-900/40 border border-zinc-800 rounded-xl space-y-4 shadow-xl backdrop-blur-sm h-fit">
+                <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
+                  <Settings className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-bold text-zinc-100">Technické specifikace</h3>
+                </div>
+                
+                {formattedSpecs.length > 0 ? (
+                  <div className="border border-zinc-800 rounded-lg overflow-hidden bg-zinc-950/20">
+                    <table className="w-full text-sm text-left">
+                      <tbody>
+                        {formattedSpecs.map((spec, i) => (
+                          <tr key={i} className="border-b border-zinc-850 last:border-0 hover:bg-zinc-900/20 transition-colors">
+                            <td className="px-4 py-3 text-xs text-zinc-500 font-bold uppercase tracking-wider w-5/12">{spec.label}</td>
+                            <td className="px-4 py-3 text-zinc-200 font-semibold">{spec.value}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-zinc-500 italic p-4 text-center border border-dashed border-zinc-800 rounded-lg">
+                    Tento produkt nemá žádné uložené technické specifikace.
+                  </p>
+                )}
+
+                {/* Collapsible raw JSON */}
+                {product.specifikace && Object.keys(product.specifikace).length > 0 && (
+                  <div className="pt-2">
+                    <details className="group border border-zinc-800 rounded-lg overflow-hidden bg-zinc-950/40">
+                      <summary className="flex justify-between items-center p-3 text-xs text-zinc-500 font-medium cursor-pointer hover:bg-zinc-900/30 select-none">
+                        <span>Zobrazit surová JSON data specifikací</span>
+                        <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 group-open:hidden">Zobrazit</span>
+                        <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-zinc-400 hidden group-open:inline">Skrýt</span>
+                      </summary>
+                      <div className="p-4 border-t border-zinc-850 overflow-auto max-h-60 font-mono text-xs text-primary/80">
+                        <pre>{JSON.stringify(product.specifikace, null, 2)}</pre>
+                      </div>
+                    </details>
+                  </div>
+                )}
+              </div>
+
+              {/* Card 6: Expedice a rozměry balíku */}
+              <div className="p-6 bg-zinc-900/40 border border-zinc-800 rounded-xl space-y-4 shadow-xl backdrop-blur-sm">
+                <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
+                  <Truck className="h-5 w-5 text-sky-500" />
+                  <h3 className="text-lg font-bold text-zinc-100">Expedice a balení</h3>
+                </div>
+                
+                <div className="space-y-4 text-sm">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Balicí profil</p>
+                      <p className="font-semibold text-zinc-200 mt-0.5">
+                        {product.c_balici_profily?.nazev || "Žádný profil (Legacy výpočet)"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Typ obalu</p>
+                      <p className="font-semibold text-zinc-200 mt-0.5 capitalize">
+                        {product.c_balici_profily?.typ_obalu 
+                          ? (OBAL_TYPES[product.c_balici_profily.typ_obalu] || product.c_balici_profily.typ_obalu)
+                          : "Legacy / Custom"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Calculated Package Dimensions */}
+                  <div className="p-4 bg-zinc-950/40 border border-zinc-850 rounded-lg space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Vypočtené rozměry zásilky</span>
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-primary/5 text-primary border-primary/20">
+                        {calculatedDims.resolvedBy === 'override' ? 'Manuální Override' :
+                         calculatedDims.resolvedBy === 'profile_fixed' ? 'Fixní z profilu' :
+                         calculatedDims.resolvedBy === 'profile_roll_calc' ? 'Kalkulace role' :
+                         calculatedDims.resolvedBy === 'profile_box_lookup' ? 'Hmotnostní lookup' : 'Výchozí rozměry'}
+                      </Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-2 text-center py-1">
+                      <div className="bg-zinc-900/60 p-2 rounded border border-zinc-850">
+                        <span className="block text-[9px] text-zinc-500 uppercase">Délka</span>
+                        <span className="text-sm font-semibold font-mono text-zinc-200">{calculatedDims.delka_cm} cm</span>
+                      </div>
+                      <div className="bg-zinc-900/60 p-2 rounded border border-zinc-850">
+                        <span className="block text-[9px] text-zinc-500 uppercase">Šířka</span>
+                        <span className="text-sm font-semibold font-mono text-zinc-200">{calculatedDims.sirka_cm} cm</span>
+                      </div>
+                      <div className="bg-zinc-900/60 p-2 rounded border border-zinc-850">
+                        <span className="block text-[9px] text-zinc-500 uppercase">Výška</span>
+                        <span className="text-sm font-semibold font-mono text-zinc-200">{calculatedDims.vyska_cm} cm</span>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-zinc-900 pt-2 space-y-1.5 text-xs">
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Reálná hmotnost:</span>
+                        <span className="font-semibold text-zinc-200">{product.hmotnost_baliku_kg || 0} kg</span>
+                      </div>
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Objemová hmotnost:</span>
+                        <span className="font-semibold text-zinc-200">{calculatedDims.volumetricWeight_kg} kg</span>
+                      </div>
+                      <div className="flex justify-between text-zinc-300 font-bold border-t border-zinc-900/55 pt-1.5">
+                        <span>Účtovaná hmotnost:</span>
+                        <span className="text-primary">{calculatedDims.billedWeight_kg} kg</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
 
-          <div className="p-6 bg-zinc-900/50 border border-zinc-800 rounded-xl space-y-4 shadow-xl h-fit">
-            <h3 className="text-lg font-semibold border-b border-zinc-800 pb-2 text-primary">Technické specifikace (JSONB)</h3>
-            <pre className="text-xs bg-zinc-950 p-4 rounded-lg font-mono text-primary/80 overflow-auto border border-zinc-800 shadow-inner">
-              {JSON.stringify(product.specifikace, null, 2)}
-            </pre>
+          {/* System & Audit information */}
+          <div className="p-4 bg-zinc-950/40 border border-zinc-850 rounded-xl flex flex-col md:flex-row justify-between gap-4 text-[11px] text-zinc-500 shadow-md">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-zinc-600" />
+              <div className="flex flex-wrap gap-x-1.5">
+                <span>Vytvořeno:</span>
+                <span className="font-semibold text-zinc-400">{formatDate(product.vytvoreno_at)}</span>
+                {product.vytvoril?.jmeno && (
+                  <>
+                    <span className="text-zinc-700">|</span>
+                    <span>Uživatel:</span>
+                    <span className="font-semibold text-zinc-400">{product.vytvoril.jmeno}</span>
+                  </>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-zinc-600" />
+              <div className="flex flex-wrap gap-x-1.5">
+                <span>Poslední změna:</span>
+                <span className="font-semibold text-zinc-400">{formatDate(product.aktualizovano_at)}</span>
+                {product.upravil?.jmeno && (
+                  <>
+                    <span className="text-zinc-700">|</span>
+                    <span>Upravil:</span>
+                    <span className="font-semibold text-zinc-400">{product.upravil.jmeno}</span>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </TabsContent>
 

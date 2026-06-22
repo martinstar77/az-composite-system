@@ -20,3 +20,6 @@ export interface GlobalFinanceSettings {
   upravil_id: string | null
   upravil?: { jmeno: string }
 }
+
+export * from "./logistics"
+

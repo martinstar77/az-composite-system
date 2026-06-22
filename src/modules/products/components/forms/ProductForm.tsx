@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
@@ -20,6 +20,38 @@ import { productFormSchema, type ProductFormValues } from "@/modules/products/ty
 import { createProduct, updateProduct, checkSkuExists } from "@/modules/products/actions"
 import { Product } from "../../types"
 import { generateProductName } from "../../utils/nameGenerator"
+import { resolvePackageDimensions } from "@/modules/finance/utils/packagingEngine"
+import { Package, ShoppingCart } from "lucide-react"
+
+const OBAL_TYPES: Record<string, string> = {
+  role: "Role (Válec)",
+  krabice_standard: "Standardní krabice (Lookup)",
+  krabice_dlouha: "Dlouhá krabice (Fixní délka)",
+  krabice_volna: "Custom rozměry",
+  paleta: "Paleta",
+  sacek: "Sáček / Malý karton",
+}
+
+const CARBON_TOW_OPTIONS = [
+  { val: "1K", label: "1K" },
+  { val: "3K", label: "3K" },
+  { val: "6K", label: "6K" },
+  { val: "12K", label: "12K" },
+  { val: "24K", label: "24K" },
+  { val: "48K", label: "48K" },
+  { val: "NA", label: "N/A" }
+]
+
+const NON_CARBON_TOW_OPTIONS = [
+  { val: "220t", label: "220 Tex (220t)" },
+  { val: "420t", label: "420 Tex (420t)" },
+  { val: "600t", label: "600 Tex (600t)" },
+  { val: "610t", label: "610 Tex (610t)" },
+  { val: "1200t", label: "1200 Tex (1200t)" },
+  { val: "2400t", label: "2400 Tex (2400t)" },
+  { val: "3200t", label: "3200 Tex (3200t)" },
+  { val: "NA", label: "N/A" }
+]
 
 interface ProductFormProps {
   initialData?: Product
@@ -58,7 +90,16 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       cilova_marze_retail_procenta: initialData?.cilova_marze_retail_procenta || 30,
       cilova_marze_partner_procenta: initialData?.cilova_marze_partner_procenta || 20,
       clo_procenta: initialData?.clo_procenta || 0,
+      moq_prodejni: initialData?.moq_prodejni ?? 1,
+      moq_poznamka: initialData?.moq_poznamka || "",
+      poznamka: initialData?.poznamka || "",
       is_name_generated: initialData ? (initialData as any).is_name_generated : true,
+
+      // Packaging & Shipping Engine v2
+      balici_profil_id: initialData?.balici_profil_id || "",
+      balik_delka_cm_override: initialData?.balik_delka_cm_override ?? undefined,
+      balik_sirka_cm_override: initialData?.balik_sirka_cm_override ?? undefined,
+      balik_vyska_cm_override: initialData?.balik_vyska_cm_override ?? undefined,
     }
   })
 
@@ -72,6 +113,27 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const defTypSkladovani = watch("def_typ_skladovani")
   const currentSku = watch("sku")
 
+  // Packaging & Shipping Engine v2 Watches & Computations
+  const baliciProfilId = watch("balici_profil_id")
+  const overrideDelka = watch("balik_delka_cm_override")
+  const overrideSirka = watch("balik_sirka_cm_override")
+  const overrideVyska = watch("balik_vyska_cm_override")
+  const hmotnostBaliku = watch("hmotnost_baliku_kg")
+
+  const activeProfile = useMemo(() => {
+    return (lookups as any).profiles?.find((p: any) => p.id === baliciProfilId) || null
+  }, [lookups, baliciProfilId])
+
+  const calculatedPackage = useMemo(() => {
+    const w = parseFloat(String(hmotnostBaliku)) || 0
+    const overrides = {
+      delka: overrideDelka ? parseFloat(String(overrideDelka)) : null,
+      sirka: overrideSirka ? parseFloat(String(overrideSirka)) : null,
+      vyska: overrideVyska ? parseFloat(String(overrideVyska)) : null
+    }
+    return resolvePackageDimensions(w, activeProfile, overrides)
+  }, [hmotnostBaliku, activeProfile, overrideDelka, overrideSirka, overrideVyska])
+
   // Live Validation State
   const [skuExists, setSkuExists] = useState(false)
 
@@ -82,6 +144,20 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [fabForm, setFabForm] = useState(specs.typ || "WF")
   const [fabWeight, setFabWeight] = useState(String(specs.gramáž || "200"))
   const [fabTow, setFabTow] = useState(specs.vlákno || "3K")
+  const [fabTow1, setFabTow1] = useState<string>(() => {
+    if (specs.materiál === "HF") {
+      if (Array.isArray(specs.vlákna_složení)) return specs.vlákna_složení[0] || "3K"
+      if (specs.vlákno1) return specs.vlákno1
+    }
+    return "3K"
+  })
+  const [fabTow2, setFabTow2] = useState<string>(() => {
+    if (specs.materiál === "HF") {
+      if (Array.isArray(specs.vlákna_složení)) return specs.vlákna_složení[1] || "2400t"
+      if (specs.vlákno2) return specs.vlákno2
+    }
+    return "2400t"
+  })
   const [fabWeave, setFabWeave] = useState(specs.vazba || "T22")
   const [fabUse, setFabUse] = useState(specs.použití || "E") // Economy, Visual, Industry (E, V, I)
   const [fabBrand, setFabBrand] = useState(specs.výrobce_vlákna && specs.materiál !== "HF" ? specs.výrobce_vlákna : "TO")
@@ -185,7 +261,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   // RF – Release Film
   const [conRfPerf, setConRfPerf] = useState(specs.perforace || "NP")
   const [conRfTloustka, setConRfTloustka] = useState(specs.tloustka_um ? String(specs.tloustka_um) : "25")
-  const [conRfTemp, setConRfTemp] = useState(specs.teplotni_odolnost || "LT")
+  const [conRfTemp, setConRfTemp] = useState(specs.teplotni_odolnost || "LT120")
 
   // PP – Peel Ply
   const [conPpPolymer, setConPpPolymer] = useState(specs.polymer || "PE")
@@ -193,6 +269,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
   // PP-PTFE – PTFE Peel Ply
   const [conPtfeAdhesive, setConPtfeAdhesive] = useState(specs.je_lepici === true ? "ADH" : "NADH")
+  const [conPtfeTloustka, setConPtfeTloustka] = useState(specs.tloustka_um ? String(specs.tloustka_um) : "80")
 
   // BC – Breather
   const [conBcGramaz, setConBcGramaz] = useState(specs.gramaz_gm2 ? String(specs.gramaz_gm2) : "150")
@@ -230,6 +307,71 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [conKTvar, setConKTvar] = useState(specs.tvar || "T")
   const [conKPrumer, setConKPrumer] = useState(specs.vnejsi_prumer_mm ? String(specs.vnejsi_prumer_mm) : "20")
 
+  // Auto-map packaging profile based on category and package type defaults
+  useEffect(() => {
+    if (initialData) return // Don't override existing product data on edit
+
+    const profilesList = (lookups as any).profiles || []
+    if (profilesList.length === 0) return
+
+    if (kategorieId === "vyztuzne_materialy" || kategorieId === "consumables") {
+      if (fabPackType === "role") {
+        const found = profilesList.find((p: any) => p.typ_obalu === "role" && p.nazev.includes("127"))
+        if (found) setValue("balici_profil_id", found.id)
+      } else if (fabPackType === "krabice") {
+        const found = profilesList.find((p: any) => p.typ_obalu === "krabice_standard")
+        if (found) setValue("balici_profil_id", found.id)
+      }
+    } else if (kategorieId === "spotrebni_chemie" || kategorieId === "spojovaci_material" || kategorieId === "brouseni_a_lesteni") {
+      const found = profilesList.find((p: any) => p.typ_obalu === "krabice_standard")
+      if (found) setValue("balici_profil_id", found.id)
+    }
+  }, [kategorieId, fabPackType, lookups, setValue, initialData])
+
+  // Synchronize weave/fixation/orientation when form type changes to/from MAT or BIAX
+  useEffect(() => {
+    if (fabForm === "MAT") {
+      if (!["NP", "EM", "PB", "ST"].includes(fabWeave)) {
+        setFabWeave("NP")
+      }
+    } else if (fabForm === "BIAX") {
+      if (!["090", "45"].includes(fabWeave)) {
+        setFabWeave("45")
+      }
+    } else {
+      if (["NP", "EM", "PB", "ST", "090", "45"].includes(fabWeave)) {
+        setFabWeave("T22")
+      }
+    }
+  }, [fabForm, fabWeave])
+
+  // Synchronize fiber tow options based on material selection (Carbon vs non-Carbon)
+  useEffect(() => {
+    if (fabMat !== "HF") {
+      const isCarbon = fabMat === "CF"
+      const currentOptions = isCarbon ? CARBON_TOW_OPTIONS : NON_CARBON_TOW_OPTIONS
+      if (!currentOptions.some(o => o.val === fabTow)) {
+        setFabTow(isCarbon ? "3K" : "2400t")
+      }
+    }
+  }, [fabMat, fabTow])
+
+  useEffect(() => {
+    const isCarbon = fabMat1 === "CF"
+    const currentOptions = isCarbon ? CARBON_TOW_OPTIONS : NON_CARBON_TOW_OPTIONS
+    if (!currentOptions.some(o => o.val === fabTow1)) {
+      setFabTow1(isCarbon ? "3K" : "2400t")
+    }
+  }, [fabMat1, fabTow1])
+
+  useEffect(() => {
+    const isCarbon = fabMat2 === "CF"
+    const currentOptions = isCarbon ? CARBON_TOW_OPTIONS : NON_CARBON_TOW_OPTIONS
+    if (!currentOptions.some(o => o.val === fabTow2)) {
+      setFabTow2(isCarbon ? "3K" : "2400t")
+    }
+  }, [fabMat2, fabTow2])
+
   useEffect(() => {
     let generatedSku = ""
     let generatedSpecs = {}
@@ -258,15 +400,20 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         setValue("jednotka_baleni_id", uom, { shouldValidate: true })
 
         const w_cm = Math.round(w)
+        const lenSuffix = (fabPackType === "role" && l > 0) ? `-R${Math.round(l)}` : ""
+        
         if (fabMat === "HF") {
-          const fiberCodesSku = `${fabFiberCode1}${fabFiberCode2}`.toUpperCase()
-          generatedSku = `${fabForm}-${fabMat1}${fabMat2}-${fabWeight}-${fabTow}-${fabWeave}-${w_cm}-${fiberCodesSku}-${fabUse}`
+          // WF-CFAF-164-T22-3K-SYT45-2400t-TC33-100-E-R100
+          generatedSku = `${fabForm}-${fabMat1}${fabMat2}-${fabWeight}-${fabWeave}-${fabTow1}-${fabFiberCode1.toUpperCase()}-${fabTow2}-${fabFiberCode2.toUpperCase()}-${w_cm}-${fabUse}${lenSuffix}`
           generatedSpecs = {
             typ: fabForm,
             materiál: fabMat,
             materiál_složení: [fabMat1, fabMat2],
             gramáž: parseInt(fabWeight) || 0,
-            vlákno: fabTow,
+            vlákno: `${fabTow1} / ${fabTow2}`,
+            vlákno1: fabTow1,
+            vlákno2: fabTow2,
+            vlákna_složení: [fabTow1, fabTow2],
             vazba: fabWeave,
             použití: fabUse,
             výrobce_vlákna: `${fabBrand1}${fabBrand2}`,
@@ -281,7 +428,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           }
         } else {
           const fiberCodeSku = fabFiberCode.toUpperCase()
-          generatedSku = `${fabForm}-${fabMat}-${fabWeight}-${fabTow}-${fabWeave}-${w_cm}-${fiberCodeSku}-${fabUse}`
+          // WF-CF-160-T22-3K-SYT45-100-E-R100
+          generatedSku = `${fabForm}-${fabMat}-${fabWeight}-${fabWeave}-${fabTow}-${fiberCodeSku}-${w_cm}-${fabUse}${lenSuffix}`
           generatedSpecs = { 
             typ: fabForm, 
             materiál: fabMat, 
@@ -383,7 +531,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
             
             const w_cm = Math.round(rW)
-            generatedSku = `BF-${conBfFormat}-${conBfTloustka}-${conBfTemp}-${w_cm}`
+            const lenSuffix = rL > 0 ? `-R${Math.round(rL)}` : ""
+            generatedSku = `BF-${conBfFormat}-${conBfTloustka}-${conBfTemp}-${w_cm}${lenSuffix}`
             generatedSpecs = {
               podkategorie: "BF",
               format: conBfFormat,
@@ -402,7 +551,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
             
             const w_cm = Math.round(rW)
-            generatedSku = `RF-${conRfPerf}-${conRfTloustka}-${conRfTemp}-${w_cm}`
+            const lenSuffix = rL > 0 ? `-R${Math.round(rL)}` : ""
+            generatedSku = `RF-${conRfPerf}-${conRfTloustka}-${conRfTemp}-${w_cm}${lenSuffix}`
             generatedSpecs = {
               podkategorie: "RF",
               perforace: conRfPerf,
@@ -420,7 +570,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
             
             const w_cm = Math.round(rW)
-            generatedSku = `PP-${conPpPolymer}-${conPpGramaz}-${w_cm}`
+            const lenSuffix = rL > 0 ? `-R${Math.round(rL)}` : ""
+            generatedSku = `PP-${conPpPolymer}-${conPpGramaz}-${w_cm}${lenSuffix}`
             generatedSpecs = {
               podkategorie: "PP",
               polymer: conPpPolymer,
@@ -437,12 +588,14 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
             
             const w_cm = Math.round(rW)
-            generatedSku = `PP-PTFE-${conPtfeAdhesive}-${w_cm}`
+            const lenSuffix = rL > 0 ? `-R${Math.round(rL)}` : ""
+            generatedSku = `PP-PTFE-${conPtfeAdhesive}-${conPtfeTloustka}-${w_cm}${lenSuffix}`
             generatedSpecs = {
               podkategorie: "PP-PTFE",
               polymer: "PTFE",
               je_teflon: true,
               je_lepici: conPtfeAdhesive === "ADH",
+              tloustka_um: parseInt(conPtfeTloustka) || 0,
               sirka_cm: w_cm,
               delka_m: rL
             }
@@ -455,7 +608,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
             
             const w_cm = Math.round(rW)
-            generatedSku = `BC-${conBcGramaz}-${w_cm}`
+            const lenSuffix = rL > 0 ? `-R${Math.round(rL)}` : ""
+            generatedSku = `BC-${conBcGramaz}-${w_cm}${lenSuffix}`
             generatedSpecs = {
               podkategorie: "BC",
               gramaz_gm2: parseInt(conBcGramaz) || 0,
@@ -470,7 +624,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             setValue("jednotka_baleni_id", "role", { shouldValidate: true })
             setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
             
-            generatedSku = `ST-${conStTemp}-${conStSirka}`
+            const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
+            generatedSku = `ST-${conStTemp}-${conStSirka}${lenSuffix}`
             generatedSpecs = {
               podkategorie: "ST",
               teplotni_odolnost_c: parseInt(conStTemp) || 0,
@@ -486,7 +641,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             setValue("jednotka_baleni_id", "role", { shouldValidate: true })
             setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
             
-            generatedSku = `FT-${conFtSirka}-${conFtTemp}`
+            const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
+            generatedSku = `FT-${conFtSirka}-${conFtTemp}${lenSuffix}`
             generatedSpecs = {
               podkategorie: "FT",
               sirka_mm: parseInt(conFtSirka) || 0,
@@ -501,7 +657,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             setValue("jednotka_baleni_id", "role", { shouldValidate: true })
             setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
             
-            generatedSku = `FM-${conFmTyp}-${conFmMaterial}-${conFmBarva}`
+            const lenSuffix = rL > 0 ? `-R${Math.round(rL)}` : ""
+            generatedSku = `FM-${conFmTyp}-${conFmMaterial}-${conFmBarva}${lenSuffix}`
             generatedSpecs = {
               podkategorie: "FM",
               typ_vyroby: conFmTyp,
@@ -525,7 +682,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 setValue("jednotka_baleni_id", "role", { shouldValidate: true })
                 setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
                 
-                generatedSku = `FCH-TAPE-${conFchMaterial}-${conFchSirka}`
+                const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
+                generatedSku = `FCH-TAPE-${conFchMaterial}-${conFchSirka}${lenSuffix}`
                 generatedSpecs = {
                   podkategorie: "FCH",
                   podtyp_fch: "TAPE",
@@ -543,7 +701,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 setValue("jednotka_baleni_id", "role", { shouldValidate: true })
                 setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
                 
-                generatedSku = `FCH-SPRL-${conFchMaterial}-${conFchPrumer}`
+                const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
+                generatedSku = `FCH-SPRL-${conFchMaterial}-${conFchPrumer}${lenSuffix}`
                 generatedSpecs = {
                   podkategorie: "FCH",
                   podtyp_fch: "SPRL",
@@ -560,7 +719,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 setValue("jednotka_baleni_id", "role", { shouldValidate: true })
                 setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
                 
-                generatedSku = `FCH-OMEGA-${conFchPrumer}`
+                const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
+                generatedSku = `FCH-OMEGA-${conFchPrumer}${lenSuffix}`
                 generatedSpecs = {
                   podkategorie: "FCH",
                   podtyp_fch: "OMEGA",
@@ -576,7 +736,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 setValue("jednotka_baleni_id", "role", { shouldValidate: true })
                 setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
                 
-                generatedSku = `FCH-TTUBE-${conFchPrumer}`
+                const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
+                generatedSku = `FCH-TTUBE-${conFchPrumer}${lenSuffix}`
                 generatedSpecs = {
                   podkategorie: "FCH",
                   podtyp_fch: "TTUBE",
@@ -618,7 +779,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         setValue("nazev", generatedName, { shouldValidate: true })
       }
     }
-  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, clnBrand, clnPack, coreMat, coreDens, coreThick, coreFinish, polBrand, polCont, polSize, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conBcGramaz, conStTemp, conStSirka, conStDelka, conFtSirka, conFtTemp, conFtDelka, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, setValue, lookups.fiberCodes])
+  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, clnBrand, clnPack, coreMat, coreDens, coreThick, coreFinish, polBrand, polCont, polSize, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conFtSirka, conFtTemp, conFtDelka, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, setValue, lookups.fiberCodes])
 
   // Live SKU Duplicate Check (Debounced)
   useEffect(() => {
@@ -726,7 +887,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             {options.find(o => o.val === value)?.label}
           </SelectValue>
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="min-w-[300px]">
           {options.map(o => <SelectItem key={o.val} value={o.val}>{o.label}</SelectItem>)}
         </SelectContent>
       </Select>
@@ -736,7 +897,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const isChemicalCategory = kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie';
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
       
       {/* 1. Hlavní klasifikace (Kategorie a Název) */}
       <div className="grid grid-cols-2 gap-4">
@@ -792,7 +953,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             {val:"GF", label:"GF (Glass)"},
             {val:"AF", label:"AF (Aramid)"},
             {val:"HF", label:"HF (Hybrid Fibre)"},
-            {val:"BF", label:"BF (Bio)"},
+            {val:"BIOF", label:"BIOF (Flax)"},
+            {val:"BIOH", label:"BIOH (Hemp)"},
             {val:"OF", label:"OF (Other)"}
           ])}
           {fabMat === "HF" && (
@@ -801,22 +963,69 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 {val:"CF", label:"CF (Carbon)"},
                 {val:"GF", label:"GF (Glass)"},
                 {val:"AF", label:"AF (Aramid)"},
-                {val:"BF", label:"BF (Bio)"},
+                {val:"BIOF", label:"BIOF (Flax)"},
+                {val:"BIOH", label:"BIOH (Hemp)"},
                 {val:"OF", label:"OF (Other)"}
               ])}
               {renderSelect("Materiál 2", fabMat2, setFabMat2, [
                 {val:"CF", label:"CF (Carbon)"},
                 {val:"GF", label:"GF (Glass)"},
                 {val:"AF", label:"AF (Aramid)"},
-                {val:"BF", label:"BF (Bio)"},
+                {val:"BIOF", label:"BIOF (Flax)"},
+                {val:"BIOH", label:"BIOH (Hemp)"},
                 {val:"OF", label:"OF (Other)"}
               ])}
             </>
           )}
           <div className="space-y-2"><Label className="text-xs text-muted-foreground">Gramáž (g)</Label><Input type="number" value={fabWeight} onChange={(e) => setFabWeight(e.target.value)} className="h-8 bg-background" /></div>
-          {renderSelect("Vlákno", fabTow, setFabTow, [{val:"1K", label:"1K"}, {val:"3K", label:"3K"}, {val:"6K", label:"6K"}, {val:"12K", label:"12K"}, {val:"NA", label:"N/A"}])}
-          {renderSelect("Vazba", fabWeave, setFabWeave, [{val:"P", label:"P (Plain)"}, {val:"T22", label:"T22 (Twill)"}, {val:"T44", label:"T44 (Twill)"}])}
-          {renderSelect("Použití", fabUse, setFabUse, [{val:"E", label:"E (Economy)"}, {val:"V", label:"V (Visual)"}, {val:"I", label:"I (Industry)"}])}
+          {fabMat === "HF" ? (
+            <>
+              {renderSelect(
+                "Vlákno 1", 
+                fabTow1, 
+                setFabTow1, 
+                fabMat1 === "CF" ? CARBON_TOW_OPTIONS : NON_CARBON_TOW_OPTIONS
+              )}
+              {renderSelect(
+                "Vlákno 2", 
+                fabTow2, 
+                setFabTow2, 
+                fabMat2 === "CF" ? CARBON_TOW_OPTIONS : NON_CARBON_TOW_OPTIONS
+              )}
+            </>
+          ) : (
+            renderSelect(
+              "Vlákno", 
+              fabTow, 
+              setFabTow, 
+              fabMat === "CF" ? CARBON_TOW_OPTIONS : NON_CARBON_TOW_OPTIONS
+            )
+          )}
+          {fabForm === "MAT" ? (
+            renderSelect("Fixace", fabWeave, setFabWeave, [
+              {val:"NP", label:"NP (Needle punched)"},
+              {val:"EM", label:"EM (Emulsion)"},
+              {val:"PB", label:"PB (Powder binder)"},
+              {val:"ST", label:"ST (Stitched)"}
+            ])
+          ) : fabForm === "BIAX" ? (
+            renderSelect("Orientace", fabWeave, setFabWeave, [
+              {val:"090", label:"0/90 (0°/90°)"},
+              {val:"45", label:"±45 (±45°)"}
+            ])
+          ) : (
+            renderSelect("Vazba", fabWeave, setFabWeave, [
+              {val:"P", label:"P (Plain)"},
+              {val:"T22", label:"T22 (Twill)"},
+              {val:"T44", label:"T44 (Twill)"}
+            ])
+          )}
+          {renderSelect("Použití", fabUse, setFabUse, [
+            {val:"E", label:"E (Economy)"},
+            {val:"V", label:"V (Visual)"},
+            {val:"I", label:"I (Industry)"},
+            {val:"NA", label:"N/A"}
+          ])}
           {fabMat === "HF" ? (
             <>
               {renderSelect("Výrobce 1 (Interní)", fabBrand1, setFabBrand1, [
@@ -827,7 +1036,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 {val:"MI", label:"MI (Mitsubishi)"},
                 {val:"HX", label:"HX (Hexcel)"},
                 {val:"TO", label:"TO (Toray)"},
-                {val:"DP", label:"DP (Dupont)"}
+                {val:"DP", label:"DP (Dupont)"},
+                {val:"NA", label:"N/A"}
               ])}
               {renderSelect("Výrobce 2 (Interní)", fabBrand2, setFabBrand2, [
                 {val:"ZH", label:"ZH (Zhongfu)"},
@@ -837,10 +1047,17 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 {val:"MI", label:"MI (Mitsubishi)"},
                 {val:"HX", label:"HX (Hexcel)"},
                 {val:"TO", label:"TO (Toray)"},
-                {val:"DP", label:"DP (Dupont)"}
+                {val:"DP", label:"DP (Dupont)"},
+                {val:"NA", label:"N/A"}
               ])}
-              {renderSelect("Kód vlákna 1", fabFiberCode1, setFabFiberCode1, (lookups.fiberCodes || []).map((f: any) => ({ val: f.id, label: f.nazev })))}
-              {renderSelect("Kód vlákna 2", fabFiberCode2, setFabFiberCode2, (lookups.fiberCodes || []).map((f: any) => ({ val: f.id, label: f.nazev })))}
+              {renderSelect("Kód vlákna 1", fabFiberCode1, setFabFiberCode1, [
+                {val:"na", label:"N/A"},
+                ...(lookups.fiberCodes || []).map((f: any) => ({ val: f.id, label: f.nazev }))
+              ])}
+              {renderSelect("Kód vlákna 2", fabFiberCode2, setFabFiberCode2, [
+                {val:"na", label:"N/A"},
+                ...(lookups.fiberCodes || []).map((f: any) => ({ val: f.id, label: f.nazev }))
+              ])}
             </>
           ) : (
             <>
@@ -852,9 +1069,13 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 {val:"MI", label:"MI (Mitsubishi)"},
                 {val:"HX", label:"HX (Hexcel)"},
                 {val:"TO", label:"TO (Toray)"},
-                {val:"DP", label:"DP (Dupont)"}
+                {val:"DP", label:"DP (Dupont)"},
+                {val:"NA", label:"N/A"}
               ])}
-              {renderSelect("Kód vlákna", fabFiberCode, setFabFiberCode, (lookups.fiberCodes || []).map((f: any) => ({ val: f.id, label: f.nazev })))}
+              {renderSelect("Kód vlákna", fabFiberCode, setFabFiberCode, [
+                {val:"na", label:"N/A"},
+                ...(lookups.fiberCodes || []).map((f: any) => ({ val: f.id, label: f.nazev }))
+              ])}
             </>
           )}
         </>
@@ -970,7 +1191,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         <>
           {renderSelect("Podkategorie", conSub, setConSub, [
             {val:"BF", label:"BF (Vakuová fólie)"},
-            {val:"RF", label:"RF (Strhávací perforovaná fólie)"},
+            {val:"RF", label:"RF (Separační fólie)"},
             {val:"PP", label:"PP (Strhávací tkanina)"},
             {val:"PP-PTFE", label:"PP-PTFE (Teflonová strhávací tkanina)"},
             {val:"BC", label:"BC (Odsávací netkaná textilie)"},
@@ -987,7 +1208,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 {val:"TUBE", label:"TUBE (Tubus)"},
                 {val:"SHT", label:"SHT (Fólie plochá)"},
                 {val:"VSHT", label:"VSHT (Fólie V-sklad)"},
-                {val:"GSC", label:"GSC (Hadice)"}
+                {val:"GSC", label:"GSC (Harmonika)"}
               ])}
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Tloušťka (µm)</Label>
@@ -1012,9 +1233,11 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 <Label className="text-xs text-muted-foreground">Tloušťka (µm)</Label>
                 <Input type="number" value={conRfTloustka} onChange={(e) => setConRfTloustka(e.target.value)} className="h-8 bg-background" />
               </div>
-              {renderSelect("Teplotní třída", conRfTemp, setConRfTemp, [
-                {val:"LT", label:"LT (Low Temp)"},
-                {val:"HT", label:"HT (High Temp)"}
+              {renderSelect("Teplotní odolnost", conRfTemp, setConRfTemp, [
+                {val:"LT120", label:"LT120 (120 °C)"},
+                {val:"LT150", label:"LT150 (150 °C)"},
+                {val:"HT230", label:"HT230 (230 °C)"},
+                {val:"HT260", label:"HT260 (260 °C)"}
               ])}
             </>
           )}
@@ -1038,24 +1261,36 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 {val:"NADH", label:"NADH (Nelepící)"},
                 {val:"ADH", label:"ADH (Lepící / Teflon)"}
               ])}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Tloušťka (µm)</Label>
+                <Input type="number" value={conPtfeTloustka} onChange={(e) => setConPtfeTloustka(e.target.value)} className="h-8 bg-background" />
+              </div>
             </>
           )}
 
           {conSub === 'BC' && (
-            <>
-              {renderSelect("Gramáž", conBcGramaz, setConBcGramaz, [
-                {val:"150", label:"150 g/m²"},
-                {val:"340", label:"340 g/m²"}
-              ])}
-            </>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Gramáž (g/m²)</Label>
+              <Input 
+                type="number" 
+                value={conBcGramaz} 
+                onChange={(e) => setConBcGramaz(e.target.value)} 
+                className="h-8 bg-background" 
+              />
+            </div>
           )}
 
           {conSub === 'ST' && (
             <>
-              {renderSelect("Teplota", conStTemp, setConStTemp, [
-                {val:"150", label:"150 °C"},
-                {val:"200", label:"200 °C"}
-              ])}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Teplota (°C)</Label>
+                <Input 
+                  type="number" 
+                  value={conStTemp} 
+                  onChange={(e) => setConStTemp(e.target.value)} 
+                  className="h-8 bg-background" 
+                />
+              </div>
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Šířka (mm)</Label>
                 <Input type="number" value={conStSirka} onChange={(e) => setConStSirka(e.target.value)} className="h-8 bg-background" />
@@ -1322,7 +1557,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           <h3 className="text-sm font-semibold text-primary border-b border-primary/20 pb-2">Konfigurace rozměrů role spotřebního materiálu</h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="conRollWidth" className="text-xs text-muted-foreground">Šířka role (cm)</Label>
+              <Label htmlFor="conRollWidth" className="text-xs text-muted-foreground">
+                {conSub === 'BF' ? "Šířka materiálu (cm)" : "Šířka role (cm)"}
+              </Label>
               <Input 
                 id="conRollWidth" 
                 type="number" 
@@ -1481,6 +1718,45 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         </div>
       </div>
 
+      {/* 7b. Minimální prodejní množství (Sales MOQ) */}
+      <div className="p-4 bg-zinc-900/30 rounded-lg border border-zinc-800 space-y-3">
+        <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
+          <ShoppingCart className="h-4 w-4 text-amber-500" />
+          <h3 className="text-sm font-semibold text-zinc-300">Min. prodejní množství (Sales MOQ)</h3>
+          <span className="ml-auto text-[10px] text-zinc-500 italic">≠ Nákupní MOQ od dodavatele (v záložce Sourcing)</span>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="moq_prodejni">Min. množství pro zákazníka</Label>
+            <Input
+              id="moq_prodejni"
+              type="number"
+              step="1"
+              min="1"
+              placeholder="1"
+              {...register("moq_prodejni")}
+              className="bg-zinc-950 border-zinc-800"
+            />
+            <p className="text-[10px] text-zinc-500 italic">
+              Zákazník musí objednat alespoň toto množství v základní MJ.
+            </p>
+          </div>
+          <div className="col-span-2 space-y-2">
+            <Label htmlFor="moq_poznamka">Poznámka k MOQ (zobrazí se zákazníkovi)</Label>
+            <Input
+              id="moq_poznamka"
+              type="text"
+              placeholder='Např. "Prodáváme výhradně po 20 rolích (1 karton)"'
+              {...register("moq_poznamka")}
+              className="bg-zinc-950 border-zinc-800"
+            />
+            <p className="text-[10px] text-zinc-500 italic">
+              Volitelně vysvětlete důvod, zobrazí se v katalogu a na objednávce.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* 8. Logistické balení */}
       <div className="grid grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg border border-zinc-800">
         <div className="space-y-2">
@@ -1517,6 +1793,114 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           <Label htmlFor="hmotnost_baliku_kg">Hmotnost (kg)</Label>
           <Input id="hmotnost_baliku_kg" type="number" step="0.1" {...register("hmotnost_baliku_kg")} />
         </div>
+      </div>
+
+      {/* 8b. Balicí profil a rozměry zásilky (v2 Shipping Engine) */}
+      <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-lg space-y-4">
+        <div className="flex items-center gap-2 border-b border-zinc-850 pb-2">
+          <Package className="h-4 w-4 text-primary" />
+          <h4 className="text-sm font-bold text-zinc-200">Balicí profil a rozměry zásilky</h4>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Přiřazený Balicí profil</Label>
+            <Select 
+              value={baliciProfilId || "none"}
+              onValueChange={(val) => setValue("balici_profil_id", val === "none" ? "" : val, { shouldDirty: true })}
+            >
+              <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-200">
+                <SelectValue placeholder="Vyberte profil..." />
+              </SelectTrigger>
+              <SelectContent className="bg-zinc-950 border-zinc-850 text-white">
+                <SelectItem value="none">Žádný profil (Legacy výpočet)</SelectItem>
+                {((lookups as any).profiles || []).map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>{p.nazev} ({OBAL_TYPES[p.typ_obalu] || p.typ_obalu})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-zinc-500 italic">
+              Profil definuje typ balení (role, krabice, paleta) a způsob výpočtu objemové hmotnosti.
+            </p>
+          </div>
+
+          {activeProfile && (
+            <div className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg space-y-2 text-xs">
+              <span className="font-bold text-zinc-300 block">Vypočtené rozměry (Live):</span>
+              <div className="grid grid-cols-3 gap-2 font-mono text-center text-white">
+                <div className="bg-zinc-950 p-1.5 rounded border border-zinc-850">
+                  <span className="block text-[9px] text-zinc-500 uppercase">Délka</span>
+                  <span>{calculatedPackage.delka_cm} cm</span>
+                </div>
+                <div className="bg-zinc-950 p-1.5 rounded border border-zinc-850">
+                  <span className="block text-[9px] text-zinc-500 uppercase">Šířka</span>
+                  <span>{calculatedPackage.sirka_cm} cm</span>
+                </div>
+                <div className="bg-zinc-950 p-1.5 rounded border border-zinc-850">
+                  <span className="block text-[9px] text-zinc-500 uppercase">Výška</span>
+                  <span>{calculatedPackage.vyska_cm} cm</span>
+                </div>
+              </div>
+              <div className="flex justify-between text-[10px] text-zinc-400 pt-1">
+                <span>Objemová hmotnost:</span>
+                <span className="font-bold">{calculatedPackage.volumetricWeight_kg} kg</span>
+              </div>
+              <div className="flex justify-between text-[10px] text-zinc-400">
+                <span>Účtovaná hmotnost:</span>
+                <span className="font-bold text-primary">{calculatedPackage.billedWeight_kg} kg</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t border-zinc-900 pt-3 space-y-2">
+          <Label className="text-xs uppercase font-bold text-zinc-500 tracking-wider">
+            Manuální přepsání rozměrů balíku (Override)
+          </Label>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label className="text-[10px] text-zinc-400">Vlastní délka (cm)</Label>
+              <Input 
+                type="number"
+                placeholder="Délka"
+                className="bg-zinc-900 border-zinc-850 text-xs h-8 text-zinc-200"
+                {...register("balik_delka_cm_override")}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-zinc-400">Vlastní šířka (cm)</Label>
+              <Input 
+                type="number"
+                placeholder="Šířka"
+                className="bg-zinc-900 border-zinc-850 text-xs h-8 text-zinc-200"
+                {...register("balik_sirka_cm_override")}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-zinc-400">Vlastní výška (cm)</Label>
+              <Input 
+                type="number"
+                placeholder="Výška"
+                className="bg-zinc-900 border-zinc-850 text-xs h-8 text-zinc-200"
+                {...register("balik_vyska_cm_override")}
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-zinc-500 italic">
+            Použijte pouze v případě, že se tento konkrétní produkt liší od standardních rozměrů balicího profilu.
+          </p>
+        </div>
+      </div>
+
+      {/* 8c. Poznámka k produktu */}
+      <div className="space-y-2">
+        <Label htmlFor="poznamka">Poznámka k produktu</Label>
+        <Textarea 
+          id="poznamka" 
+          placeholder="Zadejte libovolnou interní poznámku k produktu..." 
+          className="bg-zinc-950 border-zinc-800"
+          {...register("poznamka")}
+        />
       </div>
 
       {/* 9. Technické specifikace (JSON) */}

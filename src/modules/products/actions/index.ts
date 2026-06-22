@@ -18,6 +18,7 @@ export async function getProducts(): Promise<{ data: Product[] | null, error: an
       c_procesy_odeslani ( nazev ),
       c_typy_labelu ( nazev ),
       c_stavy_produktu ( nazev ),
+      c_balici_profily ( * ),
       vytvoril:vytvoril_id ( jmeno ),
       upravil:upravil_id ( jmeno ),
       produkt_dodavatel (
@@ -48,6 +49,7 @@ export async function getProductsPaged({
   search = '',
   categories = [],
   statuses = [],
+  subcategories = [],
   sortBy = 'nazev',
   sortDesc = false
 }: {
@@ -56,6 +58,7 @@ export async function getProductsPaged({
   search?: string
   categories?: string[]
   statuses?: string[]
+  subcategories?: string[]
   sortBy?: string
   sortDesc?: boolean
 } = {}): Promise<{ data: Product[] | null, error: any, totalCount?: number }> {
@@ -71,6 +74,7 @@ export async function getProductsPaged({
       c_procesy_odeslani ( nazev ),
       c_typy_labelu ( nazev ),
       c_stavy_produktu ( nazev ),
+      c_balici_profily ( * ),
       vytvoril:vytvoril_id ( jmeno ),
       upravil:upravil_id ( jmeno ),
       produkt_dodavatel (
@@ -104,6 +108,10 @@ export async function getProductsPaged({
     query = query.in('stav_katalogu_id', statuses)
   }
 
+  if (subcategories && subcategories.length > 0) {
+    query = query.in('specifikace->>podkategorie', subcategories)
+  }
+
   if (sortBy) {
     query = query.order(sortBy, { ascending: !sortDesc })
   } else {
@@ -132,6 +140,7 @@ export async function getProduct(id: string): Promise<{ data: Product | null, er
       c_procesy_odeslani ( nazev ),
       c_typy_labelu ( nazev ),
       c_stavy_produktu ( nazev ),
+      c_balici_profily ( * ),
       vytvoril:vytvoril_id ( jmeno ),
       upravil:upravil_id ( jmeno )
     `)
@@ -173,6 +182,16 @@ export async function createProduct(formData: ProductFormValues) {
     cilova_marze_retail_procenta: formData.cilova_marze_retail_procenta,
     cilova_marze_partner_procenta: formData.cilova_marze_partner_procenta,
     clo_procenta: formData.clo_procenta,
+    moq_prodejni: formData.moq_prodejni ?? 1,
+    moq_poznamka: formData.moq_poznamka || null,
+    poznamka: formData.poznamka || null,
+    
+    // Packaging & Shipping Engine v2
+    balici_profil_id: formData.balici_profil_id || null,
+    balik_delka_cm_override: formData.balik_delka_cm_override || null,
+    balik_sirka_cm_override: formData.balik_sirka_cm_override || null,
+    balik_vyska_cm_override: formData.balik_vyska_cm_override || null,
+
     vytvoril_id: user?.id,
     upravil_id: user?.id
   }
@@ -217,6 +236,16 @@ export async function updateProduct(id: string, formData: ProductFormValues) {
     cilova_marze_retail_procenta: formData.cilova_marze_retail_procenta,
     cilova_marze_partner_procenta: formData.cilova_marze_partner_procenta,
     clo_procenta: formData.clo_procenta,
+    moq_prodejni: formData.moq_prodejni ?? 1,
+    moq_poznamka: formData.moq_poznamka || null,
+    poznamka: formData.poznamka || null,
+    
+    // Packaging & Shipping Engine v2
+    balici_profil_id: formData.balici_profil_id || null,
+    balik_delka_cm_override: formData.balik_delka_cm_override || null,
+    balik_sirka_cm_override: formData.balik_sirka_cm_override || null,
+    balik_vyska_cm_override: formData.balik_vyska_cm_override || null,
+
     upravil_id: user?.id,
     aktualizovano_at: new Date().toISOString()
   }
@@ -325,8 +354,45 @@ export async function cloneProduct(id: string) {
     await supabase.from('produkt_dodavatel').insert(newSourcingEntries)
   }
 
+  // 4. Fetch the full product with all relationships to return to UI
+  const { data: finalProduct, error: finalError } = await supabase
+    .from('produkty')
+    .select(`
+      *,
+      c_kategorie ( nazev ),
+      c_merne_jednotky_zakladni:zakladni_mj_id ( nazev, zkratka ),
+      c_merne_jednotky_baleni:jednotka_baleni_id ( nazev, zkratka ),
+      c_procesy_odeslani ( nazev ),
+      c_typy_labelu ( nazev ),
+      c_stavy_produktu ( nazev ),
+      c_balici_profily ( * ),
+      vytvoril:vytvoril_id ( jmeno ),
+      upravil:upravil_id ( jmeno ),
+      produkt_dodavatel (
+        nakupni_cena,
+        mena,
+        is_primary,
+        logisticka_sablona_id,
+        prevodni_pomer_na_zakladni,
+        moq,
+        logisticke_sablony ( nazev )
+      ),
+      produkt_mnozstevni_slevy (
+        id,
+        mnozstvi_od,
+        typ_zakaznika,
+        sleva_procenta
+      )
+    `)
+    .eq('id', newProduct.id)
+    .single()
+
+  if (finalError || !finalProduct) {
+    return { error: finalError || new Error("Nepodařilo se načíst zkopírovaný produkt") }
+  }
+
   revalidatePath('/produkty')
-  return { data: newProduct, error: null }
+  return { data: finalProduct as any, error: null }
 }
 
 export async function bulkUpdateProductMargins(ids: string[], margins: { retail: number, partner: number }) {
@@ -392,14 +458,15 @@ export async function bulkUpdateLogisticsTemplate(productIds: string[], template
 export async function getProductLookups() {
   const supabase = await createClient()
 
-  const [categories, units, statuses, labels, processes, templates, fiberCodes] = await Promise.all([
+  const [categories, units, statuses, labels, processes, templates, fiberCodes, profiles] = await Promise.all([
     supabase.from('c_kategorie').select('*').order('nazev'),
     supabase.from('c_merne_jednotky').select('*').order('nazev'),
     supabase.from('c_stavy_produktu').select('*').order('nazev'),
     supabase.from('c_typy_labelu').select('*').order('nazev'),
     supabase.from('c_procesy_odeslani').select('*').order('nazev'),
     supabase.from('logisticke_sablony').select('*').order('nazev'),
-    supabase.from('c_kody_vlakna').select('*').order('id')
+    supabase.from('c_kody_vlakna').select('*').order('id'),
+    supabase.from('c_balici_profily').select('*').order('nazev')
   ])
 
   return {
@@ -409,7 +476,8 @@ export async function getProductLookups() {
     labels: labels.data || [],
     processes: processes.data || [],
     templates: templates.data || [],
-    fiberCodes: fiberCodes.data || []
+    fiberCodes: fiberCodes.data || [],
+    profiles: profiles.data || []
   }
 }
 

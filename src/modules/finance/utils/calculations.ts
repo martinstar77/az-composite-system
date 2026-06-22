@@ -1,5 +1,6 @@
 import { ExchangeRate, GlobalFinanceSettings } from "@/modules/finance/types"
-import { LogisticsTemplate } from "../types/logistics"
+import { LogisticsTemplate, BaliciProfil, StandardBoxSize } from "../types/logistics"
+import { resolvePackageDimensions, PackageDimensions } from "./packagingEngine"
 
 export interface PricingBreakdown {
   // Input Data Echo
@@ -52,6 +53,18 @@ export interface PricingBreakdown {
   currentMargin: number
   lowMargin: number // Weakest CZK
   highMargin: number // Strongest CZK
+
+  // Shipping Engine v2 outputs
+  billedWeightKg?: number
+  volumetricWeightKg?: number
+  packagingDimensions?: PackageDimensions
+  shippingSafetyBufferCzk?: number
+
+  // RoklenFX dynamic fee details
+  exchangeRateRaw?: number
+  roklenMarginApplied?: number
+  swiftOurFeeCzk?: number
+  swiftRoklenFeeCzk?: number
 }
 
 export function calculateProductPricing(
@@ -63,11 +76,23 @@ export function calculateProductPricing(
   margins: { retail: number, partner: number },
   rates: ExchangeRate[],
   settings: GlobalFinanceSettings,
-  template?: LogisticsTemplate | null
+  template?: LogisticsTemplate | null,
+  baliciProfil?: BaliciProfil | null,
+  balikOverrides?: { delka?: number | null, sirka?: number | null, vyska?: number | null } | null,
+  boxSizesList?: StandardBoxSize[]
 ): PricingBreakdown | null {
   if (totalUnits <= 0) totalUnits = 1 // Prevent division by zero
 
-  // 1. Determine exchange rate
+  // 1. Resolve packaging dimensions and billedWeight
+  const packDims = resolvePackageDimensions(
+    weightKg,
+    baliciProfil || null,
+    balikOverrides || {},
+    boxSizesList
+  )
+  const billedWeight = packDims.billedWeight_kg
+
+  // 2. Determine base exchange rates
   let rate = 1
   if (currency === 'CZK') {
     rate = 1
@@ -85,7 +110,7 @@ export function calculateProductPricing(
     }
   }
 
-  // EUR rate for shipping/template logic
+  // EUR rate for shipping/template logic and tier checking
   let eurRate = 25
   const cnbEur = rates.find(r => r.mena === 'EUR')
   if (settings.pouzivat_manualni_kurzy) {
@@ -94,22 +119,110 @@ export function calculateProductPricing(
     eurRate = cnbEur ? cnbEur.kurz_czk / cnbEur.mnozstvi : 25
   }
 
+  const cnbUsd = rates.find(r => r.mena === 'USD')
+  const usdRate = settings.pouzivat_manualni_kurzy ? (settings.manualni_kurz_usd || 23) : (cnbUsd ? cnbUsd.kurz_czk / cnbUsd.mnozstvi : 23)
+
+  // 3. Dynamic RoklenFX Margin & Bank/SWIFT fees
+  let roklenMargin = 0
+  let swiftRoklenFeeCzk = 0
+  let swiftOurFeeCzk = 0
+
+  if (currency !== 'CZK') {
+    let priceInEur = purchasingUnitPrice
+    if (currency === 'USD') {
+      priceInEur = (purchasingUnitPrice * usdRate) / eurRate
+    } else if (currency !== 'EUR') {
+      priceInEur = (purchasingUnitPrice * rate) / eurRate
+    }
+
+    // Determine Roklen Margin Tier
+    if (priceInEur <= 1000) {
+      roklenMargin = 0.0048
+    } else if (priceInEur <= 5000) {
+      roklenMargin = 0.0024
+    } else if (priceInEur <= 10000) {
+      roklenMargin = 0.0012
+    } else if (priceInEur <= 100000) {
+      roklenMargin = 0.0010
+    } else {
+      roklenMargin = 0.0008
+    }
+
+    // Determine SWIFT Fees
+    if (priceInEur < 1000) {
+      swiftRoklenFeeCzk = 190
+      swiftOurFeeCzk = 0
+    } else if (priceInEur <= 4000) {
+      swiftRoklenFeeCzk = 0
+      swiftOurFeeCzk = 0.30 * purchasingUnitPrice
+    } else {
+      swiftRoklenFeeCzk = 0
+      swiftOurFeeCzk = 0
+    }
+  }
+
+  const effectiveRate = rate * (1 + roklenMargin)
+  const effectiveEurRate = eurRate * (1 + roklenMargin)
+
   // --- CALCULATE TOTALS ---
   const totalPurchasePriceOrig = purchasingUnitPrice // 981 EUR (for the whole package)
-  const totalPurchasePriceCzk = totalPurchasePriceOrig * rate   // 23,797.18 CZK
+  const totalPurchasePriceCzk = totalPurchasePriceOrig * effectiveRate   // 23,797.18 CZK (with Roklen margin)
   
   // Shipping Cost Logic
   let totalShippingCostCzk = 0
+  let shippingSafetyBufferCzk = 0
+
   if (template) {
-    if (template.typ_vypoctu_dopravy === 'procentualni') {
-      totalShippingCostCzk = totalPurchasePriceCzk * template.sazba_dopravy
-    } else if (template.typ_vypoctu_dopravy === 'vaha_kg') {
-      totalShippingCostCzk = weightKg * template.sazba_dopravy * eurRate
+    const isV2 = template.typ_vypoctu_dopravy_v2 && template.typ_vypoctu_dopravy_v2 !== 'legacy'
+    
+    if (isV2) {
+      const safety = template.bezpecnostni_koeficient ?? 1.05
+      let baseCostCzk = 0
+
+      switch (template.typ_vypoctu_dopravy_v2) {
+        case 'linear_czk':
+          baseCostCzk = (template.koeficient_a ?? 0) * billedWeight + (template.koeficient_b ?? 0)
+          break
+
+        case 'segmented_czk': {
+          const segs = template.segmenty_dopravy || []
+          const seg = segs.find(s =>
+            billedWeight >= s.od_kg && (s.do_kg === null || billedWeight <= s.do_kg)
+          ) ?? segs[segs.length - 1]
+          
+          if (seg) {
+            baseCostCzk = seg.a * billedWeight + seg.b
+          }
+          break
+        }
+
+        case 'fixed_eur':
+          baseCostCzk = (template.fixni_cena_eur ?? 0) * effectiveEurRate
+          break
+
+        case 'pallet_alloc':
+          baseCostCzk = ((template.pallet_cena_eur ?? 0) * effectiveEurRate) / (template.pallet_pocet_produktu ?? 1)
+          break
+
+        default:
+          break
+      }
+
+      totalShippingCostCzk = baseCostCzk * safety
+      shippingSafetyBufferCzk = totalShippingCostCzk - baseCostCzk
     } else {
-      totalShippingCostCzk = template.sazba_dopravy * eurRate // Fixed cost per batch
+      // Legacy templates
+      if (template.typ_vypoctu_dopravy === 'procentualni') {
+        totalShippingCostCzk = totalPurchasePriceCzk * template.sazba_dopravy
+      } else if (template.typ_vypoctu_dopravy === 'vaha_kg') {
+        totalShippingCostCzk = billedWeight * template.sazba_dopravy * effectiveEurRate
+      } else {
+        totalShippingCostCzk = template.sazba_dopravy * effectiveEurRate // Fixed cost per batch
+      }
     }
   } else {
-    totalShippingCostCzk = weightKg * settings.doprava_eur_za_kg * eurRate
+    // Default fallback shipping logic
+    totalShippingCostCzk = billedWeight * settings.doprava_eur_za_kg * effectiveEurRate
   }
   
   // Customs Logic
@@ -118,8 +231,24 @@ export function calculateProductPricing(
     : (template?.vychozi_clo_procenta ?? settings.clo_default_procenta)
   const totalCustomsCostCzk = (totalPurchasePriceCzk + totalShippingCostCzk) * (cloPercent / 100)
   
-  // Granular Fees (CZK) - These are usually fixed per delivery/order, not per unit
-  const totalBankFeesCzk = template?.poplatek_banka_czk ?? settings.poplatek_zahranicni_platba_czk
+  // Granular Fees (CZK) - Dynamically calculated via RoklenFX defaults if standard v2, or fallback to fixed
+  let totalBankFeesCzk = swiftRoklenFeeCzk + swiftOurFeeCzk
+  
+  if (template) {
+    const isV2 = template.typ_vypoctu_dopravy_v2 && template.typ_vypoctu_dopravy_v2 !== 'legacy'
+    // If the template has a customized bank fee (different from default 190.00) or is legacy, respect it as override
+    if (!isV2 || (template.poplatek_banka_czk !== 190)) {
+      totalBankFeesCzk = template.poplatek_banka_czk
+      swiftRoklenFeeCzk = template.poplatek_banka_czk
+      swiftOurFeeCzk = 0
+    }
+  } else if (currency !== 'CZK' && settings.poplatek_zahranicni_platba_czk !== 190) {
+    // Respect settings override if custom
+    totalBankFeesCzk = settings.poplatek_zahranicni_platba_czk
+    swiftRoklenFeeCzk = settings.poplatek_zahranicni_platba_czk
+    swiftOurFeeCzk = 0
+  }
+
   const totalClearingFeesCzk = template?.poplatek_procleni_czk ?? 0
   const totalWasteFeesCzk = template?.poplatek_odpady_czk ?? 0
   const totalPackagingFeesCzk = template?.poplatek_balne_czk ?? 0
@@ -163,13 +292,13 @@ export function calculateProductPricing(
   const weakestRate = currency === 'EUR' ? 27.5 : (currency === 'USD' ? 25.5 : 1)
 
   const calculateMargin = (r: number) => {
-    const costOrig = (purchasingUnitPrice * r) + totalShippingCostCzk + totalCustomsCostCzk + totalBankFeesCzk + totalClearingFeesCzk + totalWasteFeesCzk + totalPackagingFeesCzk + totalBufferAmount
+    const costOrig = (purchasingUnitPrice * r * (1 + roklenMargin)) + totalShippingCostCzk + totalCustomsCostCzk + totalBankFeesCzk + totalClearingFeesCzk + totalWasteFeesCzk + totalPackagingFeesCzk + totalBufferAmount
     const costUnit = costOrig / totalUnits
     return ((b2cUnitPrice - costUnit) / b2cUnitPrice) * 100
   }
 
   return {
-    exchangeRateUsed: rate,
+    exchangeRateUsed: effectiveRate,
     currency,
     totalUnits,
     
@@ -206,7 +335,20 @@ export function calculateProductPricing(
     
     currentMargin: margins.retail,
     lowMargin: calculateMargin(weakestRate),
-    highMargin: calculateMargin(strongestRate)
+    highMargin: calculateMargin(strongestRate),
+
+    // Shipping Engine v2 outputs
+    billedWeightKg: billedWeight,
+    volumetricWeightKg: packDims.volumetricWeight_kg,
+    packagingDimensions: packDims,
+    shippingSafetyBufferCzk,
+
+    // RoklenFX dynamic details
+    exchangeRateRaw: rate,
+    roklenMarginApplied: roklenMargin,
+    swiftOurFeeCzk,
+    swiftRoklenFeeCzk
   }
 }
+
 
