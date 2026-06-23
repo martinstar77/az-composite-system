@@ -44,7 +44,7 @@ export async function generateDokladPDF(dokladId: string): Promise<Buffer | null
           email_fakturace: prijaty.dodavatel_udaje_snapshot.kontakty?.email_objednavky || null,
         } : null,
         zakaznik: null,
-        tisk_podpisu: false,
+        tisk_podpisu: prijaty.typ === 'objednavka_dodavateli',
       }
     }
   }
