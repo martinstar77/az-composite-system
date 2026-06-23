@@ -1,9 +1,5 @@
-'use server'
-
-import { renderToBuffer } from '@react-pdf/renderer'
 import { createElement } from 'react'
 import { createClient } from '@/shared/lib/supabase/server'
-import { InvoicePDF } from '../components/InvoicePDF'
 import { generatePaymentQR } from './qr'
 import { getFiremniProfil } from './settings'
 import { getDokladById } from './documents'
@@ -20,6 +16,11 @@ import { vypocitejSoucty } from '../utils/calculations'
  *   })
  */
 export async function generateDokladPDF(dokladId: string): Promise<Buffer | null> {
+  // Force React 19 reconciler version detection override programmatically
+  process.env.OVERRIDE_REACT_PDF_RECONCILER_REACT_VERSION = '19.0.0'
+  const { renderToBuffer } = await import('@react-pdf/renderer')
+  const { InvoicePDF } = await import('../components/InvoicePDF')
+
   // 1. Načíst doklad se všemi vztahy
   const doklad = await getDokladById(dokladId)
   if (!doklad) {

@@ -15,8 +15,6 @@ import { Input } from "@/shared/components/ui/input"
 import { Label } from "@/shared/components/ui/label"
 import { toast } from "sonner"
 import { exportCatalogToExcel } from "../utils/excelExport"
-import { pdf } from '@react-pdf/renderer'
-import { CatalogPDF } from "./CatalogPDF"
 import { saveAs } from 'file-saver'
 
 // Zde definujeme rozšířený typ produktu pro naši tabulku
@@ -40,7 +38,6 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
   const [sortField, setSortField] = useState<"nazev" | "sku" | "kategorie" | "landed_cost" | null>("nazev")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false)
   const [isGeneratingExcel, setIsGeneratingExcel] = useState(false)
 
   // Zpracování dat a výpočet všech cen v reálném čase
@@ -180,24 +177,13 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
     }
   }
 
-  const handleGeneratePDF = async () => {
-    setIsGeneratingPdf(true);
+  const handleGeneratePDF = () => {
     try {
-      const exchangeRate = getTargetExchangeRate();
-      const blob = await pdf(
-        <CatalogPDF 
-          products={filteredProducts} 
-          tier={exportTier} 
-          targetCurrency={exportCurrency} 
-          exchangeRate={exchangeRate} 
-        />
-      ).toBlob();
-      saveAs(blob, `AZ_Composites_Katalog_${exportTier.toUpperCase()}_${exportCurrency}.pdf`);
-      toast.success("PDF katalog vygenerován");
+      const url = `/api/katalogy/pdf?tier=${exportTier}&currency=${exportCurrency}&category=${categoryFilter}&status=${statusFilter}&search=${encodeURIComponent(searchTerm)}`
+      window.open(url, '_blank')
+      toast.success("PDF katalog se otevírá v nové záložce.")
     } catch (e: any) {
-      toast.error("Chyba při generování PDF", { description: e.message });
-    } finally {
-      setIsGeneratingPdf(false);
+      toast.error("Chyba při otevírání PDF", { description: e.message })
     }
   }
 
@@ -494,11 +480,11 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
           <div className="pt-6 border-t border-zinc-800 flex gap-4">
              <Button 
                 onClick={handleGeneratePDF}
-                disabled={isGeneratingPdf || filteredProducts.length === 0}
+                disabled={filteredProducts.length === 0}
                 className="flex-1 gap-2 bg-red-600 hover:bg-red-700 text-white"
              >
                 <FileText className="h-4 w-4" /> 
-                {isGeneratingPdf ? 'Generuji PDF...' : 'Vygenerovat PDF Katalog (Branded)'}
+                Vygenerovat PDF Katalog (Branded)
              </Button>
              <Button 
                 onClick={handleDownloadExcel}

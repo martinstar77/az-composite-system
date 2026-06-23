@@ -223,8 +223,13 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
           <div>
             <p className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest">Výpočet založen na dodavateli</p>
             <p className="text-sm font-bold text-white">
-              {primarySourcing.dodavatele?.nazev_spolecnosti} ({primarySourcing.nakupni_cena} {primarySourcing.mena})
+              {primarySourcing.dodavatele?.nazev_spolecnosti} ({primarySourcing.nakupni_cena} {primarySourcing.mena} / {primarySourcing.c_merne_jednotky?.zkratka || 'MJ'})
             </p>
+            {parseFloat(primarySourcing.prevodni_pomer_na_zakladni) > 1 && (
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Konverzní poměr: 1 {primarySourcing.c_merne_jednotky?.zkratka || 'bal.'} = {primarySourcing.prevodni_pomer_na_zakladni} {product.c_merne_jednotky_zakladni?.zkratka || 'ks'}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -259,16 +264,20 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
 
              <div className="space-y-3">
                 <div className="grid grid-cols-3 gap-2 pb-2 border-b border-zinc-800">
-                  <div className="col-span-1"></div>
+                  <div className="col-span-1 text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Nákladová položka</div>
                   {breakdown.totalUnits > 1 ? (
                     <>
                       <div className="text-right text-[10px] font-bold text-zinc-500 uppercase">
-                        Za {breakdown.totalUnits} {breakdown.totalUnits >= 5 ? 'jednotek' : 'jednotky'}
+                        Za nákupní MJ ({primarySourcing.c_merne_jednotky?.zkratka || 'bal.'})
                       </div>
-                      <div className="text-right text-[10px] font-bold text-primary uppercase">Za 1 jednotku</div>
+                      <div className="text-right text-[10px] font-bold text-primary uppercase">
+                        Za 1 {product.c_merne_jednotky_zakladni?.zkratka || 'ks'} (Základní MJ)
+                      </div>
                     </>
                   ) : (
-                    <div className="col-span-2 text-right text-[10px] font-bold text-primary uppercase">Za 1 jednotku (Základní MJ)</div>
+                    <div className="col-span-2 text-right text-[10px] font-bold text-primary uppercase">
+                      Za 1 {product.c_merne_jednotky_zakladni?.zkratka || 'ks'} (Základní MJ)
+                    </div>
                   )}
                 </div>
 

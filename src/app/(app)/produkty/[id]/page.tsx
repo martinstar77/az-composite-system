@@ -151,7 +151,10 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       flexibilita: 'Flexibilita',
       vnitrni_prumer_mm: 'Vnitřní průměr',
       prumer_mm: 'Průměr',
-      identifikator: 'Interní identifikátor'
+      identifikator: 'Interní identifikátor',
+      open_time_min: 'Doba zpracovatelnosti',
+      objem: 'Objem / Množství',
+      chemie: 'Chemie'
     }
 
     const formatVal = (v: any): string => {
@@ -178,19 +181,55 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         formattedValue = `${formattedValue} µm`
       } else if (['teplotni_odolnost_c'].includes(key)) {
         formattedValue = `${formattedValue} °C`
-      } else if (key === 'teplotni_odolnost' && (formattedValue === 'LT' || formattedValue === 'HT')) {
-        formattedValue = formattedValue === 'HT' ? 'HT (Vysokoteplotní)' : 'LT (Nízkoteplotní)'
-      } else if (key === 'teplotni_odolnost' && (formattedValue.startsWith('LT') || formattedValue.startsWith('HT'))) {
+      } else if (['open_time_min'].includes(key)) {
+        formattedValue = `${formattedValue} min`
+      } else if (key === 'teplotni_odolnost' && (formattedValue === 'LT' || formattedValue === 'HT' || formattedValue === 'MT')) {
+        const tempClassMap: Record<string, string> = { HT: 'HT (Vysokoteplotní)', MT: 'MT (Středněteplotní)', LT: 'LT (Nízkoteplotní)' }
+        formattedValue = tempClassMap[formattedValue] || formattedValue
+      } else if (key === 'teplotni_odolnost' && (formattedValue.startsWith('LT') || formattedValue.startsWith('HT') || formattedValue.startsWith('MT'))) {
         const tempNum = formattedValue.replace(/^[A-Z]+/, '')
-        formattedValue = `${formattedValue.startsWith('HT') ? 'HT' : 'LT'} (${tempNum} °C)`
+        const prefix = formattedValue.startsWith('HT') ? 'HT' : formattedValue.startsWith('MT') ? 'MT' : 'LT'
+        formattedValue = `${prefix} (${tempNum} °C)`
       } else if (key === 'je_teflon' || key === 'je_lepici' || key === 'vhodne_do_autoklavu') {
         formattedValue = val === true ? 'Ano' : 'Ne'
+      } else if (key === 'flexibilita') {
+        const flexMap: Record<string, string> = {
+          velka: 'Velká',
+          mala: 'Malá',
+          zadna: 'Žádná',
+          true: 'Ano (Velká)',
+          false: 'Ne (Žádná)'
+        }
+        formattedValue = flexMap[String(val)] || String(val)
+      } else if (key === 'rychlost_proudeni') {
+        const speedMap: Record<string, string> = {
+          low: 'Nízká (Low)',
+          medium: 'Střední (Medium)',
+          high: 'Vysoká (High)'
+        }
+        formattedValue = speedMap[String(val)] || String(val)
       } else if (key === 'pouziti' || key === 'použití') {
         const useMap: Record<string, string> = { E: 'Economy (E)', V: 'Visual (V)', I: 'Industry (I)', NA: 'N/A' }
         formattedValue = useMap[formattedValue] || formattedValue
       } else if (key === 'typ_baleni') {
         const packMap: Record<string, string> = { role: 'Role', krabice: 'Krabice (skládané přířezy)', metraz: 'Stříhaná metráž' }
         formattedValue = packMap[formattedValue] || formattedValue
+      } else if (key === 'barva' && ['black', 'grey', 'white', 'clear', 'off-white'].includes(formattedValue)) {
+        const colorCzechMap: Record<string, string> = {
+          black: 'Černá',
+          grey: 'Šedá',
+          white: 'Bílá',
+          clear: 'Čirá',
+          'off-white': 'Krémová (off-white)'
+        }
+        formattedValue = colorCzechMap[formattedValue] || formattedValue
+      } else if (key === 'chemie' && ['EP', 'PU', 'MMA'].includes(formattedValue)) {
+        const chemCzechMap: Record<string, string> = {
+          EP: 'Epoxid (EP)',
+          PU: 'Polyuretan (PU)',
+          MMA: 'Akrylát (MMA)'
+        }
+        formattedValue = chemCzechMap[formattedValue] || formattedValue
       }
 
       formattedSpecs.push({ label, value: formattedValue })
@@ -511,6 +550,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             suppliers={suppliers || []} 
             templates={templates || []}
             units={units || []}
+            productUnit={product.c_merne_jednotky_zakladni?.zkratka || 'ks'}
           />
         </TabsContent>
 

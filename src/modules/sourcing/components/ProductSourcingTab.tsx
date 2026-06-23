@@ -34,9 +34,10 @@ interface ProductSourcingTabProps {
   suppliers: Supplier[]
   templates: LogisticsTemplate[]
   units: any[]
+  productUnit?: string
 }
 
-export function ProductSourcingTab({ productId, sourcingData, suppliers, templates, units }: ProductSourcingTabProps) {
+export function ProductSourcingTab({ productId, sourcingData, suppliers, templates, units, productUnit = "ks" }: ProductSourcingTabProps) {
   const [sorting, setSorting] = React.useState<SortingState>([{ id: "nakupni_cena", desc: false }])
   const [showHistory, setShowHistory] = React.useState(false)
   
@@ -114,12 +115,23 @@ export function ProductSourcingTab({ productId, sourcingData, suppliers, templat
       ),
       cell: ({ row }) => {
         const isDeleted = !!row.original.deleted_at;
+        const ratio = parseFloat(row.original.prevodni_pomer_na_zakladni) || 1;
+        const showUnitCalc = ratio > 1;
+        const unitPrice = row.original.nakupni_cena / ratio;
+        
         return (
-          <div className={`font-mono font-bold ${isDeleted ? 'text-zinc-500 line-through' : 'text-primary'}`}>
-            {row.original.nakupni_cena.toFixed(4)} {row.original.mena}
-            <span className="text-[10px] text-zinc-500 font-normal ml-1">
-               / {row.original.c_merne_jednotky?.zkratka || 'MJ'}
-            </span>
+          <div className="flex flex-col text-left">
+            <div className={`font-mono font-bold ${isDeleted ? 'text-zinc-500 line-through' : 'text-primary'}`}>
+              {row.original.nakupni_cena.toFixed(4)} {row.original.mena}
+              <span className="text-[10px] text-zinc-500 font-normal ml-1">
+                 / {row.original.c_merne_jednotky?.zkratka || 'MJ'}
+              </span>
+            </div>
+            {showUnitCalc && !isDeleted && (
+              <span className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                ({unitPrice.toFixed(4)} {row.original.mena} / {productUnit})
+              </span>
+            )}
           </div>
         )
       }
@@ -131,11 +143,25 @@ export function ProductSourcingTab({ productId, sourcingData, suppliers, templat
           MOQ <ArrowUpDown className="ml-1 h-3 w-3" />
         </Button>
       ),
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1 text-xs text-zinc-300">
-          <ShoppingCart className="h-3 w-3 text-zinc-500" /> {row.original.moq}
-        </div>
-      )
+      cell: ({ row }) => {
+        const ratio = parseFloat(row.original.prevodni_pomer_na_zakladni) || 1;
+        const hasConversion = ratio > 1;
+        const totalBaseUnits = row.original.moq * ratio;
+        
+        return (
+          <div className="flex flex-col text-left">
+            <div className="flex items-center gap-1 text-xs font-semibold text-zinc-300">
+              <ShoppingCart className="h-3 w-3 text-zinc-500 shrink-0" />
+              <span>{row.original.moq} {row.original.c_merne_jednotky?.zkratka || 'MJ'}</span>
+            </div>
+            {hasConversion && (
+              <span className="text-[10px] text-zinc-400 font-mono mt-0.5">
+                (= {totalBaseUnits} {productUnit})
+              </span>
+            )}
+          </div>
+        )
+      }
     },
     {
       accessorKey: "lead_time_tydny",
@@ -176,6 +202,7 @@ export function ProductSourcingTab({ productId, sourcingData, suppliers, templat
               templates={templates} 
               units={units}
               initialData={row.original} 
+              productUnit={productUnit}
             />
             <Button 
               variant="ghost" 
@@ -218,7 +245,7 @@ export function ProductSourcingTab({ productId, sourcingData, suppliers, templat
             </Label>
           </div>
         </div>
-        <AddSourcingDialog productId={productId} suppliers={suppliers} templates={templates} units={units} />
+        <AddSourcingDialog productId={productId} suppliers={suppliers} templates={templates} units={units} productUnit={productUnit} />
       </div>
 
       <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 overflow-hidden shadow-xl">

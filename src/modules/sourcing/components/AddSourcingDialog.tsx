@@ -55,9 +55,10 @@ interface AddSourcingDialogProps {
   templates: LogisticsTemplate[]
   units: any[]
   initialData?: any
+  productUnit?: string
 }
 
-export function AddSourcingDialog({ productId, suppliers, templates, units, initialData }: AddSourcingDialogProps) {
+export function AddSourcingDialog({ productId, suppliers, templates, units, initialData, productUnit = "ks" }: AddSourcingDialogProps) {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   
@@ -348,17 +349,17 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
               <Label>Zadání ceny</Label>
               <Select value={priceInputMode} onValueChange={(val: any) => handleToggleMode(val)}>
                 <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                  <SelectValue>{priceInputMode === "package" ? "Za balení" : "Za jednotku (1 MJ)"}</SelectValue>
+                  <SelectValue>{priceInputMode === "package" ? "Za balení" : `Za jednotku (1 ${productUnit})`}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="package">Za balení</SelectItem>
-                  <SelectItem value="unit">Za jednotku (1 MJ)</SelectItem>
+                  <SelectItem value="package">Za balení / celá MJ</SelectItem>
+                  <SelectItem value="unit">Za jednotku (1 {productUnit})</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="col-span-2 space-y-2">
               <Label htmlFor="price_input">
-                {priceInputMode === "package" ? "Cena za balení" : "Cena za 1 MJ"}
+                {priceInputMode === "package" ? "Cena za balení" : `Cena za 1 ${productUnit}`}
               </Label>
               {priceInputMode === "package" ? (
                 <Input 
@@ -392,7 +393,7 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
               <span>Vypočtený cenový přepočet:</span>
               <span className="font-mono">
                 {priceInputMode === "package" ? (
-                  `Jednotková: ${(parseFloat(price) / parseFloat(prevodniPomer)).toFixed(4)} ${currency} / MJ`
+                  `Jednotková: ${(parseFloat(price) / parseFloat(prevodniPomer)).toFixed(4)} ${currency} / ${productUnit}`
                 ) : (
                   `Celková za balení: ${parseFloat(price).toFixed(4)} ${currency}`
                 )}
@@ -420,7 +421,7 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-[10px] text-zinc-500">Za co je výše uvedená cena (m2, role, barel, kg)?</p>
+              <p className="text-[10px] text-zinc-500">Za co je výše uvedená cena (m2, role, krabice, kg)?</p>
             </div>
 
             <div className="space-y-2">
@@ -433,13 +434,25 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
                 onChange={(e) => handleRatioChange(e.target.value)}
                 className="bg-zinc-900 border-zinc-800"
               />
-              <p className="text-[10px] text-zinc-500">Kolik je 1 Nákupní MJ ve vztahu k Základní MJ produktu? (např. 1 role = 50 m2, zadáš 50)</p>
+              <p className="text-[10px] text-zinc-500">
+                Kolik základních jednotek ({productUnit}) tvoří 1 nákupní jednotku
+                {(() => {
+                  const u = units.find(u => u.id === nakupniMjId);
+                  return u ? ` (${u.zkratka})` : '';
+                })()}? (např. 1 role = 50 m², zadáte 50)
+              </p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="moq">Min. množství (MOQ v nákupní MJ)</Label>
+              <Label htmlFor="moq">
+                Min. množství (MOQ v nákupní jednotce
+                {(() => {
+                  const u = units.find(u => u.id === nakupniMjId);
+                  return u ? ` - ${u.zkratka}` : '';
+                })()})
+              </Label>
               <Input 
                 id="moq" 
                 type="number" 
@@ -448,6 +461,11 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
                 onChange={(e) => setMoq(e.target.value)}
                 className="bg-zinc-900 border-zinc-800"
               />
+              {parseFloat(moq) > 0 && parseFloat(prevodniPomer) > 0 && (
+                <p className="text-[10px] text-zinc-500 mt-1">
+                  Odpovídá minimálně { (parseFloat(moq) * parseFloat(prevodniPomer)).toFixed(2).replace(/\.?0+$/, "") } {productUnit}.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="lead-time">Lead Time (týdny)</Label>

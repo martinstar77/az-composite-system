@@ -210,11 +210,17 @@ export function generateProductName(
           RED: "červená",
           GRN: "zelená"
         }
+        const speedMap: Record<string, string> = {
+          low: "nízká rychlost",
+          medium: "střední rychlost",
+          high: "vysoká rychlost"
+        }
         const typeStr = typeMap[specs.typ_vyroby] || ""
         const matStr = specs.material || ""
+        const speedStr = speedMap[specs.rychlost_proudeni] || specs.rychlost_proudeni || ""
         const colorStr = colorMap[specs.barva] || ""
         const widthStr = specs.sirka_cm ? `${specs.sirka_cm}cm` : ""
-        return ["Distribuční síťka", typeStr, matStr, colorStr, widthStr].filter(Boolean).join(" ")
+        return ["Distribuční síťka", typeStr, matStr, speedStr, colorStr, widthStr].filter(Boolean).join(" ")
       }
       case 'FCH': {
         const subMap: Record<string, string> = {
@@ -284,6 +290,33 @@ export function generateProductName(
         return ["Vakuometr", idStr].filter(Boolean).join(" ")
       }
     }
+  }
+
+  if (categoryId === 'lepidla') {
+    const chemMap: Record<string, string> = {
+      EP: "epoxidové",
+      PU: "polyuretanové",
+      MMA: "akrylátové (MMA)"
+    }
+    const colorMap: Record<string, string> = {
+      black: "černé",
+      grey: "šedé",
+      white: "bílé",
+      clear: "čiré",
+      "off-white": "krémové (off-white)"
+    }
+    const chemStr = chemMap[specs.chemie] || specs.chemie || ""
+    const colorStr = colorMap[specs.barva] || specs.barva || ""
+    const openTimeStr = specs.open_time_min ? `${specs.open_time_min} min` : ""
+    const volumeStr = specs.objem || ""
+    
+    const parts = [
+      `Lepidlo ${chemStr}`.trim(),
+      colorStr
+    ].filter(Boolean).join(" ")
+
+    const details = [openTimeStr, volumeStr].filter(Boolean).join(", ")
+    return details ? `${parts}, ${details}` : parts
   }
 
   return ""
