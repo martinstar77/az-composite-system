@@ -179,6 +179,12 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       return true
     }
 
+    const hasActiveFilters = 
+      !!debouncedSearch || 
+      (selectedCategories && selectedCategories.length > 0) || 
+      (selectedStatuses && selectedStatuses.length > 0) || 
+      selectedSubcategories.length > 0
+
     setProducts(prev => {
       // Update existing products with new data from initialData if they exist, or preserve them
       const updatedPrev = prev.map(p => {
@@ -191,10 +197,15 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       const brandNew = initialData.filter(init => !existingIds.has(init.id))
       const nextProducts = [...brandNew, ...updatedPrev].filter(matchesFilters)
       
-      setHasMore(nextProducts.length < initialTotalCount)
+      if (!hasActiveFilters) {
+        setHasMore(nextProducts.length < initialTotalCount)
+      }
       return nextProducts
     })
-    setTotalCount(initialTotalCount)
+
+    if (!hasActiveFilters) {
+      setTotalCount(initialTotalCount)
+    }
   }, [initialData, initialTotalCount, debouncedSearch, selectedCategories, selectedStatuses, selectedSubcategories])
 
   // Helper to load paginated data based on filters & sorting
@@ -220,6 +231,9 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
 
       if (res.error) {
         toast.error("Chyba při načítání dalších produktů: " + res.error.message)
+        if (res.error.code === 'PGRST103' || String(res.error.message).includes('satisfiable')) {
+          setHasMore(false)
+        }
         return
       }
 
