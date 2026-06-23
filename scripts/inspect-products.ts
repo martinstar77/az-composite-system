@@ -58,7 +58,8 @@ async function run() {
       specs.podkategorie === 'PP-PTFE' ||
       specs.podkategorie === 'BC' ||
       specs.podkategorie === 'FM' ||
-      (specs.podkategorie === 'FCH' && (specs.podtyp_fch === 'TAPE' || specs.podtyp_fch === 'SPRL' || specs.podtyp_fch === 'OMEGA' || specs.podtyp_fch === 'TTUBE'))
+      specs.podkategorie === 'TUBE' ||
+      (specs.podkategorie === 'FCH' && (specs.podtyp_fch === 'TAPE' || specs.podtyp_fch === 'SPRL' || specs.podtyp_fch === 'OMEGA' || specs.podtyp_fch === 'TUBE' || specs.podtyp_fch === 'TTUBE'))
 
     if (isRoll || specs.delka_m != null) {
       rollProducts.push({

@@ -230,6 +230,30 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           MMA: 'Akrylát (MMA)'
         }
         formattedValue = chemCzechMap[formattedValue] || formattedValue
+      } else if (key === 'podkategorie') {
+        const subcatMap: Record<string, string> = {
+          BF: 'Vakuová fólie (BF)',
+          RF: 'Separační fólie (RF)',
+          PP: 'Strhávací tkanina (PP)',
+          'PP-PTFE': 'Teflonová strhávací tkanina (PP-PTFE)',
+          BC: 'Odsávací netkaná textilie (BC)',
+          ST: 'Těsnící páska (ST)',
+          FT: 'Flash tape páska (FT)',
+          FM: 'Distribuční síťka (FM)',
+          FCH: 'Distribuční kanálek (FCH)',
+          TUBE: 'Hadice (TUBE)',
+          K: 'Konektory a fitinky (K)'
+        }
+        formattedValue = subcatMap[formattedValue] || formattedValue
+      } else if (key === 'tvar') {
+        const tvarMap: Record<string, string> = {
+          T: 'T-spojka / T-kus',
+          I: 'I-spojka / Rovná',
+          U: 'I-spojka / Rovná',
+          L: 'L-spojka / Koleno',
+          O: 'Kruhová'
+        }
+        formattedValue = tvarMap[formattedValue] || formattedValue
       }
 
       formattedSpecs.push({ label, value: formattedValue })

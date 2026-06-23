@@ -252,7 +252,12 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [toolSqPrumer, setToolSqPrumer] = useState(specs.prumer_mm ? String(specs.prumer_mm) : "25")
   const [toolVId, setToolVId] = useState(specs.identifikator || "")
   // Consumables (Spotřební materiál)
-  const [conSub, setConSub] = useState(specs.podkategorie || "BF")
+  const [conSub, setConSub] = useState(() => {
+    if (specs.podkategorie === "FCH" && (specs.podtyp_fch === "TUBE" || specs.podtyp_fch === "TTUBE")) {
+      return "TUBE"
+    }
+    return specs.podkategorie || "BF"
+  })
   
   // Shared roll dimensions (BF, RF, PP, PP-PTFE, BC, FM)
   const [conRollWidth, setConRollWidth] = useState(specs.sirka_cm !== undefined ? String(specs.sirka_cm) : "100")
@@ -304,7 +309,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   })
 
   // FCH – Flow Channel
-  const [conFchSubtyp, setConFchSubtyp] = useState(specs.podtyp_fch || "TAPE")
+  const [conFchSubtyp, setConFchSubtyp] = useState(specs.podtyp_fch === "TTUBE" ? "TUBE" : (specs.podtyp_fch || "TAPE"))
   const [conFchMaterial, setConFchMaterial] = useState(specs.material || "PET")
   const [conFchPrumer, setConFchPrumer] = useState(specs.vnitrni_prumer_mm ? String(specs.vnitrni_prumer_mm) : "10")
   const [conFchSirka, setConFchSirka] = useState(specs.sirka_mm ? String(specs.sirka_mm) : "15")
@@ -317,7 +322,10 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   })
 
   // K – Konektory
-  const [conKTvar, setConKTvar] = useState(specs.tvar || "T")
+  const [conKTvar, setConKTvar] = useState(() => {
+    if (specs.tvar === "U") return "I"
+    return specs.tvar || "T"
+  })
   const [conKPrumer, setConKPrumer] = useState(specs.vnejsi_prumer_mm ? String(specs.vnejsi_prumer_mm) : "20")
 
   // Auto-map packaging profile based on category and package type defaults
@@ -776,23 +784,27 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 }
                 break
               }
-              case 'TTUBE': {
-                const len = parseFloat(conFchDelka) || 0
-                setValue("zakladni_mj_id", "bm", { shouldValidate: true })
-                setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-                setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
-                
-                const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
-                generatedSku = `FCH-TTUBE-${conFchPrumer}${lenSuffix}`
-                generatedSpecs = {
-                  podkategorie: "FCH",
-                  podtyp_fch: "TTUBE",
-                  vnitrni_prumer_mm: parseInt(conFchPrumer) || 0,
-                  teplotni_odolnost: fchTempCode,
-                  delka_m: len
-                }
-                break
-              }
+            }
+            break
+          }
+          case 'TUBE': {
+            const len = parseFloat(conFchDelka) || 0
+            setValue("zakladni_mj_id", "bm", { shouldValidate: true })
+            setValue("jednotka_baleni_id", "role", { shouldValidate: true })
+            setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
+            
+            const tempVal = parseInt(conFchTemp) || 120
+            const prefix = tempVal <= 120 ? "LT" : tempVal <= 150 ? "MT" : "HT"
+            const fchTempCode = `${prefix}${tempVal}`
+            
+            const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
+            generatedSku = `TUBE-${conFchMaterial}-${conFchPrumer}${lenSuffix}`
+            generatedSpecs = {
+              podkategorie: "TUBE",
+              material: conFchMaterial,
+              vnitrni_prumer_mm: parseInt(conFchPrumer) || 0,
+              teplotni_odolnost: fchTempCode,
+              delka_m: len
             }
             break
           }
@@ -1272,6 +1284,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             {val:"FT", label:"FT (Flash tape páska)"},
             {val:"FM", label:"FM (Distribuční síťka)"},
             {val:"FCH", label:"FCH (Distribuční kanálek)"},
+            {val:"TUBE", label:"TUBE (Hadice)"},
             {val:"K", label:"K (Konektory a fitinky)"}
           ])}
           
@@ -1438,8 +1451,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               {renderSelect("Typ kanálku", conFchSubtyp, setConFchSubtyp, [
                 {val:"TAPE", label:"TAPE (Páskový / Plochý)"},
                 {val:"SPRL", label:"SPRL (Spirálová hadice)"},
-                {val:"OMEGA", label:"OMEGA (Omega profil)"},
-                {val:"TTUBE", label:"TTUBE (Hadice s T-spojkou)"}
+                {val:"OMEGA", label:"OMEGA (Omega profil)"}
               ])}
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Teplota (°C)</Label>
@@ -1455,7 +1467,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 <>
                   {renderSelect("Materiál", conFchMaterial, setConFchMaterial, [
                     {val:"PET", label:"PET (Polyester)"},
-                    {val:"PE", label:"PE (Polyethylen)"},
                     {val:"HDPE", label:"HDPE (Polyethylen vysokohustotní)"}
                   ])}
                   <div className="space-y-2">
@@ -1477,7 +1488,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 <>
                   {renderSelect("Materiál", conFchMaterial, setConFchMaterial, [
                     {val:"PET", label:"PET (Polyester)"},
-                    {val:"PE", label:"PE (Polyethylen)"},
                     {val:"HDPE", label:"HDPE (Polyethylen vysokohustotní)"}
                   ])}
                   <div className="space-y-2">
@@ -1504,18 +1514,32 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 </>
               )}
 
-              {conFchSubtyp === 'TTUBE' && (
-                <>
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Vnitřní průměr (mm)</Label>
-                    <Input type="number" value={conFchPrumer} onChange={(e) => setConFchPrumer(e.target.value)} className="h-8 bg-background" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Délka (m)</Label>
-                    <Input type="number" value={conFchDelka} onChange={(e) => setConFchDelka(e.target.value)} className="h-8 bg-background" />
-                  </div>
-                </>
-              )}
+            </>
+          )}
+
+          {conSub === 'TUBE' && (
+            <>
+              {renderSelect("Materiál", conFchMaterial, setConFchMaterial, [
+                {val:"PET", label:"PET (Polyester)"},
+                {val:"HDPE", label:"HDPE (Polyethylen vysokohustotní)"}
+              ])}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Vnitřní průměr (mm)</Label>
+                <Input type="number" value={conFchPrumer} onChange={(e) => setConFchPrumer(e.target.value)} className="h-8 bg-background" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Teplota (°C)</Label>
+                <Input 
+                  type="number" 
+                  value={conFchTemp} 
+                  onChange={(e) => setConFchTemp(e.target.value)} 
+                  className="h-8 bg-background" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Délka (m)</Label>
+                <Input type="number" value={conFchDelka} onChange={(e) => setConFchDelka(e.target.value)} className="h-8 bg-background" />
+              </div>
             </>
           )}
 
@@ -1523,7 +1547,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             <>
               {renderSelect("Tvar", conKTvar, setConKTvar, [
                 {val:"T", label:"T-spojka"},
-                {val:"U", label:"U-spojka / Rovná"},
+                {val:"I", label:"I-spojka / Rovná"},
                 {val:"L", label:"L-spojka / Koleno"}
               ])}
               <div className="space-y-2">

@@ -227,7 +227,8 @@ export function generateProductName(
           TAPE: "páskový",
           SPRL: "spirálový",
           OMEGA: "omega profil",
-          TTUBE: "trubičkový"
+          TUBE: "hadice",
+          TTUBE: "hadice"
         }
         const subStr = subMap[specs.podtyp_fch] || ""
         let dimStr = ""
@@ -236,11 +237,31 @@ export function generateProductName(
         } else if (specs.podtyp_fch === "SPRL") {
           dimStr = specs.vnitrni_prumer_mm ? `vnitřní průměr ${specs.vnitrni_prumer_mm}mm` : ""
         } else if (specs.podtyp_fch === "OMEGA") {
-          dimStr = specs.sirka_mm ? `šířka ${specs.sirka_mm}mm` : ""
-        } else if (specs.podtyp_fch === "TTUBE") {
+          dimStr = specs.vnitrni_prumer_mm ? `vnitřní průměr ${specs.vnitrni_prumer_mm}mm` : ""
+        } else if (specs.podtyp_fch === "TUBE" || specs.podtyp_fch === "TTUBE") {
           dimStr = specs.vnitrni_prumer_mm ? `vnitřní průměr ${specs.vnitrni_prumer_mm}mm` : ""
         }
-        return ["Distribuční kanálek", subStr, dimStr].filter(Boolean).join(" ")
+
+        let tempStr = ""
+        if (specs.teplotni_odolnost) {
+          const match = String(specs.teplotni_odolnost).match(/\d+/)
+          if (match) {
+            tempStr = `do ${match[0]}°C`
+          }
+        }
+        return ["Distribuční kanálek", subStr, dimStr, tempStr].filter(Boolean).join(" ")
+      }
+      case 'TUBE': {
+        const matStr = specs.material || ""
+        const diaStr = specs.vnitrni_prumer_mm ? `vnitřní průměr ${specs.vnitrni_prumer_mm}mm` : ""
+        let tempStr = ""
+        if (specs.teplotni_odolnost) {
+          const match = String(specs.teplotni_odolnost).match(/\d+/)
+          if (match) {
+            tempStr = `do ${match[0]}°C`
+          }
+        }
+        return ["Hadice", matStr, diaStr, tempStr].filter(Boolean).join(" ")
       }
       case 'K': {
         const tvarStr = specs.tvar ? `tvar ${specs.tvar}` : ""
