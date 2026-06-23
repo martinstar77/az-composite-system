@@ -147,6 +147,7 @@ export function generateProductName(
         const perfMap: Record<string, string> = {
           NP: "neperforovaná",
           P3: "perforovaná P3",
+          P6: "perforovaná P6",
           P16: "perforovaná P16",
           P31: "perforovaná P31"
         }

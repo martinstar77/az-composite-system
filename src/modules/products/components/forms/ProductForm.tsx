@@ -1312,6 +1312,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               {renderSelect("Perforace", conRfPerf, setConRfPerf, [
                 {val:"NP", label:"NP (Neperforovaná)"},
                 {val:"P3", label:"P3 (Perforace P3)"},
+                {val:"P6", label:"P6 (Perforace P6)"},
                 {val:"P16", label:"P16 (Perforace P16)"},
                 {val:"P31", label:"P31 (Perforace P31)"}
               ])}

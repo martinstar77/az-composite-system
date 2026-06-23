@@ -254,6 +254,15 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           O: 'Kruhová'
         }
         formattedValue = tvarMap[formattedValue] || formattedValue
+      } else if (key === 'perforace') {
+        const perfMap: Record<string, string> = {
+          NP: 'Neperforovaná (NP)',
+          P3: 'Perforace P3 (P3)',
+          P6: 'Perforace P6 (P6)',
+          P16: 'Perforace P16 (P16)',
+          P31: 'Perforace P31 (P31)'
+        }
+        formattedValue = perfMap[formattedValue] || formattedValue
       }
 
       formattedSpecs.push({ label, value: formattedValue })
