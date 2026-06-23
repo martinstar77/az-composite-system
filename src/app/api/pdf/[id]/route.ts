@@ -8,7 +8,11 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const doklad = await getDokladById(id)
+    let doklad = await getDokladById(id) as any
+    if (!doklad) {
+      const { getPrijatyDokladById } = await import('@/modules/invoicing/actions/procurement')
+      doklad = await getPrijatyDokladById(id)
+    }
     
     if (!doklad) {
       return new NextResponse('Doklad nenalezen', { status: 404 })
