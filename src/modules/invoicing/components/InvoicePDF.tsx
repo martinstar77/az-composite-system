@@ -1047,7 +1047,7 @@ export function InvoicePDF({ doklad: dokladRaw, qrDataUri }: InvoicePDFProps) {
                 {t.reverse_charge_note}
               </Text>
             )}
-            {!doklad.platce_dph && (
+            {!(doklad.dodavatel_id ? firemni?.platce_dph : doklad.platce_dph) && (
               <Text style={{ fontSize: 7, color: COLORS.muted, fontWeight: 'bold' }}>
                 {t.non_vat_note}
               </Text>
