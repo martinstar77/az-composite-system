@@ -310,9 +310,23 @@ export function generateProductName(
     const openTimeStr = specs.open_time_min ? `${specs.open_time_min} min` : ""
     const volumeStr = specs.objem || ""
     
+    // Generate code like EP60B
+    const chemCode = specs.chemie || ""
+    const openTimeVal = specs.open_time_min || ""
+    const colorCharMap: Record<string, string> = {
+      black: "B",
+      grey: "G",
+      white: "W",
+      clear: "C",
+      "off-white": "O"
+    }
+    const colorChar = colorCharMap[specs.barva] || ""
+    const codeSuffix = chemCode && openTimeVal && colorChar ? `(${chemCode}${openTimeVal}${colorChar})` : ""
+    
     const parts = [
       `Lepidlo ${chemStr}`.trim(),
-      colorStr
+      colorStr,
+      codeSuffix
     ].filter(Boolean).join(" ")
 
     const details = [openTimeStr, volumeStr].filter(Boolean).join(", ")
