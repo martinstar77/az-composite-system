@@ -723,6 +723,16 @@ export function InvoicePDF({ doklad: dokladRaw, qrDataUri }: InvoicePDFProps) {
     ? (doklad.zpusob_uhrady === 'prevod' ? 'Bank transfer' : doklad.zpusob_uhrady === 'hotovost' ? 'Cash' : 'Credit card')
     : (ZPUSOB_UHRADY_LABELS as any)[doklad.zpusob_uhrady] || ''
 
+  const formatUnit = (unit?: string | null) => {
+    if (!unit) return ''
+    const u = unit.trim().toLowerCase()
+    if (lang === 'en') {
+      if (u === 'ks' || u === 'ks.') return ' pcs'
+      if (u === 'kpl' || u === 'kpl.') return ' set'
+    }
+    return ' ' + unit
+  }
+
   return (
     <Document
       title={`${typLabel} ${doklad.cislo}`}
@@ -981,7 +991,7 @@ export function InvoicePDF({ doklad: dokladRaw, qrDataUri }: InvoicePDFProps) {
                       )}
                     </View>
                     <Text style={[styles.tdRed, styles.colPocet]}>
-                      {formatNum(polozka.mnozstvi)}{polozka.jednotka ? ' ' + polozka.jednotka : ''}
+                      {formatNum(polozka.mnozstvi)}{formatUnit(polozka.jednotka)}
                     </Text>
                     <Text style={[styles.tdRedBold, styles.colCenaJedn]}>
                       -{formatNum(Math.abs(polozka.cena_bez_dph))}
@@ -1018,7 +1028,7 @@ export function InvoicePDF({ doklad: dokladRaw, qrDataUri }: InvoicePDFProps) {
                     )}
                   </View>
                   <Text style={[styles.tdText, styles.colPocet]}>
-                    {formatNum(polozka.mnozstvi)}{polozka.jednotka ? ' ' + polozka.jednotka : ''}
+                    {formatNum(polozka.mnozstvi)}{formatUnit(polozka.jednotka)}
                   </Text>
                   <Text style={[styles.tdText, styles.colCenaJedn]}>
                     {formatNum(polozka.cena_bez_dph)}
