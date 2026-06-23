@@ -454,33 +454,29 @@ export function PrijatyDokladForm({ suppliers, products, initialData }: PrijatyD
                     />
                   </div>
 
-                  {selectedTyp !== 'objednavka_dodavateli' && (
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/30 border border-zinc-800/80">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="tisk-splatnosti">Zobrazit splatnost na dokladu</Label>
-                        <p className="text-[10px] text-muted-foreground">Zobrazit nebo skrýt datum splatnosti na PDF.</p>
-                      </div>
-                      <Switch
-                        id="tisk-splatnosti"
-                        checked={watch('tisk_splatnosti')}
-                        onCheckedChange={(checked) => setValue('tisk_splatnosti', checked)}
-                      />
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/30 border border-zinc-800/80">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="tisk-splatnosti">Zobrazit splatnost na dokladu</Label>
+                      <p className="text-[10px] text-muted-foreground">Zobrazit nebo skrýt datum splatnosti na PDF.</p>
                     </div>
-                  )}
+                    <Switch
+                      id="tisk-splatnosti"
+                      checked={watch('tisk_splatnosti')}
+                      onCheckedChange={(checked) => setValue('tisk_splatnosti', checked)}
+                    />
+                  </div>
 
-                  {selectedTyp !== 'objednavka_dodavateli' && (
-                    <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/30 border border-zinc-800/80">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="tisk-kurzu">Zobrazit kurz na dokladu</Label>
-                        <p className="text-[10px] text-muted-foreground">Zobrazit nebo skrýt měnový kurz na PDF.</p>
-                      </div>
-                      <Switch
-                        id="tisk-kurzu"
-                        checked={watch('tisk_kurzu')}
-                        onCheckedChange={(checked) => setValue('tisk_kurzu', checked)}
-                      />
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/30 border border-zinc-800/80">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="tisk-kurzu">Zobrazit kurz na dokladu</Label>
+                      <p className="text-[10px] text-muted-foreground">Zobrazit nebo skrýt měnový kurz na PDF.</p>
                     </div>
-                  )}
+                    <Switch
+                      id="tisk-kurzu"
+                      checked={watch('tisk_kurzu')}
+                      onCheckedChange={(checked) => setValue('tisk_kurzu', checked)}
+                    />
+                  </div>
 
                   <div className="space-y-1">
                     <Label>Způsob úhrady *</Label>

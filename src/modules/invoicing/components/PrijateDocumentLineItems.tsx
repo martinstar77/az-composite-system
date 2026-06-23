@@ -31,7 +31,7 @@ export function PrijateDocumentLineItems({ products, isBill }: PrijateDocumentLi
     const souctyRadku = vypocitejRadek({
       mnozstvi:     Number(p.mnozstvi || 0),
       cena_bez_dph: Number(p.cena_bez_dph || 0),
-      sazba_dph:    Number(p.sazba_dph || 21),
+      sazba_dph:    Number(p.sazba_dph ?? 21),
       sleva_procent: Number(p.sleva_procent || 0),
     })
     return {
