@@ -317,7 +317,7 @@ export function RichTextEditor({
             <EditorContent
                 editor={editor}
                 className={cn(
-                    "prose prose-sm dark:prose-invert max-w-none focus:outline-none tiptap-editor-content",
+                    "prose prose-sm dark:prose-invert max-w-none focus:outline-none tiptap-editor-content flex-1 overflow-y-auto",
                     editable ? "p-4 min-h-[250px]" : "p-0 min-h-0"
                 )}
             />

@@ -284,7 +284,7 @@ export function NoteEditor({ note, refreshNotes, setSelectedNoteId }: NoteEditor
             </div>
 
             {/* Note Editor Area */}
-            <div className="flex-1 overflow-y-auto flex flex-col p-6 min-h-0">
+            <div className="flex-1 overflow-hidden flex flex-col p-6 min-h-0">
                 {/* Audit Block */}
                 <div className="mb-4 flex flex-wrap gap-x-6 gap-y-2 text-[10px] text-muted-foreground border-b border-border/60 pb-3">
                     <div>
