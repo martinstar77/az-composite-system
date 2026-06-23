@@ -71,6 +71,8 @@ interface PrijateDokladyDataTableProps {
 const TYP_COLORS: Record<string, string> = {
   objednavka_dodavateli: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
   prijata_faktura: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  prijata_zalohova_faktura: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  prijaty_opravny_doklad: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
 }
 
 const STAV_COLORS: Record<string, string> = {
@@ -336,7 +338,7 @@ export function PrijateDokladyDataTable({ data }: PrijateDokladyDataTableProps) 
     },
   })
 
-  const documentTypes = ['objednavka_dodavateli', 'prijata_faktura']
+  const documentTypes = ['objednavka_dodavateli', 'prijata_faktura', 'prijata_zalohova_faktura', 'prijaty_opravny_doklad']
   const documentStatuses = ['koncept', 'odeslano', 'doruceno', 'schvaleno', 'uhrazeno', 'stornovano']
 
   return (

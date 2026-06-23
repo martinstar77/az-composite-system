@@ -76,6 +76,7 @@ const TYP_COLORS: Record<string, string> = {
   objednavka: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
   zalohova_faktura: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
   faktura: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  opravny_doklad: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
 }
 
 const STAV_COLORS: Record<string, string> = {
@@ -345,7 +346,7 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
   })
 
   // Získání unikátních hodnot pro filtry
-  const documentTypes = ['nabidka', 'objednavka', 'zalohova_faktura', 'faktura']
+  const documentTypes = ['nabidka', 'objednavka', 'zalohova_faktura', 'faktura', 'opravny_doklad']
   const documentStatuses = ['koncept', 'odeslano', 'uhrazeno', 'castecne_uhrazeno', 'po_splatnosti', 'stornovano']
 
   return (
