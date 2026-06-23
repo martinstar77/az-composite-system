@@ -39,6 +39,7 @@ import { cn } from "@/shared/lib/utils"
 interface RichTextEditorProps {
     value: string
     onChange: (value: string) => void
+    onBlur?: () => void
     placeholder?: string
     className?: string
     editable?: boolean
@@ -48,6 +49,7 @@ interface RichTextEditorProps {
 export function RichTextEditor({
     value,
     onChange,
+    onBlur,
     placeholder,
     className,
     editable = true,
@@ -79,6 +81,9 @@ export function RichTextEditor({
         content: value,
         onUpdate: ({ editor }) => {
             onChange(editor.getHTML())
+        },
+        onBlur: () => {
+            if (onBlur) onBlur()
         },
     })
 
