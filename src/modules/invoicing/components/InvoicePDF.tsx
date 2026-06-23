@@ -814,7 +814,7 @@ export function InvoicePDF({ doklad: dokladRaw, qrDataUri }: InvoicePDFProps) {
               <Text style={styles.metaLabel}>{t.datum_vystaveni}</Text>
               <Text style={styles.metaValue}>{formatDatum(doklad.datum_vystaveni)}</Text>
             </View>
-            {doklad.datum_splatnosti && (
+            {doklad.datum_splatnosti && doklad.tisk_splatnosti !== false && (
               <View style={styles.metaItem}>
                 <Text style={styles.metaLabel}>{t.datum_splatnosti}</Text>
                 <Text style={styles.metaValue}>{formatDatum(doklad.datum_splatnosti)}</Text>

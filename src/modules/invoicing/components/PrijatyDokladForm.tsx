@@ -54,6 +54,7 @@ export function PrijatyDokladForm({ suppliers, products, initialData }: PrijatyD
       kurz_k_czk:             initialData?.kurz_k_czk ?? 1,
       platce_dph:             initialData?.platce_dph ?? true,
       zpusob_uhrady:          initialData?.zpusob_uhrady ?? 'prevod',
+      tisk_splatnosti:        initialData?.tisk_splatnosti ?? true,
       poznamky:               initialData?.poznamky ?? '',
       interni_poznamky:       initialData?.interni_poznamky ?? '',
       polozky:                initialData?.polozky?.map(p => ({
@@ -445,6 +446,20 @@ export function PrijatyDokladForm({ suppliers, products, initialData }: PrijatyD
                       onCheckedChange={(checked) => setValue('platce_dph', checked)}
                     />
                   </div>
+
+                  {selectedTyp === 'prijata_faktura' && (
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/30 border border-zinc-800/80">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="tisk-splatnosti">Zobrazit splatnost na dokladu</Label>
+                        <p className="text-[10px] text-muted-foreground">Zobrazit nebo skrýt datum splatnosti na PDF.</p>
+                      </div>
+                      <Switch
+                        id="tisk-splatnosti"
+                        checked={watch('tisk_splatnosti')}
+                        onCheckedChange={(checked) => setValue('tisk_splatnosti', checked)}
+                      />
+                    </div>
+                  )}
 
                   <div className="space-y-1">
                     <Label>Způsob úhrady *</Label>

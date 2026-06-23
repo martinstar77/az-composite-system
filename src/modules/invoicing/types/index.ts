@@ -192,6 +192,7 @@ export interface PrijatyDoklad {
   platce_dph: boolean
   zpusob_uhrady: ZpusobUhrady
   jazyk: 'cs' | 'en'
+  tisk_splatnosti: boolean
   poznamky: string | null
   interni_poznamky: string | null
   dodavatel_udaje_snapshot: Supplier | null
