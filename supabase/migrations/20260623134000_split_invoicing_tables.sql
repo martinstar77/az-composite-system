@@ -279,3 +279,11 @@ BEGIN
         ALTER TABLE public.doklady RENAME TO _deprecated_doklady;
     END IF;
 END $$;
+
+-- 8. Table privilege grants for Supabase API access
+GRANT ALL ON public.vydane_doklady TO postgres, anon, authenticated, service_role;
+GRANT ALL ON public.vydane_doklady_polozky TO postgres, anon, authenticated, service_role;
+GRANT ALL ON public.vydane_doklady_audit_log TO postgres, anon, authenticated, service_role;
+GRANT ALL ON public.prijate_doklady TO postgres, anon, authenticated, service_role;
+GRANT ALL ON public.prijate_doklady_polozky TO postgres, anon, authenticated, service_role;
+GRANT ALL ON public.prijate_doklady_audit_log TO postgres, anon, authenticated, service_role;
