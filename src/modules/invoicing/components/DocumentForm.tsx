@@ -276,7 +276,8 @@ export function DocumentForm({ customers, products, initialData }: DocumentFormP
                         {selectedTyp === 'nabidka' ? 'Cenová nabídka' :
                          selectedTyp === 'objednavka' ? 'Přijatá objednávka' :
                          selectedTyp === 'zalohova_faktura' ? 'Zálohová faktura' :
-                         selectedTyp === 'faktura' ? 'Faktura (daňový doklad)' : undefined}
+                         selectedTyp === 'faktura' ? 'Faktura (daňový doklad)' :
+                         selectedTyp === 'opravny_doklad' ? 'Opravný daňový doklad (Dobropis)' : undefined}
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent className="bg-zinc-950 border-zinc-800 text-zinc-200">
@@ -284,6 +285,7 @@ export function DocumentForm({ customers, products, initialData }: DocumentFormP
                       <SelectItem value="objednavka">Přijatá objednávka</SelectItem>
                       <SelectItem value="zalohova_faktura">Zálohová faktura</SelectItem>
                       <SelectItem value="faktura">Faktura (daňový doklad)</SelectItem>
+                      <SelectItem value="opravny_doklad">Opravný daňový doklad (Dobropis)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -375,7 +377,7 @@ export function DocumentForm({ customers, products, initialData }: DocumentFormP
                 </div>
 
                  {/* Datum splatnosti (pro faktury / zálohy) */}
-                {(selectedTyp === 'faktura' || selectedTyp === 'zalohova_faktura') && (
+                 {(selectedTyp === 'faktura' || selectedTyp === 'zalohova_faktura' || selectedTyp === 'opravny_doklad') && (
                   <div className="space-y-1.5">
                     <Label htmlFor="datum_splatnosti">Datum splatnosti</Label>
                     <Input
@@ -401,7 +403,7 @@ export function DocumentForm({ customers, products, initialData }: DocumentFormP
                 )}
 
                 {/* DUZP (daňové plnění - pro faktury) */}
-                {selectedTyp === 'faktura' && (
+                {(selectedTyp === 'faktura' || selectedTyp === 'opravny_doklad') && (
                   <div className="space-y-1">
                     <Label htmlFor="duzp">Datum uskutečnění zdanit. plnění (DUZP)</Label>
                     <Input
@@ -509,7 +511,7 @@ export function DocumentForm({ customers, products, initialData }: DocumentFormP
                 )}
 
                 {/* Způsob úhrady */}
-                {(selectedTyp === 'faktura' || selectedTyp === 'zalohova_faktura') && (
+                {(selectedTyp === 'faktura' || selectedTyp === 'zalohova_faktura' || selectedTyp === 'opravny_doklad') && (
                   <div className="space-y-1.5">
                     <Label>Způsob úhrady</Label>
                     <Select

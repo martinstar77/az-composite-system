@@ -256,6 +256,8 @@ export function PrijatyDokladForm({ suppliers, products, initialData }: PrijatyD
                       <SelectContent className="bg-zinc-950 border-zinc-800 text-zinc-200">
                         <SelectItem value="objednavka_dodavateli">Objednávka dodavateli (PO)</SelectItem>
                         <SelectItem value="prijata_faktura">Přijatá faktura (Bill)</SelectItem>
+                        <SelectItem value="prijata_zalohova_faktura">Přijatá zálohová faktura</SelectItem>
+                        <SelectItem value="prijaty_opravny_doklad">Přijatý opravný doklad (Dobropis)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -270,9 +272,9 @@ export function PrijatyDokladForm({ suppliers, products, initialData }: PrijatyD
                     />
                   </div>
 
-                  {selectedTyp === 'prijata_faktura' && (
+                  {selectedTyp !== 'objednavka_dodavateli' && (
                     <div className="space-y-1.5 col-span-1 md:col-span-2">
-                      <Label htmlFor="externi_cislo_faktury">Číslo faktury dodavatele *</Label>
+                      <Label htmlFor="externi_cislo_faktury">Číslo dokladu dodavatele *</Label>
                       <Input
                         id="externi_cislo_faktury"
                         placeholder="e.g. FV-2026/123"
@@ -360,7 +362,7 @@ export function PrijatyDokladForm({ suppliers, products, initialData }: PrijatyD
                     />
                   </div>
 
-                  {selectedTyp === 'prijata_faktura' && (
+                  {selectedTyp !== 'objednavka_dodavateli' && (
                     <>
                       <div className="space-y-1">
                         <Label htmlFor="datum_prijeti">Datum doručení / přijetí *</Label>
@@ -452,7 +454,7 @@ export function PrijatyDokladForm({ suppliers, products, initialData }: PrijatyD
                     />
                   </div>
 
-                  {selectedTyp === 'prijata_faktura' && (
+                  {selectedTyp !== 'objednavka_dodavateli' && (
                     <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/30 border border-zinc-800/80">
                       <div className="space-y-0.5">
                         <Label htmlFor="tisk-splatnosti">Zobrazit splatnost na dokladu</Label>
@@ -466,7 +468,7 @@ export function PrijatyDokladForm({ suppliers, products, initialData }: PrijatyD
                     </div>
                   )}
 
-                  {selectedTyp === 'prijata_faktura' && (
+                  {selectedTyp !== 'objednavka_dodavateli' && (
                     <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/30 border border-zinc-800/80">
                       <div className="space-y-0.5">
                         <Label htmlFor="tisk-kurzu">Zobrazit kurz na dokladu</Label>

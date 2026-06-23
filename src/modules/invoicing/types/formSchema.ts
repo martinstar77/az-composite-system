@@ -91,7 +91,7 @@ export type DokladPolozkaFormValues = z.infer<typeof dokladPolozkaSchema>
 // Hlavní Doklad (Vydaný / Sales)
 // ─────────────────────────────────────────────
 export const dokladSchema = z.object({
-  typ:                   z.enum(['nabidka', 'objednavka', 'zalohova_faktura', 'faktura']),
+  typ:                   z.enum(['nabidka', 'objednavka', 'zalohova_faktura', 'faktura', 'opravny_doklad']),
   zakaznik_id:           z.string().uuid().min(1, 'Odběratel je povinný'),
   rodic_id:              z.string().uuid().nullable().optional(),
 
@@ -143,7 +143,7 @@ export type PrijatyDokladPolozkaFormValues = z.infer<typeof prijatyDokladPolozka
 // Přijatý Doklad (Nákupní / Procurement)
 // ─────────────────────────────────────────────
 export const prijatyDokladSchema = z.object({
-  typ:                   z.enum(['objednavka_dodavateli', 'prijata_faktura']),
+  typ:                   z.enum(['objednavka_dodavateli', 'prijata_faktura', 'prijata_zalohova_faktura', 'prijaty_opravny_doklad']),
   cislo:                 z.string().optional(),
   externi_cislo_faktury: z.string().optional().or(z.literal('')),
   dodavatel_id:          z.string().uuid().min(1, 'Dodavatel je povinný'),

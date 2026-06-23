@@ -75,7 +75,7 @@ export interface Zakaznik {
 // ─────────────────────────────────────────────
 // Doklady
 // ─────────────────────────────────────────────
-export type DokladTyp = 'nabidka' | 'objednavka' | 'zalohova_faktura' | 'faktura'
+export type DokladTyp = 'nabidka' | 'objednavka' | 'zalohova_faktura' | 'faktura' | 'opravny_doklad'
 export type DokladStav =
   | 'koncept'
   | 'odeslano'
@@ -153,7 +153,7 @@ export interface Doklad {
 // ─────────────────────────────────────────────
 // Přijaté doklady (Procurement / Supplier)
 // ─────────────────────────────────────────────
-export type PrijatyDokladTyp = 'objednavka_dodavateli' | 'prijata_faktura'
+export type PrijatyDokladTyp = 'objednavka_dodavateli' | 'prijata_faktura' | 'prijata_zalohova_faktura' | 'prijaty_opravny_doklad'
 export type PrijatyDokladStav = 'koncept' | 'odeslano' | 'doruceno' | 'schvaleno' | 'uhrazeno' | 'stornovano'
 
 export interface PrijatyDokladPolozka {
@@ -253,11 +253,14 @@ export const DOKLAD_TYP_LABELS: Record<DokladTyp, string> = {
   objednavka: 'Objednávka',
   zalohova_faktura: 'Zálohová faktura',
   faktura: 'Faktura',
+  opravny_doklad: 'Opravný daňový doklad (Dobropis)',
 }
 
 export const PRIJATY_DOKLAD_TYP_LABELS: Record<PrijatyDokladTyp, string> = {
   objednavka_dodavateli: 'Objednávka dodavateli',
   prijata_faktura: 'Přijatá faktura',
+  prijata_zalohova_faktura: 'Přijatá zálohová faktura',
+  prijaty_opravny_doklad: 'Přijatý opravný doklad',
 }
 
 /** Lidsky čitelné popisky stavů dokladů */
