@@ -161,6 +161,7 @@ export const prijatyDokladSchema = z.object({
   zpusob_uhrady:         z.enum(['prevod', 'hotovost', 'karta']).default('prevod'),
   jazyk:                 z.enum(['cs', 'en']).default('cs'),
   tisk_splatnosti:       z.boolean().default(true),
+  tisk_kurzu:            z.boolean().default(true),
 
   poznamky:              z.string().optional().or(z.literal('')),
   interni_poznamky:      z.string().optional().or(z.literal('')),

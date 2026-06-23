@@ -838,7 +838,7 @@ export function InvoicePDF({ doklad: dokladRaw, qrDataUri }: InvoicePDFProps) {
                 {paymentMethodLabel}
               </Text>
             </View>
-            {doklad.mena !== 'CZK' && (
+            {doklad.mena !== 'CZK' && doklad.tisk_kurzu !== false && (
               <View style={styles.metaItem}>
                 <Text style={styles.metaLabel}>{t.mena_kurz}</Text>
                 <Text style={styles.metaValue}>{doklad.mena} ({doklad.kurz_k_czk} CZK)</Text>

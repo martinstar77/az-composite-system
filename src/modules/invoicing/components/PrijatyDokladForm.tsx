@@ -55,6 +55,7 @@ export function PrijatyDokladForm({ suppliers, products, initialData }: PrijatyD
       platce_dph:             initialData?.platce_dph ?? true,
       zpusob_uhrady:          initialData?.zpusob_uhrady ?? 'prevod',
       tisk_splatnosti:        initialData?.tisk_splatnosti ?? true,
+      tisk_kurzu:             initialData?.tisk_kurzu ?? true,
       poznamky:               initialData?.poznamky ?? '',
       interni_poznamky:       initialData?.interni_poznamky ?? '',
       polozky:                initialData?.polozky?.map(p => ({
@@ -141,8 +142,12 @@ export function PrijatyDokladForm({ suppliers, products, initialData }: PrijatyD
 
       if (result.success) {
         toast.success(isEdit ? 'Nákupní doklad byl uložen' : 'Nákupní doklad byl vytvořen')
-        router.push('/faktury/nakup')
-        router.refresh()
+        const createdId = (result as any).id
+        if (!isEdit && createdId) {
+          router.push(`/faktury/nakup/${createdId}/upravit`)
+        } else {
+          router.refresh()
+        }
       } else {
         toast.error(result.error ?? 'Chyba při ukládání dokladu')
       }
@@ -457,6 +462,20 @@ export function PrijatyDokladForm({ suppliers, products, initialData }: PrijatyD
                         id="tisk-splatnosti"
                         checked={watch('tisk_splatnosti')}
                         onCheckedChange={(checked) => setValue('tisk_splatnosti', checked)}
+                      />
+                    </div>
+                  )}
+
+                  {selectedTyp === 'prijata_faktura' && (
+                    <div className="flex items-center justify-between p-2 rounded-lg bg-zinc-900/30 border border-zinc-800/80">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="tisk-kurzu">Zobrazit kurz na dokladu</Label>
+                        <p className="text-[10px] text-muted-foreground">Zobrazit nebo skrýt měnový kurz na PDF.</p>
+                      </div>
+                      <Switch
+                        id="tisk-kurzu"
+                        checked={watch('tisk_kurzu')}
+                        onCheckedChange={(checked) => setValue('tisk_kurzu', checked)}
                       />
                     </div>
                   )}
