@@ -236,10 +236,11 @@ export function DocumentLineItems({ products, isInvoice }: DocumentLineItemsProp
                       className="bg-zinc-950/80 border-zinc-800 h-8 text-xs font-semibold"
                     />
                     {!isText && (
-                      <Input
+                      <textarea
                         {...register(`polozky.${index}.popis`)}
                         placeholder="Podrobnější popis položky (volitelné)"
-                        className="bg-transparent border-transparent hover:border-zinc-800 focus:border-zinc-700 h-7 text-[10px] text-zinc-400 font-normal px-2"
+                        rows={2}
+                        className="w-full bg-transparent border border-transparent hover:border-zinc-800 focus:border-zinc-700 text-[10px] text-zinc-400 font-normal px-2 py-1 rounded resize-y focus:outline-none"
                       />
                     )}
                   </td>
