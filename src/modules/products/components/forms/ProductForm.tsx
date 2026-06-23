@@ -1250,13 +1250,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
           {toolSub === 'SQ' && (
             <>
-              {renderSelect("Průměr", toolSqPrumer, setToolSqPrumer, [
-                {val:"10", label:"10 mm"},
-                {val:"12", label:"12 mm"},
-                {val:"16", label:"16 mm"},
-                {val:"20", label:"20 mm"},
-                {val:"25", label:"25 mm"}
-              ])}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Průměr (mm)</Label>
+                <Input 
+                  type="number" 
+                  value={toolSqPrumer} 
+                  onChange={(e) => setToolSqPrumer(e.target.value)} 
+                  className="h-8 bg-background" 
+                />
+              </div>
             </>
           )}
 
