@@ -183,6 +183,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         formattedValue = `${formattedValue} °C`
       } else if (['open_time_min'].includes(key)) {
         formattedValue = `${formattedValue} min`
+      } else if (['vlakno', 'vlákno', 'vlákno1', 'vlákno2'].includes(key) && formattedValue.endsWith('t')) {
+        formattedValue = formattedValue.replace(/t$/, ' dtex')
       } else if (key === 'teplotni_odolnost' && (formattedValue === 'LT' || formattedValue === 'HT' || formattedValue === 'MT')) {
         const tempClassMap: Record<string, string> = { HT: 'HT (Vysokoteplotní)', MT: 'MT (Středněteplotní)', LT: 'LT (Nízkoteplotní)' }
         formattedValue = tempClassMap[formattedValue] || formattedValue
@@ -263,6 +265,20 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           P31: 'Perforace P31 (P31)'
         }
         formattedValue = perfMap[formattedValue] || formattedValue
+      } else if (key === 'vazba') {
+        const weaveCzechMap: Record<string, string> = {
+          P: 'P (Plain / Plátno)',
+          T22: 'T22 (Twill / Kepr 2/2)',
+          T44: 'T44 (Twill / Kepr 4/4)',
+          NP: 'NP (Needle punched / Vpichovaná)',
+          EM: 'EM (Emulsion / Emulzní)',
+          PB: 'PB (Powder binder / Prášková)',
+          ST: 'ST (Stitched / Prošívaná)',
+          '090': '0/90°',
+          '45': '±45°',
+          NA: 'N/A'
+        }
+        formattedValue = weaveCzechMap[formattedValue] || weaveCzechMap[formattedValue.toUpperCase()] || formattedValue
       }
 
       formattedSpecs.push({ label, value: formattedValue })

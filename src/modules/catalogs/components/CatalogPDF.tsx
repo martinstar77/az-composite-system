@@ -282,11 +282,13 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate }: Cat
           AF: "Aramidová vlákna (Aramid)",
           BIOF: "Lněná vlákna (Bio Flax)",
           BIOH: "Konopná vlákna (Bio Hemp)",
+          PAN: "Polyakrylonitrilová vlákna (PAN)",
+          PET: "Polyesterová vlákna (PET)",
           HF: "Hybridní materiály",
           OF: "Ostatní výztuže"
         }
         subLabel = materialMap[mat] || "Ostatní výztuže"
-        const priorities: Record<string, number> = { CF: 10, GF: 9, AF: 8, HF: 7, BIOF: 6, BIOH: 5, OF: 4 }
+        const priorities: Record<string, number> = { CF: 10, GF: 9, AF: 8, HF: 7, BIOF: 6, BIOH: 5, PAN: 4, PET: 3, OF: 2 }
         subPriority = priorities[mat] || 0
       } else if (catId === 'consumables') {
         const sub = p.specifikace?.podkategorie || 'Ostatní'

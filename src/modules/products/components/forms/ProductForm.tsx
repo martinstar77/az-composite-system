@@ -43,13 +43,14 @@ const CARBON_TOW_OPTIONS = [
 ]
 
 const NON_CARBON_TOW_OPTIONS = [
-  { val: "220t", label: "220 Tex (220t)" },
-  { val: "420t", label: "420 Tex (420t)" },
-  { val: "600t", label: "600 Tex (600t)" },
-  { val: "610t", label: "610 Tex (610t)" },
-  { val: "1200t", label: "1200 Tex (1200t)" },
-  { val: "2400t", label: "2400 Tex (2400t)" },
-  { val: "3200t", label: "3200 Tex (3200t)" },
+  { val: "220t", label: "220 dtex (220t)" },
+  { val: "420t", label: "420 dtex (420t)" },
+  { val: "600t", label: "600 dtex (600t)" },
+  { val: "610t", label: "610 dtex (610t)" },
+  { val: "1200t", label: "1200 dtex (1200t)" },
+  { val: "1600t", label: "1600 dtex (1600t)" },
+  { val: "2400t", label: "2400 dtex (2400t)" },
+  { val: "3200t", label: "3200 dtex (3200t)" },
   { val: "NA", label: "N/A" }
 ]
 
@@ -1017,6 +1018,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             {val:"HF", label:"HF (Hybrid Fibre)"},
             {val:"BIOF", label:"BIOF (Flax)"},
             {val:"BIOH", label:"BIOH (Hemp)"},
+            {val:"PAN", label:"PAN (Polyacrylonitrile)"},
+            {val:"PET", label:"PET (Polyethylene Terephthalate)"},
             {val:"OF", label:"OF (Other)"}
           ])}
           {fabMat === "HF" && (
@@ -1027,6 +1030,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 {val:"AF", label:"AF (Aramid)"},
                 {val:"BIOF", label:"BIOF (Flax)"},
                 {val:"BIOH", label:"BIOH (Hemp)"},
+                {val:"PAN", label:"PAN (Polyacrylonitrile)"},
+                {val:"PET", label:"PET (Polyethylene Terephthalate)"},
                 {val:"OF", label:"OF (Other)"}
               ])}
               {renderSelect("Materiál 2", fabMat2, setFabMat2, [
@@ -1035,6 +1040,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 {val:"AF", label:"AF (Aramid)"},
                 {val:"BIOF", label:"BIOF (Flax)"},
                 {val:"BIOH", label:"BIOH (Hemp)"},
+                {val:"PAN", label:"PAN (Polyacrylonitrile)"},
+                {val:"PET", label:"PET (Polyethylene Terephthalate)"},
                 {val:"OF", label:"OF (Other)"}
               ])}
             </>
@@ -1079,7 +1086,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             renderSelect("Vazba", fabWeave, setFabWeave, [
               {val:"P", label:"P (Plain)"},
               {val:"T22", label:"T22 (Twill)"},
-              {val:"T44", label:"T44 (Twill)"}
+              {val:"T44", label:"T44 (Twill)"},
+              {val:"NA", label:"N/A"}
             ])
           )}
           {renderSelect("Použití", fabUse, setFabUse, [

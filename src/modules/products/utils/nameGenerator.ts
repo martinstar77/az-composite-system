@@ -10,6 +10,8 @@ export function generateProductName(
       AF: "Aramid",
       BIOF: "Bio Flax",
       BIOH: "Bio Hemp",
+      PAN: "Polyacrylonitrile",
+      PET: "Polyethylene Terephthalate",
       OF: "Other",
     }
 
@@ -81,7 +83,7 @@ export function generateProductName(
     function formatTow(tow: string) {
       if (!tow || tow === "NA") return ""
       if (tow.endsWith("t")) {
-        return tow.replace("t", " Tex")
+        return tow.replace("t", " dtex")
       }
       return tow
     }
@@ -96,7 +98,9 @@ export function generateProductName(
     }
 
     // 4. Weave
-    const weaveStr = weaveMap[specs.vazba] || specs.vazba || ""
+    const weaveStr = (specs.vazba && specs.vazba.toUpperCase() !== "NA")
+      ? (weaveMap[specs.vazba] || specs.vazba)
+      : ""
 
     // 5. Width in cm
     const widthStr = specs.sirka_cm ? `${specs.sirka_cm}cm` : ""
