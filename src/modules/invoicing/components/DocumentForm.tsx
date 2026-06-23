@@ -18,27 +18,22 @@ import { Separator } from '@/shared/components/ui/separator'
 import { createDoklad, updateDoklad, getRateForCurrencyAndDate } from '../actions/documents'
 import { dokladSchema, type DokladFormValues } from '../types/formSchema'
 import type { Zakaznik, Doklad } from '../types'
-import type { Supplier } from '@/modules/sourcing/types'
 import type { Product } from '@/modules/products/types'
 import { DocumentLineItems } from './DocumentLineItems'
 import { dnesISO, addDays } from '../utils/calculations'
 
 interface DocumentFormProps {
   customers: Zakaznik[]
-  suppliers: Supplier[]
   products: Product[]
   initialData?: Doklad | null
 }
 
-export function DocumentForm({ customers, suppliers, products, initialData }: DocumentFormProps) {
+export function DocumentForm({ customers, products, initialData }: DocumentFormProps) {
   const router = useRouter()
   const [isSaving, setIsSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'editor' | 'preview'>('editor')
 
   const isEdit = !!initialData
-  const [recipientType, setRecipientType] = useState<'zakaznik' | 'dodavatel'>(
-    initialData?.dodavatel_id ? 'dodavatel' : 'zakaznik'
-  )
   const [isFirstMount, setIsFirstMount] = useState(true)
 
   const methods = useForm<DokladFormValues>({
@@ -46,7 +41,6 @@ export function DocumentForm({ customers, suppliers, products, initialData }: Do
     defaultValues: {
       typ:                   initialData?.typ ?? 'faktura',
       zakaznik_id:           initialData?.zakaznik_id ?? '',
-      dodavatel_id:          initialData?.dodavatel_id ?? '',
       rodic_id:              initialData?.rodic_id ?? null,
       datum_vystaveni:        initialData?.datum_vystaveni ?? dnesISO(),
       datum_splatnosti:       initialData?.datum_splatnosti ?? addDays(14),
@@ -83,35 +77,23 @@ export function DocumentForm({ customers, suppliers, products, initialData }: Do
 
   const selectedTyp = watch('typ')
   const selectedZakaznikId = watch('zakaznik_id')
-  const selectedDodavatelId = watch('dodavatel_id')
   const selectedMena = watch('mena')
   const isReverseCharge = watch('reverse_charge')
 
   const selectedCustomer = customers.find(c => c.id === selectedZakaznikId)
-  const selectedSupplier = suppliers.find(s => s.id === selectedDodavatelId)
 
   // Nastaví výchozí splatnost partnera při změně
   useEffect(() => {
-    if (isEdit) return
+    if (isEdit || !selectedZakaznikId) return
 
-    if (recipientType === 'zakaznik' && selectedZakaznikId) {
-      const customer = customers.find(c => c.id === selectedZakaznikId)
-      if (customer) {
-        const splatnostDni = customer.platebni_podminky_splatnost_dni ?? 14
-        setValue('datum_splatnosti', addDays(splatnostDni))
-        setValue('platce_dph', customer.je_platce_dph)
-        setValue('reverse_charge', customer.je_zahranicni)
-      }
-    } else if (recipientType === 'dodavatel' && selectedDodavatelId) {
-      const supplier = suppliers.find(s => s.id === selectedDodavatelId)
-      if (supplier) {
-        const splatnostDni = supplier.platebni_podminky_splatnost_dni ?? 14
-        setValue('datum_splatnosti', addDays(splatnostDni))
-        setValue('platce_dph', true)
-        setValue('reverse_charge', supplier.zeme_puvodu !== 'CZ')
-      }
+    const customer = customers.find(c => c.id === selectedZakaznikId)
+    if (customer) {
+      const splatnostDni = customer.platebni_podminky_splatnost_dni ?? 14
+      setValue('datum_splatnosti', addDays(splatnostDni))
+      setValue('platce_dph', customer.je_platce_dph)
+      setValue('reverse_charge', customer.je_zahranicni)
     }
-  }, [selectedZakaznikId, selectedDodavatelId, recipientType, customers, suppliers, setValue, isEdit])
+  }, [selectedZakaznikId, customers, setValue, isEdit])
 
   const handleSetSplatnost = (days: number) => {
     const vystaveni = watch('datum_vystaveni') || dnesISO()
@@ -306,77 +288,26 @@ export function DocumentForm({ customers, suppliers, products, initialData }: Do
                   </Select>
                 </div>
 
-                {/* Typ partnera toggle */}
+                {/* Konkrétní partner (Odběratel) */}
                 <div className="space-y-1.5 col-span-1">
-                  <Label>Typ partnera</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={recipientType === 'zakaznik' ? 'default' : 'outline'}
-                      onClick={() => {
-                        setRecipientType('zakaznik')
-                        setValue('dodavatel_id', '')
-                      }}
-                      className="flex-1 h-9 bg-zinc-950 border-zinc-800 text-xs text-zinc-300"
-                      style={recipientType === 'zakaznik' ? { backgroundColor: 'var(--primary)', color: 'white' } : {}}
-                    >
-                      Odběratel
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={recipientType === 'dodavatel' ? 'default' : 'outline'}
-                      onClick={() => {
-                        setRecipientType('dodavatel')
-                        setValue('zakaznik_id', '')
-                      }}
-                      className="flex-1 h-9 bg-zinc-950 border-zinc-800 text-xs text-zinc-300"
-                      style={recipientType === 'dodavatel' ? { backgroundColor: 'var(--primary)', color: 'white' } : {}}
-                    >
-                      Dodavatel
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Konkrétní partner */}
-                <div className="space-y-1.5 md:col-span-2">
-                  <Label>{recipientType === 'zakaznik' ? 'Odběratel' : 'Dodavatel'} *</Label>
-                  {recipientType === 'zakaznik' ? (
-                    <Select
-                      onValueChange={(v) => setValue('zakaznik_id', v ?? '')}
-                      value={selectedZakaznikId ?? ''}
-                    >
-                      <SelectTrigger className="bg-zinc-950 border-zinc-800 h-9">
-                        <SelectValue placeholder="Vyberte zákazníka...">
-                          {selectedCustomer ? `${selectedCustomer.nazev_spolecnosti} (${selectedCustomer.kod})` : undefined}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="bg-zinc-950 border-zinc-800 text-zinc-200">
-                        {customers.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.nazev_spolecnosti} ({c.kod})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Select
-                      onValueChange={(v) => setValue('dodavatel_id', v ?? '')}
-                      value={selectedDodavatelId ?? ''}
-                    >
-                      <SelectTrigger className="bg-zinc-950 border-zinc-800 h-9">
-                        <SelectValue placeholder="Vyberte dodavatele...">
-                          {selectedSupplier ? `${selectedSupplier.nazev_spolecnosti} (${selectedSupplier.kod})` : undefined}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="bg-zinc-950 border-zinc-800 text-zinc-200">
-                        {suppliers.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.nazev_spolecnosti} ({s.kod})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  <Label>Odběratel *</Label>
+                  <Select
+                    onValueChange={(v) => setValue('zakaznik_id', v ?? '')}
+                    value={selectedZakaznikId ?? ''}
+                  >
+                    <SelectTrigger className="bg-zinc-950 border-zinc-800 h-9">
+                      <SelectValue placeholder="Vyberte zákazníka...">
+                        {selectedCustomer ? `${selectedCustomer.nazev_spolecnosti} (${selectedCustomer.kod})` : undefined}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-950 border-zinc-800 text-zinc-200">
+                      {customers.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.nazev_spolecnosti} ({c.kod})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   {errors.zakaznik_id && (
                     <p className="text-xs text-destructive">{errors.zakaznik_id.message}</p>
                   )}

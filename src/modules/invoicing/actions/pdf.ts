@@ -22,7 +22,34 @@ export async function generateDokladPDF(dokladId: string): Promise<Buffer | null
   const { InvoicePDF } = await import('../components/InvoicePDF')
 
   // 1. Načíst doklad se všemi vztahy
-  const doklad = await getDokladById(dokladId)
+  let dokladRaw = await getDokladById(dokladId) as any
+  let isProcurement = false
+
+  if (!dokladRaw) {
+    const { getPrijatyDokladById } = await import('./procurement')
+    const prijaty = await getPrijatyDokladById(dokladId)
+    if (prijaty) {
+      isProcurement = true
+      // Načteme profil naší firmy pro přijatý doklad
+      const firemniProfil = await getFiremniProfil()
+      // Zmapujeme na Doklad strukturu pro InvoicePDF
+      dokladRaw = {
+        ...prijaty,
+        firemni_udaje_snapshot: firemniProfil,
+        zakaznik_udaje_snapshot: prijaty.dodavatel_udaje_snapshot ? {
+          nazev_spolecnosti: prijaty.dodavatel_udaje_snapshot.nazev_spolecnosti,
+          ico: prijaty.dodavatel_udaje_snapshot.ico,
+          dic: prijaty.dodavatel_udaje_snapshot.dic,
+          adresa: prijaty.dodavatel_udaje_snapshot.adresa,
+          email_fakturace: prijaty.dodavatel_udaje_snapshot.kontakty?.email_objednavky || null,
+        } : null,
+        zakaznik: null,
+        tisk_podpisu: false,
+      }
+    }
+  }
+
+  const doklad = dokladRaw
   if (!doklad) {
     throw new Error(`Doklad s ID "${dokladId}" nebyl nalezen v databázi.`);
   }

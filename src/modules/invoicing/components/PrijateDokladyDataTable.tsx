@@ -18,12 +18,9 @@ import {
   MoreHorizontal,
   FileEdit,
   Trash2,
-  Download,
-  Printer,
   ArrowUpDown,
   Search,
   FilterX,
-  Plus,
   Eye,
   CheckSquare,
 } from 'lucide-react'
@@ -61,33 +58,31 @@ import {
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { Input } from '@/shared/components/ui/input'
-import type { Doklad, DokladStav, DokladTyp } from '../types'
-import { changeDokladStav, deleteDoklad } from '../actions/documents'
-import { DOKLAD_TYP_LABELS, DOKLAD_STAV_LABELS } from '../types'
+import type { PrijatyDoklad, PrijatyDokladStav, PrijatyDokladTyp } from '../types'
+import { changePrijatyDokladStav, deletePrijatyDoklad } from '../actions/procurement'
+import { PRIJATY_DOKLAD_TYP_LABELS, PRIJATY_DOKLAD_STAV_LABELS } from '../types'
 import { formatMena, formatDatum, vypocitejSoucty } from '../utils/calculations'
 import { DataTableFacetedFilter } from '@/shared/components/DataTableFacetedFilter'
 
-interface DocumentsDataTableProps {
-  data: Doklad[]
+interface PrijateDokladyDataTableProps {
+  data: PrijatyDoklad[]
 }
 
 const TYP_COLORS: Record<string, string> = {
-  nabidka: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  objednavka: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  zalohova_faktura: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  faktura: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+  objednavka_dodavateli: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+  prijata_faktura: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
 }
 
 const STAV_COLORS: Record<string, string> = {
   koncept: 'bg-zinc-800 text-zinc-400 border-zinc-700',
   odeslano: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+  doruceno: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20',
+  schvaleno: 'bg-teal-500/10 text-teal-400 border-teal-500/20',
   uhrazeno: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  castecne_uhrazeno: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
   stornovano: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
-  po_splatnosti: 'bg-red-500/10 text-red-400 border-red-500/20',
 }
 
-export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
+export function PrijateDokladyDataTable({ data }: PrijateDokladyDataTableProps) {
   const router = useRouter()
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'datum_vystaveni', desc: true }])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -98,7 +93,7 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
     if (!deleteDocObj) return
     setIsDeleting(true)
     try {
-      const result = await deleteDoklad(deleteDocObj.id)
+      const result = await deletePrijatyDoklad(deleteDocObj.id)
       if (result.error) {
         toast.error('Chyba při stornování dokladu', { description: result.error })
       } else {
@@ -111,17 +106,17 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
     }
   }
 
-  const handleStatusChange = async (id: string, stav: DokladStav) => {
-    const result = await changeDokladStav(id, stav)
+  const handleStatusChange = async (id: string, stav: PrijatyDokladStav) => {
+    const result = await changePrijatyDokladStav(id, stav)
     if (result.error) {
       toast.error('Chyba při změně stavu', { description: result.error })
     } else {
-      toast.success(`Stav změněn na: ${DOKLAD_STAV_LABELS[stav]}`)
+      toast.success(`Stav změněn na: ${PRIJATY_DOKLAD_STAV_LABELS[stav]}`)
       router.refresh()
     }
   }
 
-  const columns: ColumnDef<Doklad>[] = [
+  const columns: ColumnDef<PrijatyDoklad>[] = [
     {
       accessorKey: 'cislo',
       header: ({ column }) => (
@@ -144,6 +139,11 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
       ),
     },
     {
+      accessorKey: 'externi_cislo_faktury',
+      header: 'Faktura dodavatele',
+      cell: ({ row }) => <span className="font-mono text-xs">{row.getValue('externi_cislo_faktury') || '—'}</span>,
+    },
+    {
       accessorKey: 'typ',
       header: ({ column }) => (
         <Button
@@ -158,7 +158,7 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
         const typ = row.getValue('typ') as string
         return (
           <Badge variant="outline" className={`${TYP_COLORS[typ] ?? ''} text-[10px] py-0.5 px-2`}>
-            {DOKLAD_TYP_LABELS[typ as DokladTyp] ?? typ}
+            {PRIJATY_DOKLAD_TYP_LABELS[typ as PrijatyDokladTyp] ?? typ}
           </Badge>
         )
       },
@@ -167,14 +167,12 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
       },
     },
     {
-      id: 'zakaznik',
-      header: 'Odběratel',
+      id: 'dodavatel',
+      header: 'Dodavatel',
       cell: ({ row }) => {
         const doc = row.original
-        const name = doc.zakaznik_udaje_snapshot?.nazev_spolecnosti ?? doc.zakaznik?.nazev_spolecnosti ?? '—'
-        return (
-          <span className="font-bold text-sm text-zinc-100">{name}</span>
-        )
+        const name = doc.dodavatel_udaje_snapshot?.nazev_spolecnosti ?? doc.dodavatel?.nazev_spolecnosti ?? '—'
+        return <span className="font-bold text-sm text-zinc-100">{name}</span>
       },
     },
     {
@@ -185,7 +183,7 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
           onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
           className="-ml-4 text-[10px] font-bold uppercase tracking-tighter"
         >
-          Vystaveno <ArrowUpDown className="ml-1 h-3 w-3" />
+          Datum vystavení <ArrowUpDown className="ml-1 h-3 w-3" />
         </Button>
       ),
       cell: ({ row }) => <span className="text-[11px] text-zinc-400">{formatDatum(row.getValue('datum_vystaveni'))}</span>,
@@ -215,9 +213,6 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
         return (
           <div className="text-right pr-4 font-mono">
             <span className="font-bold text-zinc-100">{formatMena(soucty.k_uhrade, doc.mena)}</span>
-            {doc.reverse_charge && (
-              <span className="block text-[8px] text-primary italic font-sans">Reverse charge</span>
-            )}
           </div>
         )
       },
@@ -237,7 +232,7 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
         const stav = row.getValue('stav') as string
         return (
           <Badge variant="outline" className={`${STAV_COLORS[stav] ?? ''} text-[10px] py-0.5 px-2`}>
-            {DOKLAD_STAV_LABELS[stav as DokladStav] ?? stav}
+            {PRIJATY_DOKLAD_STAV_LABELS[stav as PrijatyDokladStav] ?? stav}
           </Badge>
         )
       },
@@ -270,24 +265,22 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 bg-zinc-950 border-zinc-800 text-zinc-200">
               <DropdownMenuGroup>
-                <DropdownMenuLabel className="text-zinc-400">Správa dokladu</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-zinc-400">Správa nákupního dokladu</DropdownMenuLabel>
                 <DropdownMenuSeparator className="bg-zinc-800" />
                 
-                {/* Otevřít / stáhnout PDF */}
                 <DropdownMenuItem
                   onClick={() => window.open(`/api/pdf/${doc.id}`, '_blank')}
                   className="focus:bg-zinc-900 focus:text-white cursor-pointer"
                 >
                   <Eye className="mr-2 h-4 w-4 text-zinc-400" /> Náhled a tisk
                 </DropdownMenuItem>
-
+ 
                 {doc.stav === 'koncept' && (
-                  <DropdownMenuItem onClick={() => router.push(`/faktury/${doc.id}/upravit`)} className="focus:bg-zinc-900 focus:text-white cursor-pointer">
+                  <DropdownMenuItem onClick={() => router.push(`/faktury/nakup/${doc.id}/upravit`)} className="focus:bg-zinc-900 focus:text-white cursor-pointer">
                     <FileEdit className="mr-2 h-4 w-4 text-primary" /> Upravit doklad
                   </DropdownMenuItem>
                 )}
-
-                {/* Změny stavu dokladu */}
+ 
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger className="focus:bg-zinc-900 focus:text-white cursor-pointer">
                     <CheckSquare className="mr-2 h-4 w-4 text-zinc-400" /> Změnit stav
@@ -299,21 +292,20 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
                     <DropdownMenuItem onClick={() => handleStatusChange(doc.id, 'odeslano')} disabled={doc.stav === 'odeslano'} className="cursor-pointer">
                       Odesláno
                     </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleStatusChange(doc.id, 'doruceno')} disabled={doc.stav === 'doruceno'} className="cursor-pointer">
+                      Doručeno
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleStatusChange(doc.id, 'schvaleno')} disabled={doc.stav === 'schvaleno'} className="cursor-pointer">
+                      Schváleno
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleStatusChange(doc.id, 'uhrazeno')} disabled={doc.stav === 'uhrazeno'} className="cursor-pointer">
                       Uhrazeno
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleStatusChange(doc.id, 'castecne_uhrazeno')} disabled={doc.stav === 'castecne_uhrazeno'} className="cursor-pointer">
-                      Částečně uhrazeno
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleStatusChange(doc.id, 'po_splatnosti')} disabled={doc.stav === 'po_splatnosti'} className="cursor-pointer">
-                      Po splatnosti
-                    </DropdownMenuItem>
                   </DropdownMenuSubContent>
                 </DropdownMenuSub>
-
+ 
                 <DropdownMenuSeparator className="bg-zinc-800" />
-
-                {/* Storno / Smazání */}
+ 
                 <DropdownMenuItem
                   onClick={() => setDeleteDocObj({ id: doc.id, name: doc.cislo })}
                   className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer"
@@ -344,13 +336,11 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
     },
   })
 
-  // Získání unikátních hodnot pro filtry
-  const documentTypes = ['nabidka', 'objednavka', 'zalohova_faktura', 'faktura']
-  const documentStatuses = ['koncept', 'odeslano', 'uhrazeno', 'castecne_uhrazeno', 'po_splatnosti', 'stornovano']
+  const documentTypes = ['objednavka_dodavateli', 'prijata_faktura']
+  const documentStatuses = ['koncept', 'odeslano', 'doruceno', 'schvaleno', 'uhrazeno', 'stornovano']
 
   return (
     <div className="w-full space-y-4">
-      {/* Vyhledávání a Filtry */}
       <div className="flex flex-col md:flex-row gap-3 items-center justify-between bg-zinc-900/50 p-3 rounded-lg border border-zinc-800">
         <div className="flex flex-1 items-center gap-3 w-full">
           <div className="relative w-full max-w-sm">
@@ -367,14 +357,14 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
 
           <DataTableFacetedFilter
             column={table.getColumn('typ')}
-            title="Typ dokladu"
-            options={documentTypes.map((t) => ({ label: DOKLAD_TYP_LABELS[t as DokladTyp] ?? t, value: t }))}
+            title="Typ nákupu"
+            options={documentTypes.map((t) => ({ label: PRIJATY_DOKLAD_TYP_LABELS[t as PrijatyDokladTyp] ?? t, value: t }))}
           />
 
           <DataTableFacetedFilter
             column={table.getColumn('stav')}
-            title="Stav dokladu"
-            options={documentStatuses.map((s) => ({ label: DOKLAD_STAV_LABELS[s as DokladStav] ?? s, value: s }))}
+            title="Stav"
+            options={documentStatuses.map((s) => ({ label: PRIJATY_DOKLAD_STAV_LABELS[s as PrijatyDokladStav] ?? s, value: s }))}
           />
 
           {columnFilters.length > 0 && (
@@ -416,7 +406,7 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-32 text-center text-zinc-500 italic">
-                  Žádné doklady nenalezeny.
+                  Žádné nákupní doklady nenalezeny.
                 </TableCell>
               </TableRow>
             )}
@@ -429,7 +419,7 @@ export function DocumentsDataTable({ data }: DocumentsDataTableProps) {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive">Potvrdit stornování dokladu</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              Opravdu chcete stornovat doklad <strong className="text-white">{deleteDocObj?.name}</strong>? Stornování zapíše změnu do audit logu a změní stav dokladu. Tuto operaci nelze vzít zpět.
+              Opravdu chcete stornovat nákupní doklad <strong className="text-white">{deleteDocObj?.name}</strong>? Stornování zapíše změnu do audit logu a změní stav dokladu. Tuto operaci nelze vzít zpět.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="border-t border-zinc-800 pt-4 mt-4">

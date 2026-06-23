@@ -151,6 +151,63 @@ export interface Doklad {
 }
 
 // ─────────────────────────────────────────────
+// Přijaté doklady (Procurement / Supplier)
+// ─────────────────────────────────────────────
+export type PrijatyDokladTyp = 'objednavka_dodavateli' | 'prijata_faktura'
+export type PrijatyDokladStav = 'koncept' | 'odeslano' | 'doruceno' | 'schvaleno' | 'uhrazeno' | 'stornovano'
+
+export interface PrijatyDokladPolozka {
+  id: string
+  doklad_id: string
+  poradi: number
+  typ: 'produkt' | 'volna_polozka' | 'sleva' | 'text_radek'
+  produkt_id: string | null
+  nazev: string
+  popis: string | null
+  jednotka: string
+  mnozstvi: number
+  cena_bez_dph: number
+  sazba_dph: number
+  sleva_procent: number
+  radek_bez_dph: number
+  radek_dph: number
+  radek_celkem: number
+  vytvoreno_at: string
+}
+
+export interface PrijatyDoklad {
+  id: string
+  cislo: string
+  externi_cislo_faktury: string | null
+  typ: PrijatyDokladTyp
+  stav: PrijatyDokladStav
+  dodavatel_id: string | null
+  rodic_id: string | null
+  datum_vystaveni: string
+  datum_prijeti: string | null
+  datum_splatnosti: string | null
+  duzp: string | null
+  mena: string
+  kurz_k_czk: number
+  platce_dph: boolean
+  zpusob_uhrady: ZpusobUhrady
+  jazyk: 'cs' | 'en'
+  poznamky: string | null
+  interni_poznamky: string | null
+  dodavatel_udaje_snapshot: Supplier | null
+  deleted_at: string | null
+  vytvoreno_at: string
+  aktualizovano_at: string
+  vytvoril_id: string | null
+  upravil_id: string | null
+  // Join fields
+  dodavatel?: Supplier | null
+  polozky?: PrijatyDokladPolozka[]
+  vytvoril?: { jmeno: string } | null
+  upravil?: { jmeno: string } | null
+}
+
+// ─────────────────────────────────────────────
 // DPH Rekapitulace (vypočítané, ne v DB)
 // ─────────────────────────────────────────────
 export interface DphSazka {
@@ -196,6 +253,11 @@ export const DOKLAD_TYP_LABELS: Record<DokladTyp, string> = {
   faktura: 'Faktura',
 }
 
+export const PRIJATY_DOKLAD_TYP_LABELS: Record<PrijatyDokladTyp, string> = {
+  objednavka_dodavateli: 'Objednávka dodavateli',
+  prijata_faktura: 'Přijatá faktura',
+}
+
 /** Lidsky čitelné popisky stavů dokladů */
 export const DOKLAD_STAV_LABELS: Record<DokladStav, string> = {
   koncept: 'Koncept',
@@ -204,6 +266,15 @@ export const DOKLAD_STAV_LABELS: Record<DokladStav, string> = {
   castecne_uhrazeno: 'Částečně uhrazeno',
   stornovano: 'Stornováno',
   po_splatnosti: 'Po splatnosti',
+}
+
+export const PRIJATY_DOKLAD_STAV_LABELS: Record<PrijatyDokladStav, string> = {
+  koncept: 'Koncept',
+  odeslano: 'Odesláno',
+  doruceno: 'Doručeno',
+  schvaleno: 'Schváleno',
+  uhrazeno: 'Uhrazeno',
+  stornovano: 'Stornováno',
 }
 
 /** Lidsky čitelné popisky způsobů úhrady */

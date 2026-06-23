@@ -40,7 +40,8 @@ const navItems = [
     items: [
       { title: "Dodavatelé", url: "/dodavatele", icon: Users },
       { title: "Zákazníci", url: "/zakaznici", icon: Users },
-      { title: "Doklady & Fakturace", url: "/faktury", icon: Receipt },
+      { title: "Vydané doklady (Prodej)", url: "/faktury", icon: Receipt },
+      { title: "Přijaté doklady (Nákup)", url: "/faktury/nakup", icon: Receipt },
       { title: "Cenotvorba", url: "/finance", icon: DollarSign },
       { title: "Katalogy a Ceníky", url: "/katalogy", icon: FileText },
     ],
@@ -83,8 +84,11 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => {
-                  // Simplified active state check
-                  const isActive = pathname === item.url || (item.url !== "/" && pathname.startsWith(item.url))
+                  const isActive = pathname === item.url || (
+                    item.url !== "/" &&
+                    pathname.startsWith(item.url) &&
+                    (item.url !== "/faktury" || !pathname.startsWith("/faktury/nakup"))
+                  )
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton isActive={isActive} tooltip={item.title} render={<Link href={item.url} />}>

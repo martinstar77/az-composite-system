@@ -4,7 +4,6 @@ import { redirect } from 'next/navigation'
 import { getDokladById } from '@/modules/invoicing/actions/documents'
 import { getZakaznici } from '@/modules/invoicing/actions/customers'
 import { getProducts } from '@/modules/products/actions'
-import { getSuppliers } from '@/modules/sourcing/actions'
 import { DocumentForm } from '@/modules/invoicing/components/DocumentForm'
 
 export const metadata = {
@@ -18,11 +17,10 @@ interface EditDocumentPageProps {
 export default async function EditDocumentPage({ params }: EditDocumentPageProps) {
   const { id } = await params
 
-  const [doklad, customers, productsResponse, suppliersResponse] = await Promise.all([
+  const [doklad, customers, productsResponse] = await Promise.all([
     getDokladById(id),
     getZakaznici(),
     getProducts(),
-    getSuppliers(),
   ])
 
   if (!doklad) {
@@ -36,13 +34,11 @@ export default async function EditDocumentPage({ params }: EditDocumentPageProps
   }
 
   const products = productsResponse.data || []
-  const suppliers = suppliersResponse.data || []
 
   return (
     <div className="w-full py-4">
       <DocumentForm
         customers={customers}
-        suppliers={suppliers}
         products={products}
         initialData={doklad}
       />

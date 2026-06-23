@@ -21,7 +21,7 @@ import {
   Font,
   Image,
 } from '@react-pdf/renderer'
-import type { Doklad, FiremniProfil, DokladSoucty, DokladPolozka } from '../types'
+import type { Doklad, FiremniProfil, DokladSoucty, DokladPolozka, PrijatyDoklad } from '../types'
 import { DOKLAD_TYP_LABELS, ZPUSOB_UHRADY_LABELS } from '../types'
 import { vypocitejSoucty, formatCzk, formatDatum, round2, formatMena } from '../utils/calculations'
 
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
     position:  'absolute',
     bottom:    20,
     left:      28,
-    right:     28,
+    right: 28,
     flexDirection: 'row',
     justifyContent: 'space-between',
     borderTopWidth: 0.5,
@@ -601,6 +601,8 @@ const translations = {
     objednavka: 'Objednávka',
     zalohova_faktura: 'Zálohová faktura',
     faktura: 'Faktura',
+    objednavka_dodavateli: 'Objednávka dodavateli',
+    prijata_faktura: 'Přijatá faktura',
     dodavatel: 'Dodavatel',
     odberatel: 'Odběratel',
     identifikacni_udaje: 'IDENTIFIKAČNÍ ÚDAJE',
@@ -648,6 +650,8 @@ const translations = {
     objednavka: 'Order',
     zalohova_faktura: 'Proforma Invoice',
     faktura: 'Invoice',
+    objednavka_dodavateli: 'Purchase Order',
+    prijata_faktura: 'Supplier Invoice',
     dodavatel: 'Supplier',
     odberatel: 'Customer',
     identifikacni_udaje: 'IDENTIFICATION DATA',
@@ -693,11 +697,12 @@ const translations = {
 } as const
 
 interface InvoicePDFProps {
-  doklad: Doklad
+  doklad: Doklad | PrijatyDoklad
   qrDataUri?: string | null  // PNG data URI z generatePaymentQR()
 }
 
-export function InvoicePDF({ doklad, qrDataUri }: InvoicePDFProps) {
+export function InvoicePDF({ doklad: dokladRaw, qrDataUri }: InvoicePDFProps) {
+  const doklad = dokladRaw as any
   const firemni = doklad.firemni_udaje_snapshot
   const zakaznik = doklad.zakaznik_udaje_snapshot ?? doklad.zakaznik
   const soucty: DokladSoucty = vypocitejSoucty(doklad.polozky ?? [])
@@ -705,18 +710,18 @@ export function InvoicePDF({ doklad, qrDataUri }: InvoicePDFProps) {
   const lang = (doklad.jazyk === 'en' ? 'en' : 'cs') as 'cs' | 'en'
   const t = translations[lang]
 
-  const typLabel = t[doklad.typ]
+  const typLabel = (t as any)[doklad.typ] || doklad.typ
   const headerImagePath = path.join(process.cwd(), 'public', 'brand', 'katalog-hlavicka.png')
   const signatureImagePath = path.join(process.cwd(), 'public', 'Podpis.png')
   const hasSignatureImage = isNode && fs.existsSync(signatureImagePath)
-  const shouldPrintSignature = doklad.tisk_podpisu !== false
+  const shouldPrintSignature = (doklad as any).tisk_podpisu !== false
 
-  const showDph = doklad.platce_dph && !doklad.reverse_charge
+  const showDph = doklad.platce_dph && !(doklad as any).reverse_charge
   const polozky = doklad.polozky ?? []
 
   const paymentMethodLabel = lang === 'en'
     ? (doklad.zpusob_uhrady === 'prevod' ? 'Bank transfer' : doklad.zpusob_uhrady === 'hotovost' ? 'Cash' : 'Credit card')
-    : ZPUSOB_UHRADY_LABELS[doklad.zpusob_uhrady]
+    : (ZPUSOB_UHRADY_LABELS as any)[doklad.zpusob_uhrady] || ''
 
   return (
     <Document
@@ -943,7 +948,7 @@ export function InvoicePDF({ doklad, qrDataUri }: InvoicePDFProps) {
               <Text style={[styles.thText, styles.colCelkem]}>{t.celkem}</Text>
             </View>
 
-            {polozky.map((polozka, i) => {
+            {polozky.map((polozka: any, i: number) => {
               const isAlt = i % 2 === 1
 
               // Textový řádek (sekce / nadpis)

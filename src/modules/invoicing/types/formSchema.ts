@@ -88,12 +88,11 @@ export const dokladPolozkaSchema = z.object({
 export type DokladPolozkaFormValues = z.infer<typeof dokladPolozkaSchema>
 
 // ─────────────────────────────────────────────
-// Hlavní Doklad
+// Hlavní Doklad (Vydaný / Sales)
 // ─────────────────────────────────────────────
 export const dokladSchema = z.object({
   typ:                   z.enum(['nabidka', 'objednavka', 'zalohova_faktura', 'faktura']),
-  zakaznik_id:           z.string().uuid().nullable().optional().or(z.literal('')),
-  dodavatel_id:          z.string().uuid().nullable().optional().or(z.literal('')),
+  zakaznik_id:           z.string().uuid().min(1, 'Odběratel je povinný'),
   rodic_id:              z.string().uuid().nullable().optional(),
 
   datum_vystaveni:       z.string().min(1, 'Datum vystavení je povinné'),
@@ -117,23 +116,55 @@ export const dokladSchema = z.object({
   interni_poznamky:      z.string().optional().or(z.literal('')),
 
   polozky:               z.array(dokladPolozkaSchema).default([]),
-}).superRefine((data, ctx) => {
-  const hasZakaznik = !!data.zakaznik_id;
-  const hasDodavatel = !!data.dodavatel_id;
-  if (!hasZakaznik && !hasDodavatel) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Musíte vybrat buď odběratele nebo dodavatele',
-      path: ['zakaznik_id'],
-    });
-  }
-  if (hasZakaznik && hasDodavatel) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Nelze vybrat odběratele i dodavatele současně',
-      path: ['zakaznik_id'],
-    });
-  }
 })
 
 export type DokladFormValues = z.infer<typeof dokladSchema>
+
+// ─────────────────────────────────────────────
+// Položka Přijatého Dokladu
+// ─────────────────────────────────────────────
+export const prijatyDokladPolozkaSchema = z.object({
+  id:           z.string().uuid().optional(),
+  poradi:       z.number().int().default(0),
+  typ:          z.enum(['produkt', 'volna_polozka', 'sleva', 'text_radek']).default('volna_polozka'),
+  produkt_id:   z.string().uuid().nullable().optional(),
+  nazev:        z.string().min(1, 'Název položky je povinný'),
+  popis:        z.string().optional().or(z.literal('')),
+  jednotka:     z.string().default('ks'),
+  mnozstvi:     z.coerce.number().positive('Množství musí být kladné').default(1),
+  cena_bez_dph: z.coerce.number().default(0),
+  sazba_dph:    z.coerce.number().refine(v => [0, 12, 21].includes(v), 'Neplatná sazba DPH').default(21),
+  sleva_procent: z.coerce.number().min(0).max(100).default(0),
+})
+
+export type PrijatyDokladPolozkaFormValues = z.infer<typeof prijatyDokladPolozkaSchema>
+
+// ─────────────────────────────────────────────
+// Přijatý Doklad (Nákupní / Procurement)
+// ─────────────────────────────────────────────
+export const prijatyDokladSchema = z.object({
+  typ:                   z.enum(['objednavka_dodavateli', 'prijata_faktura']),
+  cislo:                 z.string().optional(),
+  externi_cislo_faktury: z.string().optional().or(z.literal('')),
+  dodavatel_id:          z.string().uuid().min(1, 'Dodavatel je povinný'),
+  rodic_id:              z.string().uuid().nullable().optional(),
+
+  datum_vystaveni:       z.string().min(1, 'Datum vystavení je povinné'),
+  datum_prijeti:         z.string().nullable().optional(),
+  datum_splatnosti:      z.string().nullable().optional(),
+  duzp:                  z.string().nullable().optional(),
+
+  mena:                  z.string().default('CZK'),
+  kurz_k_czk:            z.coerce.number().positive().default(1),
+
+  platce_dph:            z.boolean().default(true),
+  zpusob_uhrady:         z.enum(['prevod', 'hotovost', 'karta']).default('prevod'),
+  jazyk:                 z.enum(['cs', 'en']).default('cs'),
+
+  poznamky:              z.string().optional().or(z.literal('')),
+  interni_poznamky:      z.string().optional().or(z.literal('')),
+
+  polozky:               z.array(prijatyDokladPolozkaSchema).default([]),
+})
+
+export type PrijatyDokladFormValues = z.infer<typeof prijatyDokladSchema>
