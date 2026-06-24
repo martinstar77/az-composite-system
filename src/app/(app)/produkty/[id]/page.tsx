@@ -154,7 +154,13 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       identifikator: 'Interní identifikátor',
       open_time_min: 'Doba zpracovatelnosti',
       objem: 'Objem / Množství',
-      chemie: 'Chemie'
+      chemie: 'Chemie',
+      typ_mti: 'Typ MTI',
+      technologie: 'Technologie výroby',
+      cas_vytvrzeni: 'Čas vytvrzení',
+      mnozstvi: 'Množství',
+      značka: 'Značka',
+      objem_l: 'Objem'
     }
 
     const formatVal = (v: any): string => {
@@ -183,6 +189,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         formattedValue = `${formattedValue} °C`
       } else if (['open_time_min'].includes(key)) {
         formattedValue = `${formattedValue} min`
+      } else if (['objem_l'].includes(key)) {
+        formattedValue = `${formattedValue} l`
       } else if (['vlakno', 'vlákno', 'vlákno1', 'vlákno2'].includes(key) && formattedValue.endsWith('t')) {
         formattedValue = formattedValue.replace(/t$/, ' dtex')
       } else if (key === 'teplotni_odolnost' && (formattedValue === 'LT' || formattedValue === 'HT' || formattedValue === 'MT')) {
@@ -225,13 +233,49 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           'off-white': 'Krémová (off-white)'
         }
         formattedValue = colorCzechMap[formattedValue] || formattedValue
-      } else if (key === 'chemie' && ['EP', 'PU', 'MMA'].includes(formattedValue)) {
+      } else if (key === 'chemie') {
         const chemCzechMap: Record<string, string> = {
           EP: 'Epoxid (EP)',
           PU: 'Polyuretan (PU)',
-          MMA: 'Akrylát (MMA)'
+          MMA: 'Akrylát (MMA)',
+          VE: 'Vinylester (VE)',
+          PE: 'Polyester (PE)'
         }
         formattedValue = chemCzechMap[formattedValue] || formattedValue
+      } else if (key === 'typ') {
+        const typeMap: Record<string, string> = {
+          RES: 'Resin (Pryskyřice)',
+          HRD: 'Hardener (Tužidlo)',
+          GEL: 'Gelcoat',
+          COP: 'Coupling coat',
+          FIL: 'Filler (Tmel)',
+          PLUG: 'Vsuvka',
+          SOCKET: 'Rychlospojka - samice',
+          WIP: 'Ubrousky (Wipes)',
+          CON: 'Koncentrát (Concentrate)',
+          SPR: 'Sprej (Spray)'
+        }
+        formattedValue = typeMap[formattedValue] || formattedValue
+      } else if (key === 'mnozstvi') {
+        const unitMap: Record<string, string> = {
+          WIP: 'ks',
+          CON: 'l',
+          SPR: 'ml'
+        }
+        const unit = unitMap[product.specifikace?.typ] || ''
+        formattedValue = unit ? `${formattedValue} ${unit}` : formattedValue
+      } else if (key === 'technologie') {
+        const techMap: Record<string, string> = {
+          INF: 'Infuze (Infusion)',
+          WL: 'Ruční laminace (Wet layup)'
+        }
+        formattedValue = techMap[formattedValue] || formattedValue
+      } else if (key === 'pouziti') {
+        const useMap: Record<string, string> = {
+          FOR: 'Formy (Molds)',
+          DIL: 'Díly (Parts)'
+        }
+        formattedValue = useMap[formattedValue] || formattedValue
       } else if (key === 'podkategorie') {
         const subcatMap: Record<string, string> = {
           BF: 'Vakuová fólie (BF)',
@@ -244,7 +288,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           FM: 'Distribuční síťka (FM)',
           FCH: 'Distribuční kanálek (FCH)',
           TUBE: 'Hadice (TUBE)',
-          K: 'Konektory a fitinky (K)'
+          K: 'Konektory a fitinky (K)',
+          MTI: 'MTI',
+          KP: 'Konektor průchodný (KP)',
+          CU: 'Mycí stanice (CU)',
+          SU: 'Spinner unit (SU)'
         }
         formattedValue = subcatMap[formattedValue] || formattedValue
       } else if (key === 'tvar') {
@@ -299,7 +347,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             <div className="flex items-center gap-3">
               <h1 className="text-4xl font-bold tracking-tight text-white">{product.nazev}</h1>
               <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20">
-                {product.c_kategorie?.nazev}
+                {product.kategorie_id === 'spotrebni_chemie' ? 'Čističe' : product.c_kategorie?.nazev}
               </Badge>
             </div>
             <p className="text-xl font-mono text-zinc-500 uppercase tracking-widest">{product.sku}</p>

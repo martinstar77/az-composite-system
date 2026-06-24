@@ -273,6 +273,30 @@ export function generateProductName(
         const diaStr = specs.vnejsi_prumer_mm ? `vnější průměr ${specs.vnejsi_prumer_mm}mm` : ""
         return ["Konektor", tvarStr, diaStr].filter(Boolean).join(" ")
       }
+      case 'MTI': {
+        const typ = specs.typ_mti || ""
+        const typLabelMap: Record<string, string> = {
+          Hose: "MTI Hose",
+          Valve: "MTI Valve",
+          MVS: "MTI MVS",
+          RBL: "MTI Resin Brake Line"
+        }
+        const baseName = typLabelMap[typ] || `MTI ${typ}`
+        if (typ === 'MVS' && specs.sirka_mm) {
+          const widthSuffix = /^\d+$/.test(String(specs.sirka_mm)) ? `${specs.sirka_mm} mm` : String(specs.sirka_mm)
+          return `${baseName} ${widthSuffix}`
+        }
+        return baseName
+      }
+      case 'KP': {
+        const tvarMap: Record<string, string> = {
+          T: "T-kus",
+          O: "kruhový"
+        }
+        const tvarStr = tvarMap[specs.tvar] || ""
+        const diaStr = specs.prumer_mm ? `${specs.prumer_mm}mm` : ""
+        return ["Konektor průchodný", tvarStr, "plast", diaStr].filter(Boolean).join(" ")
+      }
     }
   }
 
@@ -280,18 +304,8 @@ export function generateProductName(
     const sub = specs.podkategorie
     switch (sub) {
       case 'BU': {
-        const tvarMap: Record<string, string> = {
-          T: "T-kus",
-          O: "kruhová"
-        }
-        const matMap: Record<string, string> = {
-          MET: "kov",
-          PLA: "plast"
-        }
-        const tvarStr = tvarMap[specs.tvar] || ""
-        const matStr = matMap[specs.material] || ""
         const diaStr = specs.prumer_mm ? `${specs.prumer_mm}mm` : ""
-        return ["Vakuová průchodka", tvarStr, matStr, diaStr].filter(Boolean).join(" ")
+        return ["Vakuová průchodka", "kov", diaStr].filter(Boolean).join(" ")
       }
       case 'QR': {
         const typMap: Record<string, string> = {
@@ -314,6 +328,13 @@ export function generateProductName(
       case 'V': {
         const idStr = specs.identifikator ? `– ${specs.identifikator}` : ""
         return ["Vakuometr", idStr].filter(Boolean).join(" ")
+      }
+      case 'CU': {
+        const objemStr = specs.objem_l ? `, ${specs.objem_l} l` : ""
+        return `Mycí stanice RST5${objemStr}`
+      }
+      case 'SU': {
+        return "Spinner unit Spin RST5"
       }
     }
   }
@@ -357,6 +378,84 @@ export function generateProductName(
 
     const details = [openTimeStr, volumeStr].filter(Boolean).join(", ")
     return details ? `${parts}, ${details}` : parts
+  }
+  
+  if (categoryId === 'pryskyrice') {
+    const typeLabelMap: Record<string, string> = {
+      RES: "pryskyřice",
+      HRD: "tužidlo",
+      GEL: "gelcoat",
+      COP: "coupling coat",
+      FIL: "tmel"
+    }
+
+    const adjMap: Record<string, { F: string; M: string; N: string }> = {
+      EP: { F: "epoxidová", M: "epoxidový", N: "epoxidové" },
+      VE: { F: "vinylesterová", M: "vinylesterový", N: "vinylesterové" },
+      PE: { F: "polyesterová", M: "polyesterový", N: "polyesterové" }
+    }
+
+    const typ = specs.typ || ""
+    const chemie = specs.chemie || ""
+    const pouziti = specs.pouziti || ""
+
+    const baseNoun = typeLabelMap[typ] || typ
+    let adjective = ""
+    if (adjMap[chemie]) {
+      if (typ === "RES") adjective = adjMap[chemie].F
+      else if (typ === "HRD") adjective = adjMap[chemie].N
+      else adjective = adjMap[chemie].M
+    }
+
+    const baseName = adjective ? `${adjective.charAt(0).toUpperCase() + adjective.slice(1)} ${baseNoun}` : baseNoun
+    const extraParts: string[] = []
+
+    if (typ === "COP" || typ === "GEL" || typ === "FIL") {
+      const techMap: Record<string, string> = {
+        INF: "pro infuzi",
+        WL: "pro ruční laminaci"
+      }
+      const techStr = techMap[specs.technologie] || ""
+      if (techStr) extraParts.push(techStr)
+    }
+
+    const useMap: Record<string, string> = {
+      FOR: "na formy",
+      DIL: "na díly"
+    }
+    const useStr = useMap[pouziti] || ""
+    if (useStr) extraParts.push(useStr)
+
+    let fullName = [baseName, ...extraParts].filter(Boolean).join(" ")
+
+    if ((typ === "RES" || typ === "HRD") && specs.cas_vytvrzeni) {
+      fullName += `, ${specs.cas_vytvrzeni}`
+    }
+
+    return fullName
+  }
+
+  if (categoryId === 'spotrebni_chemie') {
+    const typeLabelMap: Record<string, string> = {
+      WIP: "Čisticí ubrousky",
+      CON: "Čisticí koncentrát",
+      SPR: "Čisticí sprej"
+    }
+    const unitMap: Record<string, string> = {
+      WIP: "ks",
+      CON: "l",
+      SPR: "ml"
+    }
+
+    const typ = specs.typ || ""
+    const brand = specs.značka || specs.znacka || ""
+    const qty = specs.mnozstvi || specs.množství || ""
+
+    const typeLabel = typeLabelMap[typ] || "Čistič"
+    const unit = unitMap[typ] || ""
+
+    const qtyStr = qty && unit ? `, ${qty} ${unit}` : qty ? `, ${qty}` : ""
+    return `${typeLabel} ${brand}${qtyStr}`.trim()
   }
 
   return ""

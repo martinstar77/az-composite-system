@@ -50,6 +50,7 @@ export async function getProductsPaged({
   categories = [],
   statuses = [],
   subcategories = [],
+  specs = {},
   sortBy = 'nazev',
   sortDesc = false
 }: {
@@ -59,6 +60,7 @@ export async function getProductsPaged({
   categories?: string[]
   statuses?: string[]
   subcategories?: string[]
+  specs?: Record<string, string[]>
   sortBy?: string
   sortDesc?: boolean
 } = {}): Promise<{ data: Product[] | null, error: any, totalCount?: number }> {
@@ -110,6 +112,14 @@ export async function getProductsPaged({
 
   if (subcategories && subcategories.length > 0) {
     query = query.in('specifikace->>podkategorie', subcategories)
+  }
+
+  if (specs && Object.keys(specs).length > 0) {
+    for (const [key, values] of Object.entries(specs)) {
+      if (values && values.length > 0) {
+        query = query.in(`specifikace->>${key}`, values)
+      }
+    }
   }
 
   if (sortBy) {
@@ -528,4 +538,54 @@ export async function saveProductQuantityBreaks(
 
   if (!error) revalidatePath(`/produkty/${productId}`)
   return { data, error }
+}
+
+export async function getCategoryFacets(categoryId: string, search?: string): Promise<{ data: Record<string, { value: string, count: number }[]> | null, error: any }> {
+  const supabase = await createClient()
+  
+  let query = supabase
+    .from('produkty')
+    .select('specifikace')
+    .eq('kategorie_id', categoryId)
+    .is('deleted_at', null)
+
+  if (search && search.trim()) {
+    query = query.or(`nazev.ilike.%${search.trim()}%,sku.ilike.%${search.trim()}%`)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    return { data: null, error }
+  }
+
+  const facets: Record<string, Record<string, number>> = {}
+
+  data?.forEach(product => {
+    const specs = product.specifikace
+    if (specs && typeof specs === 'object') {
+      Object.entries(specs).forEach(([key, val]) => {
+        if (val === null || val === undefined || val === '') return
+        
+        // Skip some internal/unwanted spec keys
+        if (['identifikator'].includes(key)) return
+
+        if (!facets[key]) {
+          facets[key] = {}
+        }
+        const stringVal = String(val)
+        facets[key][stringVal] = (facets[key][stringVal] || 0) + 1
+      })
+    }
+  })
+
+  // Format response
+  const formattedData: Record<string, { value: string, count: number }[]> = {}
+  Object.entries(facets).forEach(([key, valuesMap]) => {
+    formattedData[key] = Object.entries(valuesMap)
+      .map(([value, count]) => ({ value, count }))
+      .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
+  })
+
+  return { data: formattedData, error: null }
 }

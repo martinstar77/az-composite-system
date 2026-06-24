@@ -50,7 +50,7 @@ import { DataTableFacetedFilter } from "@/shared/components/DataTableFacetedFilt
 import { BulkEditMarginsDialog } from "./forms/BulkEditMarginsDialog"
 import { BulkEditLogisticsDialog } from "./forms/BulkEditLogisticsDialog"
 import { LogisticsTemplate } from "@/modules/finance/types/logistics"
-import { cloneProduct, deleteProduct, getProductsPaged } from "../actions"
+import { cloneProduct, deleteProduct, getProductsPaged, getCategoryFacets } from "../actions"
 import { toast } from "sonner"
 
 interface ProductDataTableProps {
@@ -63,6 +63,138 @@ interface ProductDataTableProps {
     labels: any[]
     processes: any[]
     templates: LogisticsTemplate[]
+  }
+}
+
+const CATEGORY_SPEC_MAP: Record<string, { key: string; label: string }[]> = {
+  vyztuzne_materialy: [
+    { key: 'typ', label: 'Typ' },
+    { key: 'materiál', label: 'Materiál' },
+    { key: 'vlákno', label: 'Vlákno' },
+    { key: 'použití', label: 'Použití' },
+    { key: 'výrobce_vlákna', label: 'Výrobce' },
+    { key: 'kód_vlákna', label: 'Kód vlákna' },
+    { key: 'vazba', label: 'Vazba' },
+    { key: 'gramáž', label: 'Gramáž' }
+  ],
+  consumables: [
+    { key: 'podkategorie', label: 'Podkategorie' },
+    { key: 'format', label: 'Formát' },
+    { key: 'teplotni_odolnost', label: 'Teplotní odolnost' },
+    { key: 'perforace', label: 'Perforace' }
+  ],
+  pryskyrice: [
+    { key: 'typ', label: 'Typ' },
+    { key: 'chemie', label: 'Chemie' },
+    { key: 'technologie', label: 'Technologie' },
+    { key: 'pouziti', label: 'Použití' }
+  ],
+  lepidla: [
+    { key: 'chemie', label: 'Chemie' },
+    { key: 'open_time_min', label: 'Zpracovatelnost' }
+  ],
+  spotrebni_chemie: [
+    { key: 'typ', label: 'Typ' },
+    { key: 'značka', label: 'Značka' },
+    { key: 'mnozstvi', label: 'Množství' }
+  ],
+  naradi: [
+    { key: 'podkategorie', label: 'Podkategorie' },
+    { key: 'objem_l', label: 'Objem' }
+  ]
+}
+
+const SPEC_VALUE_LABELS: Record<string, Record<string, string>> = {
+  chemie: {
+    EP: 'Epoxid (EP)',
+    PU: 'Polyuretan (PU)',
+    MMA: 'Akrylát (MMA)',
+    VE: 'Vinylester (VE)',
+    PE: 'Polyester (PE)'
+  },
+  typ: {
+    RES: 'Pryskyřice (Resin)',
+    HRD: 'Tužidlo (Hardener)',
+    GEL: 'Gelcoat',
+    COP: 'Coupling coat',
+    FIL: 'Tmel (Filler)',
+    WIP: 'Ubrousky (Wipes)',
+    CON: 'Koncentrát',
+    SPR: 'Sprej (Spray)',
+    WF: 'WF (Tkanina / Woven)',
+    UD: 'UD (Jednosměrná / Uni)',
+    BIAX: 'BIAX (Biaxiální)',
+    MAT: 'MAT (Rohož)'
+  },
+  technologie: {
+    INF: 'Infuze (Infusion)',
+    WL: 'Ruční laminace (Wet layup)'
+  },
+  pouziti: {
+    FOR: 'Formy (Molds)',
+    DIL: 'Díly (Parts)'
+  },
+  použití: {
+    E: 'Economy (E)',
+    V: 'Visual (V)',
+    I: 'Industry (I)',
+    NA: 'N/A'
+  },
+  vazba: {
+    P: 'Plátno (Plain)',
+    T22: 'Kepr 2/2 (Twill 2/2)',
+    T44: 'Kepr 4/4 (Twill 4/4)',
+    NP: 'Vpichovaná (Needle punched)',
+    EM: 'Emulzní (Emulsion)',
+    PB: 'Prášková (Powder binder)',
+    ST: 'Prošívaná (Stitched)',
+    '090': '0/90°',
+    '45': '±45°'
+  },
+  materiál: {
+    CF: 'Uhlík (Carbon)',
+    GF: 'Sklo (Glass)',
+    AF: 'Aramid',
+    HF: 'Hybrid',
+    BIOF: 'Len (Flax)',
+    BIOH: 'Konopí (Hemp)',
+    PAN: 'Polyakrylonitril',
+    PET: 'Polyester (PET)',
+    OF: 'Jiné vlákno'
+  },
+  format: {
+    TUBE: 'Tubus',
+    SHT: 'Fólie plochá',
+    VSHT: 'Fólie V-sklad',
+    GSC: 'Harmonika'
+  },
+  perforace: {
+    NP: 'Neperforovaná',
+    P3: 'Perforace P3',
+    P6: 'Perforace P6',
+    P16: 'Perforace P16',
+    P31: 'Perforace P31'
+  },
+  podkategorie: {
+    BF: 'Vakuová fólie (BF)',
+    RF: 'Separační fólie (RF)',
+    PP: 'Strhávací tkanina (PP)',
+    'PP-PTFE': 'Teflonová strhávací tkanina (PP-PTFE)',
+    BC: 'Odsávací netkaná textilie (BC)',
+    ST: 'Těsnící páska (ST)',
+    FT: 'Flash tape páska (FT)',
+    FM: 'Distribuční síťka (FM)',
+    FCH: 'Distribuční kanálek (FCH)',
+    TUBE: 'Hadice (TUBE)',
+    K: 'Konektory a fitinky (K)',
+    MTI: 'MTI',
+    KP: 'Konektor průchodný (KP)',
+    BU: 'Průchodky (BU)',
+    QR: 'Rychlospojky (QR)',
+    SQ: 'Hadice a spirály (SQ)',
+    V: 'Ventily (V)',
+    CU: 'Mycí stanice (CU)',
+    SU: 'Spinner unit (SU)'
   }
 }
 
@@ -79,7 +211,11 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = React.useState("")
   const [debouncedSearch, setDebouncedSearch] = React.useState("")
-  const [selectedSubcategories, setSelectedSubcategories] = React.useState<string[]>([])
+  
+  // Dynamic spec filters state
+  const [specFilters, setSpecFilters] = React.useState<Record<string, string[]>>({})
+  const [facets, setFacets] = React.useState<Record<string, { value: string, count: number }[]>>({})
+  const [isFacetsLoading, setIsFacetsLoading] = React.useState(false)
   
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null)
@@ -101,45 +237,50 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     return columnFilters.find(f => f.id === 'stav_katalogu_id')?.value as string[] | undefined
   }, [columnFilters])
 
-  const showSubcategoryFilter = React.useMemo(() => {
-    return selectedCategories && (selectedCategories.includes('consumables') || selectedCategories.includes('nastroje'))
-  }, [selectedCategories])
-
-  const subcategoryOptions = React.useMemo(() => {
-    const opts: { label: string, value: string }[] = []
-    if (!selectedCategories) return opts
-
-    if (selectedCategories.includes('consumables')) {
-      opts.push(
-        { label: "BF (Vakuová fólie)", value: "BF" },
-        { label: "RF (Separační fólie)", value: "RF" },
-        { label: "PP (Strhávací tkanina)", value: "PP" },
-        { label: "PP-PTFE (Teflonová strhávací tkanina)", value: "PP-PTFE" },
-        { label: "BC (Odsávací netkaná textilie)", value: "BC" },
-        { label: "ST (Těsnící páska)", value: "ST" },
-        { label: "FT (Flash tape páska)", value: "FT" },
-        { label: "FM (Distribuční síťka)", value: "FM" },
-        { label: "FCH (Distribuční kanálek)", value: "FCH" },
-        { label: "K (Konektory a fitinky)", value: "K" }
-      )
+  // Load facets on category / search change
+  React.useEffect(() => {
+    const activeCategory = selectedCategories && selectedCategories.length === 1 ? selectedCategories[0] : null
+    
+    if (!activeCategory) {
+      setFacets({})
+      setSpecFilters({})
+      return
     }
-    if (selectedCategories.includes('nastroje')) {
-      opts.push(
-        { label: "BU (Průchodky)", value: "BU" },
-        { label: "QR (Rychlospojky)", value: "QR" },
-        { label: "SQ (Hadice a spirály)", value: "SQ" },
-        { label: "V (Ventily)", value: "V" }
-      )
-    }
-    return opts
-  }, [selectedCategories])
 
-  const mockSubcategoryColumn = React.useMemo(() => ({
-    getFilterValue: () => selectedSubcategories,
-    setFilterValue: (val: any) => {
-      setSelectedSubcategories(val || [])
+    const catId = activeCategory
+    let active = true
+    async function loadFacets() {
+      setIsFacetsLoading(true)
+      try {
+        const res = await getCategoryFacets(catId, debouncedSearch)
+        if (active && res.data) {
+          setFacets(res.data)
+        }
+      } catch (err) {
+        console.error("Error loading facets:", err)
+      } finally {
+        if (active) setIsFacetsLoading(false)
+      }
     }
-  }), [selectedSubcategories])
+
+    // Reset filters of other categories when changing categories
+    setSpecFilters(prev => {
+      const next: Record<string, string[]> = {}
+      const allowedKeys = CATEGORY_SPEC_MAP[activeCategory]?.map(s => s.key) || []
+      Object.entries(prev).forEach(([k, v]) => {
+        if (allowedKeys.includes(k)) {
+          next[k] = v
+        }
+      })
+      return next
+    })
+
+    loadFacets()
+
+    return () => {
+      active = false
+    }
+  }, [selectedCategories, debouncedSearch])
 
   // Debounce search input to avoid database overload
   React.useEffect(() => {
@@ -148,14 +289,6 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     }, 300)
     return () => clearTimeout(timer)
   }, [globalFilter])
-
-  // Reset selected subcategories if category filter no longer has Consumables or Tools
-  React.useEffect(() => {
-    const isApplicable = selectedCategories && (selectedCategories.includes('consumables') || selectedCategories.includes('nastroje'))
-    if (!isApplicable && selectedSubcategories.length > 0) {
-      setSelectedSubcategories([])
-    }
-  }, [selectedCategories, selectedSubcategories.length])
 
   // Merge server-rendered initial data updates without shrinking the list or resetting page to 0
   React.useEffect(() => {
@@ -172,9 +305,13 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       if (selectedStatuses && selectedStatuses.length > 0) {
         if (!p.stav_katalogu_id || !selectedStatuses.includes(p.stav_katalogu_id)) return false
       }
-      if (selectedSubcategories && selectedSubcategories.length > 0) {
-        const sub = p.specifikace?.podkategorie
-        if (!sub || !selectedSubcategories.includes(sub)) return false
+      if (specFilters && Object.keys(specFilters).length > 0) {
+        for (const [key, values] of Object.entries(specFilters)) {
+          if (values && values.length > 0) {
+            const pVal = p.specifikace?.[key]
+            if (!pVal || !values.includes(String(pVal))) return false
+          }
+        }
       }
       return true
     }
@@ -183,7 +320,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       !!debouncedSearch || 
       (selectedCategories && selectedCategories.length > 0) || 
       (selectedStatuses && selectedStatuses.length > 0) || 
-      selectedSubcategories.length > 0
+      Object.values(specFilters).some(v => v.length > 0)
 
     setProducts(prev => {
       // Update existing products with new data from initialData if they exist, or preserve them
@@ -206,7 +343,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     if (!hasActiveFilters) {
       setTotalCount(initialTotalCount)
     }
-  }, [initialData, initialTotalCount, debouncedSearch, selectedCategories, selectedStatuses, selectedSubcategories])
+  }, [initialData, initialTotalCount, debouncedSearch, selectedCategories, selectedStatuses, specFilters])
 
   // Helper to load paginated data based on filters & sorting
   const loadMore = React.useCallback(async () => {
@@ -224,7 +361,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
         search: debouncedSearch,
         categories: selectedCategories,
         statuses: selectedStatuses,
-        subcategories: selectedSubcategories,
+        specs: specFilters,
         sortBy,
         sortDesc
       })
@@ -257,7 +394,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     } finally {
       setIsLoading(false)
     }
-  }, [page, isLoading, hasMore, debouncedSearch, selectedCategories, selectedStatuses, selectedSubcategories, sorting])
+  }, [page, isLoading, hasMore, debouncedSearch, selectedCategories, selectedStatuses, specFilters, sorting])
 
   // Reset to page 0 and load fresh data when filters/search/sorting change
   const resetAndReload = React.useCallback(async () => {
@@ -272,7 +409,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
         search: debouncedSearch,
         categories: selectedCategories,
         statuses: selectedStatuses,
-        subcategories: selectedSubcategories,
+        specs: specFilters,
         sortBy,
         sortDesc
       })
@@ -292,7 +429,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     } finally {
       setIsLoading(false)
     }
-  }, [debouncedSearch, selectedCategories, selectedStatuses, selectedSubcategories, sorting])
+  }, [debouncedSearch, selectedCategories, selectedStatuses, specFilters, sorting])
 
   // IntersectionObserver to trigger loading when reaching the bottom margin
   React.useEffect(() => {
@@ -330,7 +467,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
           search: debouncedSearch,
           categories: selectedCategories,
           statuses: selectedStatuses,
-          subcategories: selectedSubcategories,
+          specs: specFilters,
           sortBy,
           sortDesc
         })
@@ -362,7 +499,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       const hasNoActiveFilters = 
         !debouncedSearch && 
         columnFilters.length === 0 && 
-        selectedSubcategories.length === 0 &&
+        Object.keys(specFilters).length === 0 &&
         sorting.length === 1 && sorting[0].id === 'nazev' && !sorting[0].desc
 
       if (hasNoActiveFilters) {
@@ -375,7 +512,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     return () => {
       active = false
     }
-  }, [debouncedSearch, selectedCategories, selectedStatuses, selectedSubcategories, sorting])
+  }, [debouncedSearch, selectedCategories, selectedStatuses, specFilters, sorting])
 
   const handleCloneProduct = async (product: Product) => {
     try {
@@ -474,7 +611,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
         const product = row.original;
         return (
           <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 hover:bg-primary/10 text-[10px] py-0 px-2 h-5">
-            {product.c_kategorie?.nazev || product.kategorie_id}
+            {product.kategorie_id === 'spotrebni_chemie' ? 'Čističe' : (product.c_kategorie?.nazev || product.kategorie_id)}
           </Badge>
         )
       },
@@ -693,7 +830,9 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
           <DataTableFacetedFilter 
             column={table.getColumn("kategorie_id")}
             title="Kategorie"
-            options={lookups.categories.map(c => ({ label: c.nazev, value: c.id }))}
+            options={lookups.categories
+              .filter(c => !['prepregy', 'cores_standard', 'cores_active'].includes(c.id))
+              .map(c => ({ label: c.id === 'spotrebni_chemie' ? 'Čističe' : c.nazev, value: c.id }))}
           />
 
           <DataTableFacetedFilter 
@@ -702,20 +841,55 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
             options={lookups.statuses.map(s => ({ label: s.nazev, value: s.id }))}
           />
           
-          {showSubcategoryFilter && (
-            <DataTableFacetedFilter 
-              column={mockSubcategoryColumn as any}
-              title="Podkategorie"
-              options={subcategoryOptions}
-            />
+          {/* Dynamic specification filters based on category */}
+          {selectedCategories && selectedCategories.length === 1 && (
+            (() => {
+              const catId = selectedCategories[0]
+              const specs = CATEGORY_SPEC_MAP[catId] || []
+              return specs.map(spec => {
+                const options = (facets[spec.key] || []).map(f => {
+                  const label = SPEC_VALUE_LABELS[spec.key]?.[f.value] || f.value
+                  return {
+                    label: `${label} (${f.count})`,
+                    value: f.value
+                  }
+                })
+
+                if (options.length === 0) return null
+
+                const mockColumn = {
+                  getFilterValue: () => specFilters[spec.key] || [],
+                  setFilterValue: (val: any) => {
+                    setSpecFilters(prev => {
+                      const next = { ...prev }
+                      if (!val || val.length === 0) {
+                        delete next[spec.key]
+                      } else {
+                        next[spec.key] = val
+                      }
+                      return next
+                    })
+                  }
+                }
+
+                return (
+                  <DataTableFacetedFilter 
+                    key={spec.key}
+                    column={mockColumn as any}
+                    title={spec.label}
+                    options={options}
+                  />
+                )
+              })
+            })()
           )}
 
-          {(columnFilters.length > 0 || selectedSubcategories.length > 0) && (
+          {(columnFilters.length > 0 || Object.keys(specFilters).length > 0) && (
             <Button 
               variant="ghost" 
               onClick={() => {
                 setColumnFilters([])
-                setSelectedSubcategories([])
+                setSpecFilters({})
               }}
               className="h-9 px-2 text-zinc-500 hover:text-zinc-200"
             >

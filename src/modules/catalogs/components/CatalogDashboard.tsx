@@ -79,7 +79,11 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
   const availableCategories = useMemo(() => {
     const list: { id: string; name: string }[] = [];
     products.forEach(p => {
-      if (p.kategorie_id && !list.some(item => item.id === p.kategorie_id)) {
+      if (
+        p.kategorie_id &&
+        !list.some(item => item.id === p.kategorie_id) &&
+        !['prepregy', 'cores_standard', 'cores_active'].includes(p.kategorie_id)
+      ) {
         list.push({ id: p.kategorie_id, name: p.c_kategorie?.nazev || p.kategorie_id });
       }
     });

@@ -220,6 +220,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [chemBase, setChemBase] = useState(specs.chemie || "EP")
   const [chemVariant, setChemVariant] = useState(specs.varianta || "MED")
   const [chemColor, setChemColor] = useState(specs.barva_id || "CLR")
+  const [chemTech, setChemTech] = useState(specs.technologie || "INF")
+  const [chemCuringTime, setChemCuringTime] = useState(specs.cas_vytvrzeni || "")
+  const [chemUse, setChemUse] = useState(specs.pouziti || "FOR")
   // Adhesives (Lepidla)
   const [adhChem, setAdhChem] = useState(specs.chemie || "EP")
   const [adhOpenTime, setAdhOpenTime] = useState(specs.open_time_min ? String(specs.open_time_min) : "45")
@@ -228,6 +231,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   // Cleaners
   const [clnBrand, setClnBrand] = useState(specs.značka || "RST5")
   const [clnPack, setClnPack] = useState(specs.balení || "5L")
+  const [clnType, setClnType] = useState(specs.typ || "WIP")
+  const [clnQty, setClnQty] = useState(specs.mnozstvi || "")
   // Cores
   const [coreMat, setCoreMat] = useState(specs.materiál || "PVC")
   const [coreDens, setCoreDens] = useState(String(specs.hustota_kgm3 || "80"))
@@ -252,6 +257,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [toolQrMat, setToolQrMat] = useState(specs.material || "SS")
   const [toolSqPrumer, setToolSqPrumer] = useState(specs.prumer_mm ? String(specs.prumer_mm) : "25")
   const [toolVId, setToolVId] = useState(specs.identifikator || "")
+  const [toolCuVolume, setToolCuVolume] = useState(specs.objem_l ? String(specs.objem_l) : "")
   // Consumables (Spotřební materiál)
   const [conSub, setConSub] = useState(() => {
     if (specs.podkategorie === "FCH" && (specs.podtyp_fch === "TUBE" || specs.podtyp_fch === "TTUBE")) {
@@ -328,6 +334,14 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     return specs.tvar || "T"
   })
   const [conKPrumer, setConKPrumer] = useState(specs.vnejsi_prumer_mm ? String(specs.vnejsi_prumer_mm) : "20")
+
+  // MTI
+  const [conMtiTyp, setConMtiTyp] = useState(specs.typ_mti || "Hose")
+  const [conMtiWidth, setConMtiWidth] = useState(specs.sirka_mm !== undefined ? String(specs.sirka_mm) : "")
+
+  // KP – Konektor průchodný (plastový)
+  const [conKpTvar, setConKpTvar] = useState(specs.tvar || "O")
+  const [conKpPrumer, setConKpPrumer] = useState(specs.prumer_mm ? String(specs.prumer_mm) : "12")
 
   // Auto-map packaging profile based on category and package type defaults
   useEffect(() => {
@@ -472,10 +486,20 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         generatedSku = `PP-${prepBase}-${prepWeight}-${prepResin}`
         generatedSpecs = { base_materiál: prepBase, gramáž: parseInt(prepWeight) || 0, pryskyřice: prepResin }
         break;
-      case 'pryskyrice':
-        generatedSku = `${chemType}-${chemBase}-${chemVariant}-${chemColor}`
-        generatedSpecs = { typ: chemType, chemie: chemBase, varianta: chemVariant, barva_id: chemColor }
+      case 'pryskyrice': {
+        const cleanCuring = chemCuringTime.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+        const isCuringType = chemType === 'RES' || chemType === 'HRD'
+        const thirdSegment = isCuringType ? (cleanCuring || "NA") : chemTech
+
+        generatedSku = `${chemType}-${chemBase}-${thirdSegment}-${chemUse}`
+        generatedSpecs = {
+          typ: chemType,
+          chemie: chemBase,
+          pouziti: chemUse,
+          ...(isCuringType ? { cas_vytvrzeni: chemCuringTime } : { technologie: chemTech })
+        }
         break;
+      }
       case 'lepidla': {
         setValue("zakladni_mj_id", "ks", { shouldValidate: true })
         setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
@@ -500,10 +524,31 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         }
         break;
       }
-      case 'spotrebni_chemie':
-        generatedSku = `CLN-${clnBrand}-${clnPack}`
-        generatedSpecs = { značka: clnBrand, balení: clnPack }
+      case 'spotrebni_chemie': {
+        const cleanQty = clnQty.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+        const unitSuffixMap: Record<string, string> = {
+          WIP: "KS",
+          CON: "L",
+          SPR: "ML"
+        }
+        const unitSuffix = unitSuffixMap[clnType] || ""
+        generatedSku = `CLN-${clnBrand}-${clnType}-${cleanQty}${unitSuffix}`
+        generatedSpecs = {
+          značka: clnBrand,
+          typ: clnType,
+          mnozstvi: clnQty
+        }
+
+        // Set basic unit defaults dynamically
+        if (clnType === 'CON') {
+          setValue("zakladni_mj_id", "l", { shouldValidate: true })
+        } else {
+          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+        }
+        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
         break;
+      }
       case 'cores_standard':
       case 'cores_active':
         const prefix = kategorieId === 'cores_active' ? 'ACT' : 'COR'
@@ -525,12 +570,10 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
         switch (toolSub) {
           case 'BU': {
-            const isMet = toolBuTvar === "T"
-            generatedSku = `TOL-BU-${toolBuTvar}-${toolBuPrumer}`
+            generatedSku = `TOL-BU-${toolBuPrumer}`
             generatedSpecs = {
               podkategorie: "BU",
-              tvar: toolBuTvar,
-              material: isMet ? "MET" : "PLA",
+              material: "MET",
               prumer_mm: parseInt(toolBuPrumer) || 0
             }
             break
@@ -558,6 +601,26 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             generatedSpecs = {
               podkategorie: "V",
               identifikator: toolVId
+            }
+            break
+          }
+          case 'CU': {
+            const cleanVol = toolCuVolume.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+            const volSku = cleanVol ? `-${cleanVol}L` : ""
+            generatedSku = `TOL-CU-RST5${volSku}`
+            generatedSpecs = {
+              podkategorie: "CU",
+              značka: "RST5",
+              objem_l: parseInt(toolCuVolume) || toolCuVolume
+            }
+            break
+          }
+          case 'SU': {
+            generatedSku = `TOL-SU-SPIN-RST5`
+            generatedSpecs = {
+              podkategorie: "SU",
+              model: "Spin",
+              značka: "RST5"
             }
             break
           }
@@ -822,6 +885,35 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             }
             break
           }
+          case 'MTI': {
+            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+            setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            
+            const wVal = conMtiWidth.trim()
+            const wSku = wVal ? `-${wVal}` : ""
+            generatedSku = `MTI-${conMtiTyp.toUpperCase()}${wSku}`
+            generatedSpecs = {
+              podkategorie: "MTI",
+              typ_mti: conMtiTyp,
+              ...(conMtiTyp === 'MVS' ? { sirka_mm: parseInt(wVal) || wVal } : {})
+            }
+            break
+          }
+          case 'KP': {
+            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+            setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            
+            generatedSku = `KP-${conKpTvar}-${conKpPrumer}`
+            generatedSpecs = {
+              podkategorie: "KP",
+              tvar: conKpTvar,
+              material: "PLA",
+              prumer_mm: parseInt(conKpPrumer) || 0
+            }
+            break
+          }
         }
         break;
       }
@@ -833,12 +925,12 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       setValue("sku", generatedSku, { shouldValidate: true })
       setValue("specifikace_json", JSON.stringify(generatedSpecs, null, 2))
       
-      if (isNameGenerated && (kategorieId === 'vyztuzne_materialy' || kategorieId === 'consumables' || kategorieId === 'naradi' || kategorieId === 'lepidla')) {
+      if (isNameGenerated && (kategorieId === 'vyztuzne_materialy' || kategorieId === 'consumables' || kategorieId === 'naradi' || kategorieId === 'lepidla' || kategorieId === 'pryskyrice' || kategorieId === 'spotrebni_chemie')) {
         const generatedName = generateProductName(generatedSpecs, kategorieId, lookups.fiberCodes)
         setValue("nazev", generatedName, { shouldValidate: true })
       }
     }
-  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, clnBrand, clnPack, coreMat, coreDens, coreThick, coreFinish, polBrand, polCont, polSize, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conFtSirka, conFtTemp, conFtDelka, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, adhChem, adhOpenTime, adhColor, adhVolume, setValue, lookups.fiberCodes])
+  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, clnBrand, clnPack, clnType, clnQty, coreMat, coreDens, coreThick, coreFinish, polBrand, polCont, polSize, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conFtSirka, conFtTemp, conFtDelka, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, setValue, lookups.fiberCodes])
 
   // Live SKU Duplicate Check (Debounced)
   useEffect(() => {
@@ -969,13 +1061,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           <Select onValueChange={handleCategoryChange} value={kategorieId || ""}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Vyberte kategorii">
-                {lookups.categories.find(c => c.id === kategorieId)?.nazev}
+                {kategorieId === 'spotrebni_chemie' ? 'Čističe' : (lookups.categories.find(c => c.id === kategorieId)?.nazev)}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {lookups.categories.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.nazev}</SelectItem>
-              ))}
+              {lookups.categories
+                .filter(c => !['prepregy', 'cores_standard', 'cores_active'].includes(c.id) || c.id === initialData?.kategorie_id)
+                .map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.id === 'spotrebni_chemie' ? 'Čističe' : c.nazev}</SelectItem>
+                ))}
             </SelectContent>
           </Select>
           {errors.kategorie_id && <p className="text-xs text-destructive">{errors.kategorie_id.message}</p>}
@@ -983,7 +1077,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <Label htmlFor="nazev">Název produktu</Label>
-            {(kategorieId === 'vyztuzne_materialy' || kategorieId === 'consumables' || kategorieId === 'naradi') && (
+            {['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie'].includes(kategorieId) && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground select-none">
                 <input 
                   type="checkbox" 
@@ -1000,8 +1094,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           <Input 
             id="nazev" 
             placeholder="Název produktu" 
-            readOnly={isNameGenerated && (kategorieId === 'vyztuzne_materialy' || kategorieId === 'consumables' || kategorieId === 'naradi')}
-            className={isNameGenerated && (kategorieId === 'vyztuzne_materialy' || kategorieId === 'consumables' || kategorieId === 'naradi') ? "bg-muted text-muted-foreground cursor-not-allowed font-medium border-zinc-850" : "font-medium"}
+            readOnly={isNameGenerated && ['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie'].includes(kategorieId)}
+            className={isNameGenerated && ['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie'].includes(kategorieId) ? "bg-muted text-muted-foreground cursor-not-allowed font-medium border-zinc-850" : "font-medium"}
             {...register("nazev")} 
           />
           {errors.nazev && <p className="text-xs text-destructive">{errors.nazev.message}</p>}
@@ -1157,10 +1251,38 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         </>
       )) : kategorieId === 'pryskyrice' ? renderGeneratorWrapper("Pryskyřice", (
         <>
-          {renderSelect("Typ", chemType, setChemType, [{val:"RES", label:"RES (Resin)"}, {val:"GEL", label:"GEL (Gelcoat)"}, {val:"ADH", label:"ADH (Adhesive)"}])}
-          {renderSelect("Chemie", chemBase, setChemBase, [{val:"EP", label:"EP (Epoxy)"}, {val:"VE", label:"VE (Vinylester)"}, {val:"PU", label:"PU (Poly)"}])}
-          {renderSelect("Varianta", chemVariant, setChemVariant, [{val:"FAST", label:"FAST"}, {val:"MED", label:"MED"}, {val:"SLOW", label:"SLOW"}, {val:"INF", label:"INF (Infusion)"}, {val:"LAM", label:"LAM (Laminating)"}])}
-          <div className="space-y-2"><Label className="text-xs text-muted-foreground">ID/Barva</Label><Input value={chemColor} onChange={(e) => setChemColor(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} className="h-8 bg-background" placeholder="CLR" /></div>
+          {renderSelect("Typ", chemType, setChemType, [
+            {val:"FIL", label:"FIL (Filler / Tmel)"},
+            {val:"HRD", label:"HRD (Hardener / Tužidlo)"},
+            {val:"GEL", label:"GEL (Gelcoat)"},
+            {val:"COP", label:"COP (Coupling coat / Spojovací vrstva)"},
+            {val:"RES", label:"RES (Resin / Pryskyřice)"}
+          ])}
+          {renderSelect("Chemie", chemBase, setChemBase, [
+            {val:"EP", label:"EP (Epoxy / Epoxid)"},
+            {val:"VE", label:"VE (Vinylester)"},
+            {val:"PE", label:"PE (Polyester)"}
+          ])}
+          {(chemType === 'FIL' || chemType === 'GEL' || chemType === 'COP') ? (
+            renderSelect("Technologie výroby", chemTech, setChemTech, [
+              {val:"INF", label:"INF (Infuze / Infusion)"},
+              {val:"WL", label:"WL (Ruční laminace / Wet layup)"}
+            ])
+          ) : (
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Čas vytvrzení</Label>
+              <Input 
+                value={chemCuringTime} 
+                onChange={(e) => setChemCuringTime(e.target.value)} 
+                className="h-8 bg-background" 
+                placeholder="Např. 120 min, 24h"
+              />
+            </div>
+          )}
+          {renderSelect("Použití", chemUse, setChemUse, [
+            {val:"FOR", label:"FOR (Formy / Molds)"},
+            {val:"DIL", label:"Díly (Parts)"}
+          ])}
         </>
       )) : kategorieId === 'lepidla' ? renderGeneratorWrapper("Lepidla", (
         <>
@@ -1185,10 +1307,34 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             <Input value={adhVolume} onChange={(e) => setAdhVolume(e.target.value)} className="h-8 bg-background" placeholder="např. 50ML, 400ML, 20L" />
           </div>
         </>
-      )) : kategorieId === 'spotrebni_chemie' ? renderGeneratorWrapper("Spotřební chemie", (
+      )) : kategorieId === 'spotrebni_chemie' ? renderGeneratorWrapper("Čističe", (
         <>
-          <div className="space-y-2"><Label className="text-xs text-muted-foreground">Značka/Typ</Label><Input value={clnBrand} onChange={(e) => setClnBrand(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} className="h-8 bg-background" placeholder="RST5" /></div>
-          {renderSelect("Obal", clnPack, setClnPack, [{val:"5L", label:"5L"}, {val:"200L", label:"200L"}, {val:"1000L", label:"1000L"}])}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Značka</Label>
+            <Input 
+              value={clnBrand} 
+              onChange={(e) => setClnBrand(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} 
+              className="h-8 bg-background" 
+              placeholder="RST5" 
+            />
+          </div>
+          {renderSelect("Typ čističe", clnType, setClnType, [
+            {val:"WIP", label:"Ubrousky (Wipes)"},
+            {val:"CON", label:"Koncentrát (Concentrate)"},
+            {val:"SPR", label:"Sprej (Spray)"}
+          ])}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">
+              {clnType === 'WIP' ? "Množství (kusy)" : clnType === 'CON' ? "Množství (litry)" : "Množství (mililitry)"}
+            </Label>
+            <Input 
+              type="number" 
+              value={clnQty} 
+              onChange={(e) => setClnQty(e.target.value)} 
+              className="h-8 bg-background" 
+              placeholder={clnType === 'WIP' ? "Např. 100" : clnType === 'CON' ? "Např. 5" : "Např. 400"}
+            />
+          </div>
         </>
       )) : (kategorieId === 'cores_standard' || kategorieId === 'cores_active') ? renderGeneratorWrapper("Jádrové materiály", (
         <>
@@ -1216,29 +1362,17 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             {val:"BU", label:"BU (Breach unit)"},
             {val:"QR", label:"QR (Quick release)"},
             {val:"SQ", label:"SQ (Squeezer)"},
-            {val:"V", label:"V (VAC checker)"}
+            {val:"V", label:"V (VAC checker)"},
+            {val:"CU", label:"CU (Cleaning unit)"},
+            {val:"SU", label:"SU (Spinner unit)"}
           ])}
 
           {toolSub === 'BU' && (
             <>
-              {renderSelect("Tvar / Materiál", toolBuTvar, (val) => {
-                setToolBuTvar(val)
-                setToolBuPrumer(val === "O" ? "12" : "50")
-              }, [
-                {val:"T", label:"T-kus (kov / metal)"},
-                {val:"O", label:"Kruhový (plast / plastic)"}
+              {renderSelect("Průměr (kov)", toolBuPrumer, setToolBuPrumer, [
+                {val:"50", label:"50 mm"},
+                {val:"75", label:"75 mm"}
               ])}
-              {toolBuTvar === "T" ? (
-                renderSelect("Průměr (kov)", toolBuPrumer, setToolBuPrumer, [
-                  {val:"50", label:"50 mm"},
-                  {val:"75", label:"75 mm"}
-                ])
-              ) : (
-                renderSelect("Průměr (plast)", toolBuPrumer, setToolBuPrumer, [
-                  {val:"12", label:"12 mm"},
-                  {val:"16", label:"16 mm"}
-                ])
-              )}
             </>
           )}
 
@@ -1281,6 +1415,25 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               />
             </div>
           )}
+
+          {toolSub === 'CU' && (
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Objem (litry)</Label>
+              <Input 
+                type="number" 
+                value={toolCuVolume} 
+                onChange={(e) => setToolCuVolume(e.target.value)} 
+                className="h-8 bg-background" 
+                placeholder="Např. 10"
+              />
+            </div>
+          )}
+
+          {toolSub === 'SU' && (
+            <div className="text-xs text-muted-foreground italic p-2 bg-zinc-950/30 rounded border border-zinc-800/50">
+              Spinner unit Spin RST5 (konfigurovaný model, nevyžaduje dodatečné parametry).
+            </div>
+          )}
         </>
       )) : kategorieId === 'consumables' ? renderGeneratorWrapper("Spotřební materiál (Consumables)", (
         <>
@@ -1295,7 +1448,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             {val:"FM", label:"FM (Distribuční síťka)"},
             {val:"FCH", label:"FCH (Distribuční kanálek)"},
             {val:"TUBE", label:"TUBE (Hadice)"},
-            {val:"K", label:"K (Konektory a fitinky)"}
+            {val:"K", label:"K (Konektory a fitinky)"},
+            {val:"MTI", label:"MTI"},
+            {val:"KP", label:"KP (Konektor průchodný)"}
           ])}
           
           {conSub === 'BF' && (
@@ -1565,6 +1720,42 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 <Label className="text-xs text-muted-foreground">Vnější průměr (mm)</Label>
                 <Input type="number" value={conKPrumer} onChange={(e) => setConKPrumer(e.target.value)} className="h-8 bg-background" />
               </div>
+            </>
+          )}
+
+          {conSub === 'MTI' && (
+            <>
+              {renderSelect("Typ MTI", conMtiTyp, setConMtiTyp, [
+                {val:"Hose", label:"Hose (Hadice)"},
+                {val:"Valve", label:"Valve (Ventil)"},
+                {val:"MVS", label:"MVS (Membrána)"},
+                {val:"RBL", label:"RBL (Resin brake line)"}
+              ])}
+              {conMtiTyp === 'MVS' && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Šířka (mm)</Label>
+                  <Input 
+                    type="number" 
+                    value={conMtiWidth} 
+                    onChange={(e) => setConMtiWidth(e.target.value)} 
+                    className="h-8 bg-background" 
+                    placeholder="Např. 50"
+                  />
+                </div>
+              )}
+            </>
+          )}
+
+          {conSub === 'KP' && (
+            <>
+              {renderSelect("Tvar", conKpTvar, setConKpTvar, [
+                {val:"O", label:"Kruhový (plast / plastic)"},
+                {val:"T", label:"T-kus (plast / plastic)"}
+              ])}
+              {renderSelect("Průměr (plast)", conKpPrumer, setConKpPrumer, [
+                {val:"12", label:"12 mm"},
+                {val:"16", label:"16 mm"}
+              ])}
             </>
           )}
         </>
