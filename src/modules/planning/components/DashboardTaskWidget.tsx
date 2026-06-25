@@ -75,6 +75,7 @@ export function DashboardTaskWidget({
           variant="outline" 
           size="sm" 
           className="w-full mt-auto text-xs"
+          nativeButton={false}
           render={<Link href="/planovani/ukoly?vlastnik=mine" />}
         >
           Zobrazit celou mou agendu
@@ -121,6 +122,7 @@ export function DashboardTaskWidget({
           variant="ghost" 
           size="sm" 
           className="w-full mt-auto text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/10"
+          nativeButton={false}
           render={<Link href="/planovani/ukoly?stav=todo" />}
         >
           Vyřešit resty
@@ -183,6 +185,7 @@ export function DashboardTaskWidget({
           variant="outline" 
           size="sm" 
           className="w-full mt-auto text-xs"
+          nativeButton={false}
           render={<Link href="/planovani" />}
         >
           Všechny projekty a plány

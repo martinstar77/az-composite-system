@@ -248,6 +248,7 @@ export function MilestoneTimeline({ projektId, milniky: initialMilniky, projektB
             variant="ghost"
             size="sm"
             className="h-7 px-2.5 text-xs font-medium"
+            nativeButton={false}
             render={<Link href={`/planovani/kalendar?projektId=${projektId}`} />}
           >
             <Calendar className="h-3.5 w-3.5 mr-1.5" />
