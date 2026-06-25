@@ -169,3 +169,74 @@ export async function deleteZakaznik(
 
   return { success: true }
 }
+
+export async function getZakazniciPaged({
+  page = 0,
+  limit = 30,
+  search = '',
+  countries = [],
+  payerStatus = [],
+  sortBy = 'nazev_spolecnosti',
+  sortDesc = false
+}: {
+  page?: number
+  limit?: number
+  search?: string
+  countries?: string[]
+  payerStatus?: string[]
+  sortBy?: string
+  sortDesc?: boolean
+} = {}): Promise<{ data: Zakaznik[] | null, error: any, totalCount?: number }> {
+  const supabase = await createClient()
+
+  let query = supabase
+    .from('zakaznici')
+    .select(`
+      *,
+      vytvoril:vytvoril_id ( jmeno ),
+      upravil:upravil_id ( jmeno )
+    `, { count: 'exact' })
+    .is('deleted_at', null)
+
+  if (search && search.trim()) {
+    query = query.or(`nazev_spolecnosti.ilike.%${search.trim()}%,kod.ilike.%${search.trim()}%`)
+  }
+
+  if (countries && countries.length > 0) {
+    query = query.in('zeme', countries)
+  }
+
+  if (payerStatus && payerStatus.length > 0) {
+    if (payerStatus.length === 1) {
+      query = query.eq('je_platce_dph', payerStatus[0] === 'platce')
+    }
+  }
+
+  if (sortBy) {
+    query = query.order(sortBy, { ascending: !sortDesc })
+  } else {
+    query = query.order('nazev_spolecnosti', { ascending: true })
+  }
+
+  const from = page * limit
+  const to = (page + 1) * limit - 1
+  query = query.range(from, to)
+
+  const { data, error, count } = await query
+
+  return { data: data as Zakaznik[] | null, error, totalCount: count || undefined }
+}
+
+export async function getCustomerLookups(): Promise<{ countries: string[] }> {
+  const supabase = await createClient()
+
+  const { data: countriesData } = await supabase
+    .from('zakaznici')
+    .select('zeme')
+    .is('deleted_at', null)
+
+  const countries = Array.from(new Set((countriesData || []).map(d => d.zeme).filter(Boolean))) as string[]
+
+  return { countries }
+}
+

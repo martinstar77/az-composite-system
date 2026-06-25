@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { getZakaznici } from '@/modules/invoicing/actions/customers'
+import { getZakazniciPaged, getCustomerLookups } from '@/modules/invoicing/actions/customers'
 import { CustomerDataTable } from '@/modules/invoicing/components/CustomerDataTable'
 import { CreateCustomerDialog } from '@/modules/invoicing/components/CreateCustomerDialog'
 
@@ -10,7 +10,14 @@ export const metadata = {
 }
 
 export default async function CustomersPage() {
-  const customers = await getZakaznici()
+  const [{ data: customers, error, totalCount }, lookups] = await Promise.all([
+    getZakazniciPaged({ page: 0, limit: 30 }),
+    getCustomerLookups()
+  ])
+
+  if (error) {
+    return <div>Chyba při načítání zákazníků: {error.message}</div>
+  }
 
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6">
@@ -24,7 +31,11 @@ export default async function CustomersPage() {
         <CreateCustomerDialog />
       </div>
 
-      <CustomerDataTable data={customers} />
+      <CustomerDataTable 
+        initialData={customers || []} 
+        initialTotalCount={totalCount || 0}
+        lookups={lookups}
+      />
     </div>
   )
 }

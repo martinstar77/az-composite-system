@@ -267,3 +267,78 @@ export async function deleteProductSourcing(id: string, productId: string) {
   return { error }
 }
 
+export async function getSuppliersPaged({
+  page = 0,
+  limit = 30,
+  search = '',
+  countries = [],
+  currencies = [],
+  sortBy = 'nazev_spolecnosti',
+  sortDesc = false
+}: {
+  page?: number
+  limit?: number
+  search?: string
+  countries?: string[]
+  currencies?: string[]
+  sortBy?: string
+  sortDesc?: boolean
+} = {}): Promise<{ data: Supplier[] | null, error: any, totalCount?: number }> {
+  const supabase = await createClient()
+
+  let query = supabase
+    .from('dodavatele')
+    .select(`
+      *,
+      vytvoril:vytvoril_id ( jmeno ),
+      upravil:upravil_id ( jmeno )
+    `, { count: 'exact' })
+    .is('deleted_at', null)
+
+  if (search && search.trim()) {
+    query = query.or(`nazev_spolecnosti.ilike.%${search.trim()}%,kod.ilike.%${search.trim()}%`)
+  }
+
+  if (countries && countries.length > 0) {
+    query = query.in('zeme_puvodu', countries)
+  }
+
+  if (currencies && currencies.length > 0) {
+    query = query.in('vychozi_mena', currencies)
+  }
+
+  if (sortBy) {
+    query = query.order(sortBy, { ascending: !sortDesc })
+  } else {
+    query = query.order('nazev_spolecnosti', { ascending: true })
+  }
+
+  const from = page * limit
+  const to = (page + 1) * limit - 1
+  query = query.range(from, to)
+
+  const { data, error, count } = await query
+
+  return { data: data as Supplier[] | null, error, totalCount: count || undefined }
+}
+
+export async function getSupplierLookups(): Promise<{ countries: string[], currencies: string[] }> {
+  const supabase = await createClient()
+
+  const { data: countriesData } = await supabase
+    .from('dodavatele')
+    .select('zeme_puvodu')
+    .is('deleted_at', null)
+
+  const { data: currenciesData } = await supabase
+    .from('dodavatele')
+    .select('vychozi_mena')
+    .is('deleted_at', null)
+
+  const countries = Array.from(new Set((countriesData || []).map(d => d.zeme_puvodu).filter(Boolean))) as string[]
+  const currencies = Array.from(new Set((currenciesData || []).map(d => d.vychozi_mena).filter(Boolean))) as string[]
+
+  return { countries, currencies }
+}
+
+

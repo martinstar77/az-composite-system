@@ -1,14 +1,17 @@
 export const dynamic = 'force-dynamic'
 
-import { getSuppliers } from '@/modules/sourcing/actions'
+import { getSuppliersPaged, getSupplierLookups } from '@/modules/sourcing/actions'
 import { SupplierDataTable } from '@/modules/sourcing/components/SupplierDataTable'
 import { CreateSupplierDialog } from '@/modules/sourcing/components/CreateSupplierDialog'
 
 export default async function SuppliersPage() {
-  const { data: suppliers, error } = await getSuppliers()
+  const [{ data: suppliers, error, totalCount }, lookups] = await Promise.all([
+    getSuppliersPaged({ page: 0, limit: 30 }),
+    getSupplierLookups()
+  ])
 
   if (error) {
-    return <div>Chyba při načítání dodavatelů.</div>
+    return <div>Chyba při načítání dodavatelů: {error.message}</div>
   }
 
   return (
@@ -21,7 +24,11 @@ export default async function SuppliersPage() {
         <CreateSupplierDialog />
       </div>
 
-      <SupplierDataTable data={suppliers || []} />
+      <SupplierDataTable 
+        initialData={suppliers || []} 
+        initialTotalCount={totalCount || 0}
+        lookups={lookups}
+      />
     </div>
   )
 }

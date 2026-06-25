@@ -7,11 +7,8 @@ import {
   flexRender,
   getCoreRowModel,
   useReactTable,
-  getPaginationRowModel,
   SortingState,
-  getSortedRowModel,
   ColumnFiltersState,
-  getFilteredRowModel,
 } from "@tanstack/react-table"
 import { MoreHorizontal, FileEdit, Trash2, Mail, Phone, Globe, ArrowUpDown, Search, FilterX, MapPin } from "lucide-react"
 import { toast } from "sonner"
@@ -46,22 +43,262 @@ import { Button } from "@/shared/components/ui/button"
 import { Badge } from "@/shared/components/ui/badge"
 import { Input } from "@/shared/components/ui/input"
 import { Supplier } from "../types"
-import { deleteSupplier } from "../actions"
+import { deleteSupplier, getSuppliersPaged } from "../actions"
 import { EditSupplierDialog } from "./EditSupplierDialog"
 import { DataTableFacetedFilter } from "@/shared/components/DataTableFacetedFilter"
 
 interface SupplierDataTableProps {
-  data: Supplier[]
+  initialData: Supplier[]
+  initialTotalCount: number
+  lookups: {
+    countries: string[]
+    currencies: string[]
+  }
 }
 
-export function SupplierDataTable({ data }: SupplierDataTableProps) {
+export function SupplierDataTable({ initialData, initialTotalCount, lookups }: SupplierDataTableProps) {
   const router = useRouter()
+
+  // Infinite Scroll & Client State
+  const [products, setProducts] = React.useState<Supplier[]>(initialData)
+  const [totalCount, setTotalCount] = React.useState(initialTotalCount)
+  const [page, setPage] = React.useState(0)
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [hasMore, setHasMore] = React.useState(initialData.length < initialTotalCount)
+
+  // Filtering & Sorting State
   const [sorting, setSorting] = React.useState<SortingState>([{ id: "nazev_spolecnosti", desc: false }])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [globalFilter, setGlobalFilter] = React.useState("")
+  const [debouncedSearch, setDebouncedSearch] = React.useState("")
   
   const [editingSupplier, setEditingSupplier] = React.useState<Supplier | null>(null)
   const [deleteSupplierObj, setDeleteSupplierObj] = React.useState<{id: string, name: string} | null>(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
+
+  const observerTargetRef = React.useRef<HTMLDivElement>(null)
+  const isFirstRender = React.useRef(true)
+
+  // Memoized filters
+  const selectedCountries = React.useMemo(() => {
+    return columnFilters.find(f => f.id === 'zeme_puvodu')?.value as string[] | undefined
+  }, [columnFilters])
+
+  const selectedCurrencies = React.useMemo(() => {
+    return columnFilters.find(f => f.id === 'vychozi_mena')?.value as string[] | undefined
+  }, [columnFilters])
+
+  // Debounce search
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(globalFilter)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [globalFilter])
+
+  // Sync initialData updates
+  React.useEffect(() => {
+    const matchesFilters = (s: Supplier) => {
+      if (debouncedSearch && debouncedSearch.trim()) {
+        const term = debouncedSearch.trim().toLowerCase()
+        const nameMatch = s.nazev_spolecnosti?.toLowerCase().includes(term)
+        const codeMatch = s.kod?.toLowerCase().includes(term)
+        if (!nameMatch && !codeMatch) return false
+      }
+      if (selectedCountries && selectedCountries.length > 0) {
+        if (!s.zeme_puvodu || !selectedCountries.includes(s.zeme_puvodu)) return false
+      }
+      if (selectedCurrencies && selectedCurrencies.length > 0) {
+        if (!s.vychozi_mena || !selectedCurrencies.includes(s.vychozi_mena)) return false
+      }
+      return true
+    }
+
+    const hasActiveFilters = 
+      !!debouncedSearch || 
+      (selectedCountries && selectedCountries.length > 0) || 
+      (selectedCurrencies && selectedCurrencies.length > 0)
+
+    setProducts(prev => {
+      const updatedPrev = prev.map(p => {
+        const matchingInitial = initialData.find(init => init.id === p.id)
+        return matchingInitial ? { ...p, ...matchingInitial } : p
+      })
+
+      const existingIds = new Set(updatedPrev.map(p => p.id))
+      const brandNew = initialData.filter(init => !existingIds.has(init.id))
+      const nextProducts = [...brandNew, ...updatedPrev].filter(matchesFilters)
+      
+      if (!hasActiveFilters) {
+        setHasMore(nextProducts.length < initialTotalCount)
+      }
+      return nextProducts
+    })
+
+    if (!hasActiveFilters) {
+      setTotalCount(initialTotalCount)
+    }
+  }, [initialData, initialTotalCount, debouncedSearch, selectedCountries, selectedCurrencies])
+
+  // Helper to load paginated data based on filters & sorting
+  const loadMore = React.useCallback(async () => {
+    if (isLoading || !hasMore) return
+
+    setIsLoading(true)
+    try {
+      const nextPage = page + 1
+      const sortBy = sorting[0]?.id || 'nazev_spolecnosti'
+      const sortDesc = sorting[0]?.desc || false
+
+      const res = await getSuppliersPaged({
+        page: nextPage,
+        limit: 30,
+        search: debouncedSearch,
+        countries: selectedCountries,
+        currencies: selectedCurrencies,
+        sortBy,
+        sortDesc
+      })
+
+      if (res.error) {
+        toast.error("Chyba při načítání dalších dodavatelů: " + res.error.message)
+        return
+      }
+
+      const newSuppliers = res.data || []
+      if (newSuppliers.length === 0) {
+        setHasMore(false)
+        return
+      }
+
+      const loadedCount = res.totalCount || 0
+      setProducts(prev => {
+        const existingIds = new Set(prev.map(p => p.id))
+        const filteredNew = newSuppliers.filter(p => !existingIds.has(p.id))
+        const nextProducts = [...prev, ...filteredNew]
+        setHasMore(nextProducts.length < loadedCount)
+        return nextProducts
+      })
+      setPage(nextPage)
+    } catch (e: any) {
+      toast.error("Chyba při načítání: " + e.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [page, isLoading, hasMore, debouncedSearch, selectedCountries, selectedCurrencies, sorting])
+
+  const resetAndReload = React.useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const sortBy = sorting[0]?.id || 'nazev_spolecnosti'
+      const sortDesc = sorting[0]?.desc || false
+
+      const res = await getSuppliersPaged({
+        page: 0,
+        limit: 30,
+        search: debouncedSearch,
+        countries: selectedCountries,
+        currencies: selectedCurrencies,
+        sortBy,
+        sortDesc
+      })
+
+      if (res.error) {
+        toast.error("Chyba při načítání dodavatelů: " + res.error.message)
+        return
+      }
+
+      const loadedSuppliers = res.data || []
+      setProducts(loadedSuppliers)
+      setTotalCount(res.totalCount || 0)
+      setPage(0)
+      setHasMore(loadedSuppliers.length < (res.totalCount || 0))
+    } catch (e: any) {
+      toast.error("Neočekávaná chyba při načítání: " + e.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [debouncedSearch, selectedCountries, selectedCurrencies, sorting])
+
+  // IntersectionObserver to trigger loading when reaching the bottom
+  React.useEffect(() => {
+    const target = observerTargetRef.current
+    if (!target || !hasMore || isLoading) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+
+    observer.observe(target)
+    return () => {
+      observer.unobserve(target)
+    }
+  }, [loadMore, hasMore, isLoading])
+
+  // Fetch updated data when filters/sorting/search change
+  React.useEffect(() => {
+    let active = true
+
+    async function loadInitialData() {
+      setIsLoading(true)
+      try {
+        const sortBy = sorting[0]?.id || 'nazev_spolecnosti'
+        const sortDesc = sorting[0]?.desc || false
+
+        const res = await getSuppliersPaged({
+          page: 0,
+          limit: 30,
+          search: debouncedSearch,
+          countries: selectedCountries,
+          currencies: selectedCurrencies,
+          sortBy,
+          sortDesc
+        })
+
+        if (!active) return
+
+        if (res.error) {
+          toast.error("Chyba při načítání dodavatelů: " + res.error.message)
+          return
+        }
+
+        const loadedSuppliers = res.data || []
+        setProducts(loadedSuppliers)
+        setTotalCount(res.totalCount || 0)
+        setPage(0)
+        setHasMore(loadedSuppliers.length < (res.totalCount || 0))
+      } catch (e: any) {
+        if (active) {
+          toast.error("Neočekávaná chyba při načítání: " + e.message)
+        }
+      } finally {
+        if (active) setIsLoading(false)
+      }
+    }
+
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      const hasNoActiveFilters = 
+        !debouncedSearch && 
+        columnFilters.length === 0 && 
+        sorting.length === 1 && sorting[0].id === 'nazev_spolecnosti' && !sorting[0].desc
+
+      if (hasNoActiveFilters) {
+        return
+      }
+    }
+
+    loadInitialData()
+
+    return () => {
+      active = false
+    }
+  }, [debouncedSearch, selectedCountries, selectedCurrencies, sorting])
 
   const handleDelete = async () => {
     if (!deleteSupplierObj) return
@@ -73,7 +310,7 @@ export function SupplierDataTable({ data }: SupplierDataTableProps) {
       } else {
         toast.success("Dodavatel odstraněn")
         setDeleteSupplierObj(null)
-        router.refresh()
+        resetAndReload()
       }
     } finally {
       setIsDeleting(false)
@@ -110,9 +347,6 @@ export function SupplierDataTable({ data }: SupplierDataTableProps) {
       accessorKey: "zeme_puvodu",
       header: "Země",
       cell: () => null, // Hidden, used for filtering
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id))
-      },
     },
     {
       accessorKey: "vychozi_mena",
@@ -122,9 +356,6 @@ export function SupplierDataTable({ data }: SupplierDataTableProps) {
         </Button>
       ),
       cell: ({ row }) => <span className="font-semibold text-primary">{row.getValue("vychozi_mena")}</span>,
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id))
-      },
     },
     {
       accessorKey: "platebni_podminky_splatnost_dni",
@@ -229,23 +460,20 @@ export function SupplierDataTable({ data }: SupplierDataTableProps) {
   ]
 
   const table = useReactTable({
-    data,
+    data: products,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
-    getFilteredRowModel: getFilteredRowModel(),
     state: {
       sorting,
       columnFilters,
     },
   })
 
-  // Derive filter options from data
-  const countries = Array.from(new Set(data.map(s => s.zeme_puvodu).filter(Boolean))) as string[]
-  const currencies = Array.from(new Set(data.map(s => s.vychozi_mena))) as string[]
+  // Derived filter options from lookups
+  const countries = lookups.countries || []
+  const currencies = lookups.currencies || []
 
   return (
     <div className="w-full space-y-4">
@@ -256,10 +484,8 @@ export function SupplierDataTable({ data }: SupplierDataTableProps) {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
             <Input
               placeholder="Hledat firmu..."
-              value={(table.getColumn("nazev_spolecnosti")?.getFilterValue() as string) ?? ""}
-              onChange={(event) => {
-                table.getColumn("nazev_spolecnosti")?.setFilterValue(event.target.value)
-              }}
+              value={globalFilter ?? ""}
+              onChange={(event) => setGlobalFilter(String(event.target.value))}
               className="pl-9 bg-zinc-950 border-zinc-800 h-9"
             />
           </div>
@@ -285,6 +511,9 @@ export function SupplierDataTable({ data }: SupplierDataTableProps) {
               <FilterX className="h-4 w-4 mr-2" /> Reset
             </Button>
           )}
+        </div>
+        <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+          Zobrazeno {products.length} z {totalCount}
         </div>
       </div>
 
@@ -321,6 +550,19 @@ export function SupplierDataTable({ data }: SupplierDataTableProps) {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Observer Target & Loading State */}
+      <div ref={observerTargetRef} className="h-16 flex items-center justify-center text-xs text-zinc-500 font-medium">
+        {isLoading && (
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+            <span>Načítám další dodavatele...</span>
+          </div>
+        )}
+        {!hasMore && products.length > 0 && (
+          <span>Zobrazeno všech {totalCount} dodavatelů</span>
+        )}
       </div>
 
       {editingSupplier && (

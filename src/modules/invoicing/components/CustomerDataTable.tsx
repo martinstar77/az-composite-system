@@ -7,11 +7,8 @@ import {
   flexRender,
   getCoreRowModel,
   useReactTable,
-  getPaginationRowModel,
   SortingState,
-  getSortedRowModel,
   ColumnFiltersState,
-  getFilteredRowModel,
 } from '@tanstack/react-table'
 import {
   MoreHorizontal,
@@ -24,9 +21,6 @@ import {
   Search,
   FilterX,
   MapPin,
-  Building,
-  CheckCircle2,
-  XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -60,22 +54,264 @@ import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { Input } from '@/shared/components/ui/input'
 import type { Zakaznik } from '../types'
-import { deleteZakaznik } from '../actions/customers'
+import { deleteZakaznik, getZakazniciPaged } from '../actions/customers'
 import { EditCustomerDialog } from './EditCustomerDialog'
 import { DataTableFacetedFilter } from '@/shared/components/DataTableFacetedFilter'
 
 interface CustomerDataTableProps {
-  data: Zakaznik[]
+  initialData: Zakaznik[]
+  initialTotalCount: number
+  lookups: {
+    countries: string[]
+  }
 }
 
-export function CustomerDataTable({ data }: CustomerDataTableProps) {
+export function CustomerDataTable({ initialData, initialTotalCount, lookups }: CustomerDataTableProps) {
   const router = useRouter()
+
+  // Infinite Scroll & Client State
+  const [customers, setCustomers] = React.useState<Zakaznik[]>(initialData)
+  const [totalCount, setTotalCount] = React.useState(initialTotalCount)
+  const [page, setPage] = React.useState(0)
+  const [isLoading, setIsLoading] = React.useState(false)
+  const [hasMore, setHasMore] = React.useState(initialData.length < initialTotalCount)
+
+  // Filtering & Sorting State
   const [sorting, setSorting] = React.useState<SortingState>([{ id: 'nazev_spolecnosti', desc: false }])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [globalFilter, setGlobalFilter] = React.useState("")
+  const [debouncedSearch, setDebouncedSearch] = React.useState("")
 
   const [editingCustomer, setEditingCustomer] = React.useState<Zakaznik | null>(null)
   const [deleteCustomerObj, setDeleteCustomerObj] = React.useState<{ id: string; name: string } | null>(null)
   const [isDeleting, setIsDeleting] = React.useState(false)
+
+  const observerTargetRef = React.useRef<HTMLDivElement>(null)
+  const isFirstRender = React.useRef(true)
+
+  // Memoized filters
+  const selectedCountries = React.useMemo(() => {
+    return columnFilters.find(f => f.id === 'zeme')?.value as string[] | undefined
+  }, [columnFilters])
+
+  const selectedPayerStatus = React.useMemo(() => {
+    return columnFilters.find(f => f.id === 'je_platce_dph')?.value as string[] | undefined
+  }, [columnFilters])
+
+  // Debounce search
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(globalFilter)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [globalFilter])
+
+  // Sync initialData updates
+  React.useEffect(() => {
+    const matchesFilters = (c: Zakaznik) => {
+      if (debouncedSearch && debouncedSearch.trim()) {
+        const term = debouncedSearch.trim().toLowerCase()
+        const nameMatch = c.nazev_spolecnosti?.toLowerCase().includes(term)
+        const codeMatch = c.kod?.toLowerCase().includes(term)
+        if (!nameMatch && !codeMatch) return false
+      }
+      if (selectedCountries && selectedCountries.length > 0) {
+        if (!c.zeme || !selectedCountries.includes(c.zeme)) return false
+      }
+      if (selectedPayerStatus && selectedPayerStatus.length > 0) {
+        if (selectedPayerStatus.length === 1) {
+          const isPayer = selectedPayerStatus[0] === 'platce'
+          if (c.je_platce_dph !== isPayer) return false
+        }
+      }
+      return true
+    }
+
+    const hasActiveFilters = 
+      !!debouncedSearch || 
+      (selectedCountries && selectedCountries.length > 0) || 
+      (selectedPayerStatus && selectedPayerStatus.length > 0)
+
+    setCustomers(prev => {
+      const updatedPrev = prev.map(p => {
+        const matchingInitial = initialData.find(init => init.id === p.id)
+        return matchingInitial ? { ...p, ...matchingInitial } : p
+      })
+
+      const existingIds = new Set(updatedPrev.map(p => p.id))
+      const brandNew = initialData.filter(init => !existingIds.has(init.id))
+      const nextCustomers = [...brandNew, ...updatedPrev].filter(matchesFilters)
+      
+      if (!hasActiveFilters) {
+        setHasMore(nextCustomers.length < initialTotalCount)
+      }
+      return nextCustomers
+    })
+
+    if (!hasActiveFilters) {
+      setTotalCount(initialTotalCount)
+    }
+  }, [initialData, initialTotalCount, debouncedSearch, selectedCountries, selectedPayerStatus])
+
+  // Helper to load paginated data based on filters & sorting
+  const loadMore = React.useCallback(async () => {
+    if (isLoading || !hasMore) return
+
+    setIsLoading(true)
+    try {
+      const nextPage = page + 1
+      const sortBy = sorting[0]?.id || 'nazev_spolecnosti'
+      const sortDesc = sorting[0]?.desc || false
+
+      const res = await getZakazniciPaged({
+        page: nextPage,
+        limit: 30,
+        search: debouncedSearch,
+        countries: selectedCountries,
+        payerStatus: selectedPayerStatus,
+        sortBy,
+        sortDesc
+      })
+
+      if (res.error) {
+        toast.error("Chyba při načítání dalších zákazníků: " + res.error.message)
+        return
+      }
+
+      const newCustomers = res.data || []
+      if (newCustomers.length === 0) {
+        setHasMore(false)
+        return
+      }
+
+      const loadedCount = res.totalCount || 0
+      setCustomers(prev => {
+        const existingIds = new Set(prev.map(p => p.id))
+        const filteredNew = newCustomers.filter(p => !existingIds.has(p.id))
+        const nextCustomers = [...prev, ...filteredNew]
+        setHasMore(nextCustomers.length < loadedCount)
+        return nextCustomers
+      })
+      setPage(nextPage)
+    } catch (e: any) {
+      toast.error("Chyba při načítání: " + e.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [page, isLoading, hasMore, debouncedSearch, selectedCountries, selectedPayerStatus, sorting])
+
+  const resetAndReload = React.useCallback(async () => {
+    setIsLoading(true)
+    try {
+      const sortBy = sorting[0]?.id || 'nazev_spolecnosti'
+      const sortDesc = sorting[0]?.desc || false
+
+      const res = await getZakazniciPaged({
+        page: 0,
+        limit: 30,
+        search: debouncedSearch,
+        countries: selectedCountries,
+        payerStatus: selectedPayerStatus,
+        sortBy,
+        sortDesc
+      })
+
+      if (res.error) {
+        toast.error("Chyba při načítání zákazníků: " + res.error.message)
+        return
+      }
+
+      const loadedCustomers = res.data || []
+      setCustomers(loadedCustomers)
+      setTotalCount(res.totalCount || 0)
+      setPage(0)
+      setHasMore(loadedCustomers.length < (res.totalCount || 0))
+    } catch (e: any) {
+      toast.error("Neočekávaná chyba při načítání: " + e.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [debouncedSearch, selectedCountries, selectedPayerStatus, sorting])
+
+  // IntersectionObserver to trigger loading when reaching the bottom
+  React.useEffect(() => {
+    const target = observerTargetRef.current
+    if (!target || !hasMore || isLoading) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadMore()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+
+    observer.observe(target)
+    return () => {
+      observer.unobserve(target)
+    }
+  }, [loadMore, hasMore, isLoading])
+
+  // Fetch updated data when filters/sorting/search change
+  React.useEffect(() => {
+    let active = true
+
+    async function loadInitialData() {
+      setIsLoading(true)
+      try {
+        const sortBy = sorting[0]?.id || 'nazev_spolecnosti'
+        const sortDesc = sorting[0]?.desc || false
+
+        const res = await getZakazniciPaged({
+          page: 0,
+          limit: 30,
+          search: debouncedSearch,
+          countries: selectedCountries,
+          payerStatus: selectedPayerStatus,
+          sortBy,
+          sortDesc
+        })
+
+        if (!active) return
+
+        if (res.error) {
+          toast.error("Chyba při načítání zákazníků: " + res.error.message)
+          return
+        }
+
+        const loadedCustomers = res.data || []
+        setCustomers(loadedCustomers)
+        setTotalCount(res.totalCount || 0)
+        setPage(0)
+        setHasMore(loadedCustomers.length < (res.totalCount || 0))
+      } catch (e: any) {
+        if (active) {
+          toast.error("Neočekávaná chyba při načítání: " + e.message)
+        }
+      } finally {
+        if (active) setIsLoading(false)
+      }
+    }
+
+    if (isFirstRender.current) {
+      isFirstRender.current = false
+      const hasNoActiveFilters = 
+        !debouncedSearch && 
+        columnFilters.length === 0 && 
+        sorting.length === 1 && sorting[0].id === 'nazev_spolecnosti' && !sorting[0].desc
+
+      if (hasNoActiveFilters) {
+        return
+      }
+    }
+
+    loadInitialData()
+
+    return () => {
+      active = false
+    }
+  }, [debouncedSearch, selectedCountries, selectedPayerStatus, sorting])
 
   const handleDelete = async () => {
     if (!deleteCustomerObj) return
@@ -87,7 +323,7 @@ export function CustomerDataTable({ data }: CustomerDataTableProps) {
       } else {
         toast.success('Zákazník byl úspěšně odstraněn')
         setDeleteCustomerObj(null)
-        router.refresh()
+        resetAndReload()
       }
     } finally {
       setIsDeleting(false)
@@ -141,9 +377,6 @@ export function CustomerDataTable({ data }: CustomerDataTableProps) {
       accessorKey: 'zeme',
       header: 'Země',
       cell: () => null, // Hidden, used for filtering
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id))
-      },
     },
     {
       id: 'identifikace',
@@ -190,9 +423,6 @@ export function CustomerDataTable({ data }: CustomerDataTableProps) {
             )}
           </div>
         )
-      },
-      filterFn: (row, id, value) => {
-        return value.includes(row.getValue(id) ? 'platce' : 'neplatce')
       },
     },
     {
@@ -299,21 +529,18 @@ export function CustomerDataTable({ data }: CustomerDataTableProps) {
   ]
 
   const table = useReactTable({
-    data,
+    data: customers,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     onSortingChange: setSorting,
-    getSortedRowModel: getSortedRowModel(),
     onColumnFiltersChange: setColumnFilters,
-    getFilteredRowModel: getFilteredRowModel(),
     state: {
       sorting,
       columnFilters,
     },
   })
 
-  const countries = Array.from(new Set(data.map((s) => s.zeme).filter(Boolean))) as string[]
+  const countries = lookups.countries || []
 
   return (
     <div className="w-full space-y-4">
@@ -324,10 +551,8 @@ export function CustomerDataTable({ data }: CustomerDataTableProps) {
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-zinc-500" />
             <Input
               placeholder="Hledat zákazníka..."
-              value={(table.getColumn('nazev_spolecnosti')?.getFilterValue() as string) ?? ''}
-              onChange={(event) => {
-                table.getColumn('nazev_spolecnosti')?.setFilterValue(event.target.value)
-              }}
+              value={globalFilter ?? ''}
+              onChange={(event) => setGlobalFilter(String(event.target.value))}
               className="pl-9 bg-zinc-950 border-zinc-800 h-9"
             />
           </div>
@@ -356,6 +581,9 @@ export function CustomerDataTable({ data }: CustomerDataTableProps) {
               <FilterX className="h-4 w-4 mr-2" /> Reset
             </Button>
           )}
+        </div>
+        <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+          Zobrazeno {customers.length} z {totalCount}
         </div>
       </div>
 
@@ -392,6 +620,19 @@ export function CustomerDataTable({ data }: CustomerDataTableProps) {
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Observer Target & Loading State */}
+      <div ref={observerTargetRef} className="h-16 flex items-center justify-center text-xs text-zinc-500 font-medium">
+        {isLoading && (
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent" />
+            <span>Načítám další zákazníky...</span>
+          </div>
+        )}
+        {!hasMore && customers.length > 0 && (
+          <span>Zobrazeno všech {totalCount} zákazníků</span>
+        )}
       </div>
 
       {editingCustomer && (
