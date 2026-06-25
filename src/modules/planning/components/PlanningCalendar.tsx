@@ -60,7 +60,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
           '--event-color': eventColor,
           borderLeft: `3px solid ${eventColor}`,
         } as React.CSSProperties,
-        className: `pl-1.5 bg-[color-mix(in_srgb,var(--event-color)_18%,#ffffff)] border-[color-mix(in_srgb,var(--event-color)_30%,#e4e4e7)] text-[color-mix(in_srgb,var(--event-color)_75%,#000000)] dark:bg-[color-mix(in_srgb,var(--event-color)_20%,#18181b)] dark:border-[color-mix(in_srgb,var(--event-color)_35%,#27272a)] dark:text-[color-mix(in_srgb,var(--event-color)_85%,#ffffff)] ${
+        className: `pl-1.5 bg-[color-mix(in_srgb,var(--event-color)_15%,#ffffff)] border-[color-mix(in_srgb,var(--event-color)_30%,#e4e4e7)] text-[color-mix(in_srgb,var(--event-color)_85%,#000000)] dark:bg-[color-mix(in_srgb,var(--event-color)_25%,#18181b)] dark:border-[color-mix(in_srgb,var(--event-color)_45%,#27272a)] dark:text-[color-mix(in_srgb,var(--event-color)_35%,#ffffff)] ${
           u.stav === 'done' ? 'line-through opacity-50' : ''
         }`
       }
