@@ -186,9 +186,9 @@ export const ODDELENI_CONFIG: Record<OddeleniType, { label: string; color: strin
 }
 
 export const TYP_UDALOSTI_CONFIG: Record<TypUdalostiType, { label: string; icon: string; color: string }> = {
-  task:     { label: 'Úkol',        icon: '✓',  color: 'text-blue-600' },
-  meeting:  { label: 'Schůzka',     icon: '👥', color: 'text-purple-600' },
-  order:    { label: 'Objednávka',  icon: '📦', color: 'text-emerald-600' },
-  deadline: { label: 'Deadline',    icon: '🔴', color: 'text-red-600' },
+  task:     { label: 'Úkol',        icon: '✓',  color: 'text-blue-700 dark:text-blue-200' },
+  meeting:  { label: 'Schůzka',     icon: '👥', color: 'text-purple-700 dark:text-purple-200' },
+  order:    { label: 'Objednávka',  icon: '📦', color: 'text-yellow-700 dark:text-yellow-200' },
+  deadline: { label: 'Deadline',    icon: '🔴', color: 'text-red-700 dark:text-red-200' },
 }
 

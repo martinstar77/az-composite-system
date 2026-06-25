@@ -53,7 +53,11 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
 
   // Dynamic style calculator for events
   const getEventStyle = useCallback((u: UkolPlanovani) => {
-    const eventColor = u.barva || (u.typ_udalosti === 'meeting' ? '#8b5cf6' : ODDELENI_CONFIG[u.oddeleni].colorHex)
+    const eventColor = u.barva || 
+      (u.typ_udalosti === 'meeting' ? '#8b5cf6' : 
+       u.typ_udalosti === 'order' ? '#eab308' : 
+       u.typ_udalosti === 'deadline' ? '#ef4444' : 
+       ODDELENI_CONFIG[u.oddeleni].colorHex)
     return {
       style: {
         '--event-color': eventColor,
