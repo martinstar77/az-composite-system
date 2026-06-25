@@ -36,7 +36,7 @@ const navItems = [
     title: "Sklad a Katalog",
     items: [
       { title: "Produkty", url: "/produkty", icon: Package },
-      { title: "Zásoby a Šarže", url: "/sklad", icon: Truck },
+      // { title: "Zásoby a Šarže", url: "/sklad", icon: Truck },
     ],
   },
   {
