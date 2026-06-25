@@ -66,24 +66,31 @@ export function UkolFormDialog({
   const [selectedMilnikId, setSelectedMilnikId] = useState(milnikId ?? ukol?.milnik_id ?? '')
   const [activeMilniky, setActiveMilniky] = useState<{ id: string; nazev: string; projekt_nazev?: string }[]>([])
 
+  const isEdit = !!ukol
+
+  // Load active milestones and ensure the current milestone is in the list
   useEffect(() => {
-    if (open && !milnikId) {
+    if (open) {
       getAllMilnikyActive().then(res => {
         if (res.success && res.data) {
-          setActiveMilniky(res.data)
-          if (!selectedMilnikId && res.data.length > 0) {
-            setSelectedMilnikId(res.data[0].id)
+          let list = [...res.data]
+          const targetMilnikId = ukol?.milnik_id ?? milnikId
+          if (targetMilnikId) {
+            const exists = list.some(m => m.id === targetMilnikId)
+            if (!exists) {
+              list.push({
+                id: targetMilnikId,
+                nazev: ukol?.milnik?.nazev ?? 'Aktuální milník',
+                projekt_id: ukol?.milnik?.projekt_id ?? '',
+                projekt_nazev: 'Původní projekt'
+              })
+            }
           }
+          setActiveMilniky(list)
         }
       })
     }
-  }, [open, milnikId, selectedMilnikId])
-
-  useEffect(() => {
-    if (milnikId) {
-      setSelectedMilnikId(milnikId)
-    }
-  }, [milnikId])
+  }, [open, ukol, milnikId])
 
   const [form, setForm] = useState({
     nazev: ukol?.nazev ?? '',
@@ -100,8 +107,6 @@ export function UkolFormDialog({
   })
 
   const [checklist, setChecklist] = useState<ChecklistItem[]>(ukol?.checklist ?? [])
-
-  const isEdit = !!ukol
 
   // Sync state when dialog opens or task changes
   useEffect(() => {
@@ -120,8 +125,9 @@ export function UkolFormDialog({
         barva: ukol?.barva ?? '',
       })
       setChecklist(ukol?.checklist ?? [])
+      setSelectedMilnikId(ukol?.milnik_id ?? milnikId ?? '')
     }
-  }, [open, ukol])
+  }, [open, ukol, milnikId])
 
   function handleChange(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -211,8 +217,8 @@ export function UkolFormDialog({
           <DialogTitle>{isEdit ? 'Upravit úkol' : 'Nový úkol'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* Milestone Selection (when milnikId is not provided) */}
-          {!milnikId && (
+          {/* Milestone Selection (when creating without milestone, or when editing) */}
+          {(!milnikId || isEdit) && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ukol-milnik">Přiřadit k projektu / milníku *</Label>
               <Select value={selectedMilnikId} onValueChange={val => setSelectedMilnikId(val ?? '')}>
