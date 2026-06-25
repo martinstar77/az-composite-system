@@ -50,6 +50,12 @@ const UKOL_SELECT = `
     nazev,
     barva,
     projekt_id
+  ),
+  oddeleni_info:oddeleni (
+    id,
+    nazev,
+    barva,
+    vlastnik_id
   )
 ` as const
 

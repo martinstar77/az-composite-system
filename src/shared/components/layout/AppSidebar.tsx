@@ -28,6 +28,7 @@ const navItems = [
       { title: "Moje úkoly", url: "/planovani/ukoly", icon: CheckSquare },
       { title: "Kalendář", url: "/planovani/kalendar", icon: Calendar },
       { title: "Projekty & Plány", url: "/planovani", icon: CalendarRange },
+      { title: "Struktura firmy", url: "/planovani/struktura", icon: Building },
       { title: "Poznámky", url: "/poznamky", icon: Notebook },
     ],
   },

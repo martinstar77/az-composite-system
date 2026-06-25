@@ -91,17 +91,20 @@ export const PRIORITA_CONFIG: Record<PrioritaMilniku, { label: string; color: st
 export type StavUkolu = 'todo' | 'in_progress' | 'done' | 'blocked'
 export type PrioritaUkolu = 'low' | 'medium' | 'high' | 'critical'
 
-export type OddeleniType =
-  | 'management'
-  | 'sales'
-  | 'purchasing'
-  | 'logistics'
-  | 'backbone'
-  | 'finance'
-  | 'rd'
-  | 'marketing'
-  | 'backoffice'
-  | 'legal'
+export type OddeleniType = string
+
+export interface FirmaOddeleni {
+  id: string
+  nazev: string
+  vlastnik_id: string | null
+  barva: string
+  popis: string | null
+  kpi: string | null
+  vytvoreno_at: string
+  // Joined
+  vlastnik?: UzivatelMinRef | null
+  pocet_aktivnich_ukolu?: number
+}
 
 export type TypUdalostiType = 'task' | 'meeting' | 'order' | 'deadline'
 
@@ -140,6 +143,7 @@ export interface UkolPlanovani {
   // Joinovaná data (volitelné — dle dotazu)
   vlastnik?: UzivatelMinRef | null
   milnik?: Pick<Milnik, 'id' | 'nazev' | 'barva' | 'projekt_id'> | null
+  oddeleni_info?: { id: string; nazev: string; barva: string; vlastnik_id: string | null } | null
 }
 
 /** Payload pro INSERT / UPDATE — bez audit polí */
