@@ -173,16 +173,16 @@ export const STAV_UKOLU_CONFIG: Record<StavUkolu, { label: string; color: string
 }
 
 export const ODDELENI_CONFIG: Record<OddeleniType, { label: string; color: string; bg: string }> = {
-  management: { label: 'Management',  color: 'text-purple-600',  bg: 'bg-purple-100 dark:bg-purple-950/40' },
-  sales:      { label: 'Obchod',      color: 'text-blue-600',    bg: 'bg-blue-100 dark:bg-blue-950/40' },
-  purchasing: { label: 'Nákup',       color: 'text-sky-600',     bg: 'bg-sky-100 dark:bg-sky-950/40' },
-  logistics:  { label: 'Logistika',   color: 'text-emerald-600', bg: 'bg-emerald-100 dark:bg-emerald-950/40' },
-  backbone:   { label: 'IT / Systém', color: 'text-violet-600',  bg: 'bg-violet-100 dark:bg-violet-950/40' },
-  finance:    { label: 'Finance',     color: 'text-amber-600',   bg: 'bg-amber-100 dark:bg-amber-950/40' },
-  rd:         { label: 'R&D',         color: 'text-teal-600',    bg: 'bg-teal-100 dark:bg-teal-950/40' },
-  marketing:  { label: 'Marketing',   color: 'text-pink-600',    bg: 'bg-pink-100 dark:bg-pink-950/40' },
-  backoffice: { label: 'Back Office', color: 'text-zinc-600',    bg: 'bg-zinc-100 dark:bg-zinc-800' },
-  legal:      { label: 'Právní',      color: 'text-orange-700',  bg: 'bg-orange-100 dark:bg-orange-950/40' },
+  management: { label: 'Management',  color: 'text-purple-700 dark:text-purple-200',  bg: 'bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-800/40' },
+  sales:      { label: 'Obchod',      color: 'text-blue-700 dark:text-blue-200',    bg: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800/40' },
+  purchasing: { label: 'Nákup',       color: 'text-sky-700 dark:text-sky-200',     bg: 'bg-sky-50 dark:bg-sky-950/40 border-sky-200 dark:border-sky-800/40' },
+  logistics:  { label: 'Logistika',   color: 'text-emerald-700 dark:text-emerald-200', bg: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/40' },
+  backbone:   { label: 'IT / Systém', color: 'text-violet-700 dark:text-violet-200',  bg: 'bg-violet-50 dark:bg-violet-950/40 border-violet-200 dark:border-violet-800/40' },
+  finance:    { label: 'Finance',     color: 'text-amber-700 dark:text-amber-200',   bg: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/40' },
+  rd:         { label: 'R&D',         color: 'text-teal-700 dark:text-teal-200',    bg: 'bg-teal-50 dark:bg-teal-950/40 border-teal-200 dark:border-teal-800/40' },
+  marketing:  { label: 'Marketing',   color: 'text-pink-700 dark:text-pink-200',    bg: 'bg-pink-50 dark:bg-pink-950/40 border-pink-200 dark:border-pink-800/40' },
+  backoffice: { label: 'Back Office', color: 'text-zinc-700 dark:text-zinc-200',    bg: 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700' },
+  legal:      { label: 'Právní',      color: 'text-orange-700 dark:text-orange-200',  bg: 'bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-900/40' },
 }
 
 export const TYP_UDALOSTI_CONFIG: Record<TypUdalostiType, { label: string; icon: string; color: string }> = {

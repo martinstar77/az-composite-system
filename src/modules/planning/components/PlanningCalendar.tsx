@@ -57,17 +57,18 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
     if (eventColor) {
       return {
         style: {
-          backgroundColor: eventColor + '15',
-          borderColor: eventColor + '40',
-          color: eventColor
-        },
-        className: u.stav === 'done' ? 'line-through opacity-60' : ''
+          '--event-color': eventColor,
+          borderLeft: `3px solid ${eventColor}`,
+        } as React.CSSProperties,
+        className: `pl-1.5 bg-[color-mix(in_srgb,var(--event-color)_18%,#ffffff)] border-[color-mix(in_srgb,var(--event-color)_30%,#e4e4e7)] text-[color-mix(in_srgb,var(--event-color)_75%,#000000)] dark:bg-[color-mix(in_srgb,var(--event-color)_20%,#18181b)] dark:border-[color-mix(in_srgb,var(--event-color)_35%,#27272a)] dark:text-[color-mix(in_srgb,var(--event-color)_85%,#ffffff)] ${
+          u.stav === 'done' ? 'line-through opacity-50' : ''
+        }`
       }
     }
     const cfg = ODDELENI_CONFIG[u.oddeleni]
     return {
       style: {},
-      className: `${cfg.bg} ${cfg.color} ${u.stav === 'done' ? 'line-through opacity-60' : ''}`
+      className: `${cfg.bg} ${cfg.color} ${u.stav === 'done' ? 'line-through opacity-50' : ''}`
     }
   }, [])
   
@@ -348,7 +349,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                   {dayMilniky.map(m => (
                     <div
                       key={m.id}
-                      className="event-item text-[9px] bg-red-50 dark:bg-red-950/20 border border-red-200/50 text-red-700 dark:text-red-400 rounded px-1 py-0.5 font-bold truncate flex items-center gap-1"
+                      className="event-item text-[9px] bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-200 rounded px-1 py-0.5 font-bold truncate flex items-center gap-1"
                       title={`Deadline milníku: ${m.nazev}`}
                     >
                       🎯 {m.nazev}
@@ -431,7 +432,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
             return (
               <div className="flex flex-col gap-2">
                 {selectedMilniky.map(m => (
-                  <div key={m.id} className="text-xs bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 rounded-lg p-2 font-bold border border-red-200/50">
+                  <div key={m.id} className="text-xs bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-200 rounded-lg p-2 font-bold border border-red-200 dark:border-red-900/50">
                     🎯 Deadline milníku: <span className="font-semibold">{m.nazev}</span>
                   </div>
                 ))}
@@ -501,7 +502,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
               <div className="flex flex-col gap-2 flex-1">
                 {/* Milestones */}
                 {dayMilniky.map(m => (
-                  <div key={m.id} className="text-[10px] bg-red-50 dark:bg-red-950/20 border border-red-200/50 text-red-700 dark:text-red-400 rounded-lg p-2 font-bold leading-normal">
+                  <div key={m.id} className="text-[10px] bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-200 rounded-lg p-2 font-bold leading-normal">
                     🎯 Deadline: {m.nazev}
                   </div>
                 ))}
@@ -556,7 +557,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
           <div className="flex flex-col gap-2">
             <h4 className="text-xs font-bold text-red-600 dark:text-red-400">Milníky a termíny</h4>
             {dayMilniky.map(m => (
-              <div key={m.id} className="text-xs bg-red-50 dark:bg-red-950/20 border border-red-200/50 text-red-700 dark:text-red-400 rounded-lg p-3 font-bold flex items-center gap-2">
+              <div key={m.id} className="text-xs bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-900/50 text-red-700 dark:text-red-200 rounded-lg p-3 font-bold flex items-center gap-2">
                 <span>🎯</span>
                 <span>Deadline milníku: <strong>{m.nazev}</strong></span>
               </div>
