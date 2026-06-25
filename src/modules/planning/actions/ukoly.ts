@@ -32,6 +32,8 @@ const ukolSchema = z.object({
     text: z.string().min(1),
     done: z.boolean(),
   })).default([]),
+  lokalita: z.string().optional().nullable(),
+  barva: z.string().optional().nullable(),
 })
 
 // ============================================================
@@ -125,10 +127,10 @@ export async function getUkolyByDateRange(
 
 // ============================================================
 // getMilnikyDeadlines
-// Pro KALENDÁŘ — vrátí deadliny milníků v daném rozsahu
+// Pro KALENDÁŘ — vrátí deadlini milníků v daném rozsahu
 // ============================================================
 // getMilnikyDeadlines
-// Pro KALENDÁŘ — vrátí deadliny milníků v daném rozsahu
+// Pro KALENDÁŘ — vrátí deadlini milníků v daném rozsahu
 // ============================================================
 export async function getMilnikyDeadlines(
   from: string,
@@ -229,6 +231,8 @@ export async function upsertUkol(
       datum_zahajeni: validated.datum_zahajeni ?? null,
       datum_splatnosti: validated.datum_splatnosti ?? null,
       checklist: validated.checklist,
+      lokalita: validated.lokalita ?? null,
+      barva: validated.barva ?? null,
       upravil_id: user.id,
       tenant_id: tenantId,
     }

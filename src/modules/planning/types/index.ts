@@ -135,6 +135,8 @@ export interface UkolPlanovani {
   aktualizovano_at: string
   vytvoril_id: string | null
   upravil_id: string | null
+  lokalita: string | null
+  barva: string | null
   // Joinovaná data (volitelné — dle dotazu)
   vlastnik?: UzivatelMinRef | null
   milnik?: Pick<Milnik, 'id' | 'nazev' | 'barva' | 'projekt_id'> | null
@@ -153,6 +155,8 @@ export interface UkolPlanovaniPayload {
   datum_zahajeni?: string | null
   datum_splatnosti?: string | null
   checklist?: ChecklistItem[]
+  lokalita?: string | null
+  barva?: string | null
 }
 
 // --- UI Konstanty pro úkoly ---

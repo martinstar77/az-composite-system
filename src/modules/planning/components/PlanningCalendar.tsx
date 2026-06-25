@@ -50,6 +50,26 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [view, setView] = useState<'month' | 'week' | 'day'>('month')
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+
+  // Dynamic style calculator for events
+  const getEventStyle = useCallback((u: UkolPlanovani) => {
+    const eventColor = u.barva || (u.typ_udalosti === 'meeting' ? '#8b5cf6' : null)
+    if (eventColor) {
+      return {
+        style: {
+          backgroundColor: eventColor + '15',
+          borderColor: eventColor + '40',
+          color: eventColor
+        },
+        className: u.stav === 'done' ? 'line-through opacity-60' : ''
+      }
+    }
+    const cfg = ODDELENI_CONFIG[u.oddeleni]
+    return {
+      style: {},
+      className: `${cfg.bg} ${cfg.color} ${u.stav === 'done' ? 'line-through opacity-60' : ''}`
+    }
+  }, [])
   
   // Data
   const [ukoly, setUkoly] = useState<UkolPlanovani[]>([])
@@ -339,6 +359,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                   {dayUkoly.map(u => {
                     const cfg = ODDELENI_CONFIG[u.oddeleni]
                     const prioritaCfg = PRIORITA_CONFIG[u.priorita as keyof typeof PRIORITA_CONFIG]
+                    const { style, className } = getEventStyle(u)
                     return (
                       <div
                         key={u.id}
@@ -346,11 +367,16 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                           e.stopPropagation()
                           setActiveEditUkol(u)
                         }}
-                        className={`event-item text-[9px] border rounded px-1.5 py-0.5 truncate flex items-center justify-between gap-1 cursor-pointer transition-all hover:brightness-95 dark:hover:brightness-110 ${cfg.bg} ${cfg.color} ${u.stav === 'done' ? 'line-through opacity-60' : ''}`}
-                        title={`${u.nazev} (${cfg.label})`}
+                        style={style}
+                        className={`event-item text-[9px] border rounded px-1.5 py-0.5 truncate flex items-center justify-between gap-1 cursor-pointer transition-all hover:brightness-95 dark:hover:brightness-110 ${className}`}
+                        title={`${u.nazev}${u.lokalita ? ' (📍 ' + u.lokalita + ')' : ''} (${cfg.label})`}
                       >
-                        <span className="truncate flex-1 font-medium">{u.nazev}</span>
-                        {u.priorita === 'critical' && <span className="text-[9px]">⚡</span>}
+                        <span className="truncate flex-1 font-medium">
+                          {u.typ_udalosti === 'meeting' ? '👥 ' : ''}
+                          {u.nazev}
+                          {u.lokalita && ' 📍'}
+                        </span>
+                        {u.priorita === 'critical' && <span className="text-[9px] shrink-0">⚡</span>}
                       </div>
                     )
                   })}
@@ -361,13 +387,20 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                   {dayMilniky.length > 0 && (
                     <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
                   )}
-                  {dayUkoly.map(u => (
-                    <span 
-                      key={u.id} 
-                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${ODDELENI_CONFIG[u.oddeleni].bg}`}
-                      style={{ border: '1px solid currentColor', color: ODDELENI_CONFIG[u.oddeleni].color }}
-                    />
-                  ))}
+                  {dayUkoly.map(u => {
+                    const eventColor = u.barva || (u.typ_udalosti === 'meeting' ? '#8b5cf6' : null)
+                    const style = eventColor 
+                      ? { backgroundColor: eventColor, borderColor: eventColor } 
+                      : { borderColor: 'currentColor', color: ODDELENI_CONFIG[u.oddeleni].color }
+                    const bgClass = eventColor ? '' : ODDELENI_CONFIG[u.oddeleni].bg
+                    return (
+                      <span 
+                        key={u.id} 
+                        className={`h-1.5 w-1.5 rounded-full shrink-0 border ${bgClass}`}
+                        style={style}
+                      />
+                    )
+                  })}
                 </div>
               </div>
             )
@@ -405,17 +438,25 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                 {selectedUkoly.map(u => {
                   const cfg = ODDELENI_CONFIG[u.oddeleni]
                   const stavCfg = STAV_UKOLU_CONFIG[u.stav]
+                  const { style, className } = getEventStyle(u)
                   return (
                     <div 
                       key={u.id}
                       onClick={() => setActiveEditUkol(u)}
-                      className={`flex flex-col gap-1 p-2 rounded-lg border cursor-pointer hover:bg-muted/10 transition-colors ${cfg.bg} ${cfg.color} ${u.stav === 'done' ? 'opacity-60' : ''}`}
+                      style={style}
+                      className={`flex flex-col gap-1 p-2 rounded-lg border cursor-pointer hover:bg-muted/10 transition-colors ${className}`}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className={`text-xs font-bold ${u.stav === 'done' ? 'line-through' : ''}`}>{u.nazev}</span>
+                        <span className={`text-xs font-bold ${u.stav === 'done' ? 'line-through' : ''}`}>
+                          {u.typ_udalosti === 'meeting' ? '👥 ' : ''}
+                          {u.nazev}
+                        </span>
                         <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold border border-black/10 dark:border-white/10 ${stavCfg.bg} ${stavCfg.color}`}>{stavCfg.label}</span>
                       </div>
-                      <span className="text-[10px] opacity-80">{cfg.label} • {TYP_UDALOSTI_CONFIG[u.typ_udalosti].label}</span>
+                      <span className="text-[10px] opacity-80">
+                        {cfg.label} • {TYP_UDALOSTI_CONFIG[u.typ_udalosti].label}
+                        {u.lokalita && ` • 📍 ${u.lokalita}`}
+                      </span>
                     </div>
                   )
                 })}
@@ -472,13 +513,19 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                   dayUkoly.map(u => {
                     const cfg = ODDELENI_CONFIG[u.oddeleni]
                     const stavCfg = STAV_UKOLU_CONFIG[u.stav]
+                    const { style, className } = getEventStyle(u)
                     return (
                       <div
                         key={u.id}
                         onClick={() => setActiveEditUkol(u)}
-                        className={`p-2 rounded-lg border text-[11px] leading-normal flex flex-col gap-1 cursor-pointer transition-all hover:brightness-95 dark:hover:brightness-110 ${cfg.bg} ${cfg.color} ${u.stav === 'done' ? 'opacity-60' : ''}`}
+                        style={style}
+                        className={`p-2 rounded-lg border text-[11px] leading-normal flex flex-col gap-1 cursor-pointer transition-all hover:brightness-95 dark:hover:brightness-110 ${className}`}
                       >
-                        <span className={`font-bold ${u.stav === 'done' ? 'line-through' : ''}`}>{u.nazev}</span>
+                        <span className={`font-bold ${u.stav === 'done' ? 'line-through' : ''}`}>
+                          {u.typ_udalosti === 'meeting' ? '👥 ' : ''}
+                          {u.nazev}
+                        </span>
+                        {u.lokalita && <span className="text-[9px] opacity-80 flex items-center gap-0.5">📍 {u.lokalita}</span>}
                         <div className="flex justify-between items-center text-[9px] opacity-90 mt-1">
                           <span>{TYP_UDALOSTI_CONFIG[u.typ_udalosti].label}</span>
                           <span className={`font-medium ${stavCfg.color}`}>{stavCfg.label}</span>
@@ -527,15 +574,23 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                 const cfg = ODDELENI_CONFIG[u.oddeleni]
                 const stavCfg = STAV_UKOLU_CONFIG[u.stav]
                 const prioritaCfg = PRIORITA_CONFIG[u.priorita as keyof typeof PRIORITA_CONFIG]
+                const { style, className } = getEventStyle(u)
                 return (
                   <div
                     key={u.id}
                     onClick={() => setActiveEditUkol(u)}
-                    className={`p-3 rounded-lg border cursor-pointer hover:bg-muted/10 transition-colors flex justify-between items-center gap-4 ${cfg.bg} ${cfg.color} ${u.stav === 'done' ? 'opacity-60' : ''}`}
+                    style={style}
+                    className={`p-3 rounded-lg border cursor-pointer hover:bg-muted/10 transition-colors flex justify-between items-center gap-4 ${className}`}
                   >
                     <div className="flex flex-col gap-1 min-w-0">
-                      <span className={`text-xs font-bold leading-normal truncate ${u.stav === 'done' ? 'line-through' : ''}`}>{u.nazev}</span>
-                      <span className="text-[10px] opacity-80">{cfg.label} • {TYP_UDALOSTI_CONFIG[u.typ_udalosti].label}</span>
+                      <span className={`text-xs font-bold leading-normal truncate ${u.stav === 'done' ? 'line-through' : ''}`}>
+                        {u.typ_udalosti === 'meeting' ? '👥 ' : ''}
+                        {u.nazev}
+                      </span>
+                      <span className="text-[10px] opacity-80">
+                        {cfg.label} • {TYP_UDALOSTI_CONFIG[u.typ_udalosti].label}
+                        {u.lokalita && ` • 📍 ${u.lokalita}`}
+                      </span>
                     </div>
                     
                     <div className="flex items-center gap-2 shrink-0">

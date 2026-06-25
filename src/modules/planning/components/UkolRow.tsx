@@ -116,12 +116,19 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
     ? ukol.vlastnik.jmeno.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
     : null
 
+  const eventColor = ukol.barva || (ukol.typ_udalosti === 'meeting' ? '#8b5cf6' : null)
+  const rowStyle = eventColor && !isCompleted ? {
+    backgroundColor: eventColor + '0d',
+    borderColor: eventColor + '25',
+  } : {}
+
   return (
     <div 
       onClick={() => setIsExpanded(!isExpanded)}
       className={`group flex flex-col rounded-lg border bg-card/45 transition-all select-none cursor-pointer ${
         isBlocked ? 'border-red-500/30 bg-red-50/5' : 'border-border/60 hover:border-border'
       } ${isCompleted ? 'opacity-70 bg-muted/10' : ''}`}
+      style={rowStyle}
     >
       {/* Compact Row Header */}
       <div className="flex items-center justify-between gap-3 p-2.5 min-h-[48px] md:min-h-[44px]">
@@ -129,8 +136,14 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {/* Department dot */}
           <div 
-            className={`h-2.5 w-2.5 rounded-full shrink-0 ${oddeleniCfg.bg} border border-black/10 dark:border-white/10`} 
-            style={{ color: oddeleniCfg.color }}
+            className={`h-2.5 w-2.5 rounded-full shrink-0 border border-black/10 dark:border-white/10 ${
+              eventColor ? '' : oddeleniCfg.bg
+            }`} 
+            style={{ 
+              backgroundColor: eventColor || undefined,
+              borderColor: eventColor || undefined,
+              color: oddeleniCfg.color 
+            }}
             title={oddeleniCfg.label}
           />
 
@@ -150,12 +163,21 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
           {/* Name & Metadata */}
           <div className="flex flex-col min-w-0 flex-1">
             <span className={`text-xs font-semibold leading-normal truncate ${isCompleted ? 'line-through text-muted-foreground/80' : 'text-foreground'}`}>
+              {ukol.typ_udalosti === 'meeting' && '👥 '}
               {ukol.nazev}
             </span>
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/80 mt-0.5">
               <span className={oddeleniCfg.color}>{oddeleniCfg.label}</span>
               <span>•</span>
               <span>{typCfg.icon} {typCfg.label}</span>
+              {ukol.lokalita && (
+                <>
+                  <span>•</span>
+                  <span className="truncate max-w-[120px]" title={ukol.lokalita}>
+                    📍 {ukol.lokalita}
+                  </span>
+                </>
+              )}
               {deadline && (
                 <>
                   <span>•</span>
@@ -213,6 +235,16 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
           onClick={(e) => e.stopPropagation()}
           className="border-t border-border/40 bg-muted/15 p-3 flex flex-col gap-3"
         >
+          {/* Lokalita */}
+          {ukol.lokalita && (
+            <div className="text-xs flex items-center gap-1.5 text-muted-foreground font-normal">
+              <span className="font-semibold text-foreground shrink-0">Lokalita:</span>
+              <span className="bg-muted px-2 py-0.5 rounded border border-border/40 select-text cursor-default truncate" title={ukol.lokalita}>
+                {ukol.lokalita}
+              </span>
+            </div>
+          )}
+
           {/* Description */}
           {ukol.popis && (
             <div className="text-xs text-muted-foreground leading-relaxed font-normal whitespace-pre-wrap">

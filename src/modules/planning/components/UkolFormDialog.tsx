@@ -95,11 +95,33 @@ export function UkolFormDialog({
     vlastnik_id: ukol?.vlastnik_id ?? '',
     datum_zahajeni: ukol?.datum_zahajeni ?? '',
     datum_splatnosti: ukol?.datum_splatnosti ?? '',
+    lokalita: ukol?.lokalita ?? '',
+    barva: ukol?.barva ?? '',
   })
 
   const [checklist, setChecklist] = useState<ChecklistItem[]>(ukol?.checklist ?? [])
 
   const isEdit = !!ukol
+
+  // Sync state when dialog opens or task changes
+  useEffect(() => {
+    if (open) {
+      setForm({
+        nazev: ukol?.nazev ?? '',
+        popis: ukol?.popis ?? '',
+        stav: (ukol?.stav ?? 'todo') as StavUkolu,
+        priorita: (ukol?.priorita ?? 'medium') as PrioritaUkolu,
+        oddeleni: (ukol?.oddeleni ?? 'management') as OddeleniType,
+        typ_udalosti: (ukol?.typ_udalosti ?? 'task') as TypUdalostiType,
+        vlastnik_id: ukol?.vlastnik_id ?? '',
+        datum_zahajeni: ukol?.datum_zahajeni ?? '',
+        datum_splatnosti: ukol?.datum_splatnosti ?? '',
+        lokalita: ukol?.lokalita ?? '',
+        barva: ukol?.barva ?? '',
+      })
+      setChecklist(ukol?.checklist ?? [])
+    }
+  }, [open, ukol])
 
   function handleChange(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -142,6 +164,8 @@ export function UkolFormDialog({
           datum_zahajeni: form.datum_zahajeni || null,
           datum_splatnosti: form.datum_splatnosti || null,
           checklist: cleanChecklist,
+          lokalita: form.lokalita || null,
+          barva: form.barva || null,
         },
         ukol?.id
       )
@@ -160,6 +184,8 @@ export function UkolFormDialog({
             vlastnik_id: '',
             datum_zahajeni: '',
             datum_splatnosti: '',
+            lokalita: '',
+            barva: '',
           })
           setChecklist([])
         }
@@ -358,6 +384,70 @@ export function UkolFormDialog({
                 value={form.datum_splatnosti}
                 onChange={e => handleChange('datum_splatnosti', e.target.value)}
               />
+            </div>
+          </div>
+
+          {/* Lokalita */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="ukol-lokalita">Lokalita (Místo konání / Odkaz na schůzku)</Label>
+            <Input
+              id="ukol-lokalita"
+              value={form.lokalita}
+              onChange={e => handleChange('lokalita', e.target.value)}
+              placeholder={form.typ_udalosti === 'meeting' ? "např. Zasedačka 1, Google Meet, Teams..." : "Místo konání..."}
+            />
+          </div>
+
+          {/* Barva */}
+          <div className="flex flex-col gap-1.5">
+            <Label>Barva události v kalendáři</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              {[
+                { name: 'Výchozí', value: '' },
+                { name: 'Fialová', value: '#8b5cf6' },
+                { name: 'Modrá', value: '#3b82f6' },
+                { name: 'Indigo', value: '#6366f1' },
+                { name: 'Zelená', value: '#10b981' },
+                { name: 'Oranžová', value: '#f59e0b' },
+                { name: 'Červená', value: '#ef4444' },
+                { name: 'Růžová', value: '#ec4899' },
+              ].map(preset => {
+                const isSelected = form.barva === preset.value
+                return (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    onClick={() => handleChange('barva', preset.value)}
+                    className={`h-7 px-2.5 rounded-lg text-[10px] font-medium border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      isSelected
+                        ? 'border-foreground bg-foreground text-background shadow-sm font-semibold'
+                        : 'border-border bg-background text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    {preset.value ? (
+                      <span 
+                        className="h-2.5 w-2.5 rounded-full border border-black/10 dark:border-white/10 shrink-0" 
+                        style={{ backgroundColor: preset.value }}
+                      />
+                    ) : (
+                      <span className="text-[9px] opacity-70">🎨</span>
+                    )}
+                    {preset.name}
+                  </button>
+                )
+              })}
+              
+              {/* Custom hex color input */}
+              <div className="flex items-center gap-1 border rounded-lg h-7 px-1.5 bg-background shrink-0 select-none">
+                <span className="text-[10px] text-muted-foreground font-medium">Custom:</span>
+                <input
+                  type="color"
+                  value={form.barva && form.barva.startsWith('#') ? form.barva : '#8b5cf6'}
+                  onChange={e => handleChange('barva', e.target.value)}
+                  className="h-4.5 w-4.5 cursor-pointer border-0 bg-transparent p-0 rounded shrink-0"
+                  title="Vybrat vlastní barvu"
+                />
+              </div>
             </div>
           </div>
 
