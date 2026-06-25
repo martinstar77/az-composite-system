@@ -15,9 +15,13 @@ import {
   Square,
   Sparkles,
 } from 'lucide-react'
-import { Milnik, STAV_MILNIKU_CONFIG, PRIORITA_CONFIG } from '../types'
+import { Milnik, STAV_MILNIKU_CONFIG, PRIORITA_CONFIG, UkolPlanovani } from '../types'
 import { deleteMilnik, updateMilnikStav, updateMilnikTasks } from '../actions/milniky'
 import { MilnikFormDialog } from './MilnikFormDialog'
+import { getUkolyByMilnik, createQuickUkol } from '../actions/ukoly'
+import { getUsers } from '@/modules/users/actions'
+import { UkolRow } from './UkolRow'
+import { UkolFormDialog as AddUkolFormDialog } from './UkolFormDialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -74,6 +78,57 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
   const prioritaCfg = PRIORITA_CONFIG[milnik.priorita]
   const deadline = formatDate(milnik.datum_splatnosti)
   const isCompleted = milnik.stav === 'completed'
+
+  // Stav pro databázové úkoly (Plánování v2.0)
+  const [ukoly, setUkoly] = React.useState<UkolPlanovani[]>([])
+  const [loadingUkoly, setLoadingUkoly] = React.useState(true)
+  const [userProfiles, setUserProfiles] = React.useState<any[]>([])
+  const [isAddingQuick, setIsAddingQuick] = React.useState(false)
+  const [quickTitle, setQuickTitle] = React.useState('')
+  const [showAllUkoly, setShowAllUkoly] = React.useState(false)
+
+  const loadUkoly = React.useCallback(async () => {
+    const res = await getUkolyByMilnik(milnik.id)
+    if (res.success && res.data) {
+      setUkoly(res.data)
+    }
+    setLoadingUkoly(false)
+  }, [milnik.id])
+
+  React.useEffect(() => {
+    loadUkoly()
+    
+    async function loadUsers() {
+      const res = await getUsers()
+      if (res.data) {
+        setUserProfiles(res.data)
+      }
+    }
+    loadUsers()
+  }, [loadUkoly])
+
+  // Rychlé přidání úkolu
+  async function handleQuickAddSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!quickTitle.trim()) return
+
+    const res = await createQuickUkol(milnik.id, quickTitle.trim(), 'management')
+    if (res.success) {
+      toast.success('Úkol přidán')
+      setQuickTitle('')
+      setIsAddingQuick(false)
+      loadUkoly()
+    } else {
+      toast.error(res.error ?? 'Chyba při rychlém přidání úkolu')
+    }
+  }
+
+  // Přepočet progresu z úkolů
+  const progressPercent = ukoly.length > 0
+    ? Math.round((ukoly.filter(u => u.stav === 'done').length / ukoly.length) * 100)
+    : milnik.progres_procenta
+
+  const displayedUkoly = showAllUkoly ? ukoly : ukoly.slice(0, 5)
 
   // Parsování checklistů z popisu
   const parsed = React.useMemo(() => {
@@ -303,20 +358,104 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
         </div>
       )}
 
+      {/* Nová sekce: Databázové úkoly (Plánování v2.0) */}
+      <div className="mt-4 pt-3 border-t border-dashed flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+            📋 Úkoly fáze
+          </span>
+          {ukoly.length > 0 && (
+            <span className="text-[10px] font-mono font-semibold text-muted-foreground">
+              {ukoly.filter(u => u.stav === 'done').length}/{ukoly.length}
+            </span>
+          )}
+        </div>
+
+        {loadingUkoly ? (
+          <span className="text-[11px] text-muted-foreground italic">Načítám úkoly...</span>
+        ) : ukoly.length === 0 ? (
+          <span className="text-[11px] text-muted-foreground/50 italic py-0.5">Bez úkolů</span>
+        ) : (
+          <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto pr-0.5">
+            {displayedUkoly.map(ukol => (
+              <UkolRow 
+                key={ukol.id} 
+                ukol={ukol} 
+                onSuccess={loadUkoly} 
+                userProfiles={userProfiles} 
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Zobrazit vše / Skrýt toggle */}
+        {ukoly.length > 5 && (
+          <button 
+            onClick={() => setShowAllUkoly(!showAllUkoly)}
+            className="text-[10px] font-semibold text-primary hover:underline text-left mt-0.5 self-start"
+            type="button"
+          >
+            {showAllUkoly ? 'Zobrazit méně' : `Zobrazit dalších ${ukoly.length - 5} úkolů`}
+          </button>
+        )}
+
+        {/* Přidání úkolu (Inline nebo Form Dialog) */}
+        <div className="mt-1">
+          {isAddingQuick ? (
+            <form onSubmit={handleQuickAddSubmit} className="flex items-center gap-1.5">
+              <input
+                type="text"
+                value={quickTitle}
+                onChange={e => setQuickTitle(e.target.value)}
+                placeholder="Název úkolu... (Enter pro uložení)"
+                className="flex-1 text-xs px-2 py-1 rounded border bg-background text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                autoFocus
+                onBlur={() => {
+                  setTimeout(() => {
+                    if (!quickTitle.trim()) setIsAddingQuick(false)
+                  }, 200)
+                }}
+              />
+            </form>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsAddingQuick(true)}
+                className="text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+                type="button"
+              >
+                + Rychlý úkol
+              </button>
+              <span className="text-muted-foreground/35 text-[10px]">•</span>
+              <AddUkolFormDialog
+                milnikId={milnik.id}
+                userProfiles={userProfiles}
+                onSuccess={loadUkoly}
+                trigger={
+                  <button className="text-[10px] font-bold text-muted-foreground hover:text-foreground transition-colors" type="button">
+                    + Podrobný úkol
+                  </button>
+                }
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Vlastník a Progress Bar */}
       <div className="mt-auto pt-3">
         {/* Progress Bar */}
         <div className="flex items-center justify-between text-[11px] mb-1">
           <span className="text-muted-foreground">Progres</span>
           <span className="font-semibold tabular-nums" style={{ color: isCompleted ? 'var(--color-emerald-500)' : 'var(--primary)' }}>
-            {milnik.progres_procenta}%
+            {progressPercent}%
           </span>
         </div>
         <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{
-              width: `${milnik.progres_procenta}%`,
+              width: `${progressPercent}%`,
               backgroundColor: isCompleted ? '#10b981' : 'var(--primary)',
             }}
           />

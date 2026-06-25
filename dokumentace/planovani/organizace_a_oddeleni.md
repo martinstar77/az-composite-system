@@ -38,7 +38,7 @@ graph TD
     M --> P[Purchasing / Nákup<br/>Filip]
     M --> B[Backbone / IT<br/>Martin]
     M --> RD[Product R&D<br/>Filip]
-    M --> L[Logistika / Sklad<br/>Vlastník: Jarda / Operativa: Filip, Martin]
+    M --> L[Logistika / Sklad<br/>Vlastníci: Martin, Filip]
     M --> BO[Backoffice<br/>Jarda]
     M --> LEG[Legal / Právní<br/>Jarda]
     M --> MKT[Marketing<br/>Vlastník: Filip]
@@ -88,8 +88,7 @@ graph TD
 * **KPI**: Počet úspěšně zalistovaných nových produktů, úspěšnost testů vzorků, rychlost uvedení produktu na trh (Time-to-Market).
 
 #### 7. Logistika (WMS, Sklad a Doprava)
-* **Rozhodnutí CEO o změně**: V původních poznámkách byla logistika sdílená (Martin, Filip). To je provozní riziko. **Vlastníkem logistiky a skladu se stává Jarda**, který má na starosti Backoffice a Legal. Skladování a expedice úzce souvisí s tiskem štítků, reklamacemi a expedovanou dokumentací.
-* **Vlastník**: **Jarda** (Operativní výpomoc: Filip, Martin při balení velkých zásilek)
+* **Vlastníci**: **Martin, Filip** (Spoluvlastnictví a řízení prozatím, s operativní výpomocí od Jardy při expedici a vychystávání)
 * **Klíčové činnosti**: Příjem zboží, správa skladových lokací (WMS), fyzické balení a expedice zásilek, zajišťování dopravy (smlouvy s DPD, PPL, Geis), správa fyzické infrastruktury skladu, správa ADR limitů a nebezpečných látek.
 * **KPI**: Rychlost expedice (objednávka -> předání dopravci do 24h), chybovost balení (v % zásilek), optimální stav zásob (obrátka skladu).
 

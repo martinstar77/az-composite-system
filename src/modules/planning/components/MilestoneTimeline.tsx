@@ -11,6 +11,7 @@ import {
 } from '../types'
 import { updatePoradi, deleteMilnik, updateMilnikStav } from '../actions/milniky'
 import { MilnikCard } from './MilnikCard'
+import { PlanningCalendar } from './PlanningCalendar'
 import { MilnikFormDialog } from './MilnikFormDialog'
 import { Button } from '@/shared/components/ui/button'
 import {
@@ -46,8 +47,32 @@ export function MilestoneTimeline({ projektId, milniky: initialMilniky, projektB
   // Řízení stavu dialogu pro editaci (mimo dropdown kvůli unmount chybě)
   const [activeEditMilnik, setActiveEditMilnik] = useState<Milnik | null>(null)
 
-  // Záložky: timeline / table / gantt
-  const [activeTab, setActiveTab] = useState<'timeline' | 'table' | 'gantt'>('timeline')
+  // Záložky: timeline / table / gantt / calendar
+  const [activeTab, setActiveTab] = useState<'timeline' | 'table' | 'gantt' | 'calendar'>('timeline')
+
+  // Synchronizace záložky s URL parametrem ?view=calendar
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const viewParam = params.get('view')
+      if (viewParam === 'calendar') {
+        setActiveTab('calendar')
+      }
+    }
+  }, [])
+
+  const handleTabChange = (tab: 'timeline' | 'table' | 'gantt' | 'calendar') => {
+    setActiveTab(tab)
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      if (tab === 'calendar') {
+        url.searchParams.set('view', 'calendar')
+      } else {
+        url.searchParams.delete('view')
+      }
+      window.history.pushState({}, '', url.toString())
+    }
+  }
 
   // Statistiky
   const total = milniky.length
@@ -215,7 +240,7 @@ export function MilestoneTimeline({ projektId, milniky: initialMilniky, projektB
           <Button
             variant={activeTab === 'timeline' ? 'secondary' : 'ghost'}
             size="sm"
-            onClick={() => setActiveTab('timeline')}
+            onClick={() => handleTabChange('timeline')}
             className="h-7 px-2.5 text-xs font-medium"
           >
             <Calendar className="h-3.5 w-3.5 mr-1.5" />
@@ -224,7 +249,7 @@ export function MilestoneTimeline({ projektId, milniky: initialMilniky, projektB
           <Button
             variant={activeTab === 'table' ? 'secondary' : 'ghost'}
             size="sm"
-            onClick={() => setActiveTab('table')}
+            onClick={() => handleTabChange('table')}
             className="h-7 px-2.5 text-xs font-medium"
           >
             <List className="h-3.5 w-3.5 mr-1.5" />
@@ -233,11 +258,20 @@ export function MilestoneTimeline({ projektId, milniky: initialMilniky, projektB
           <Button
             variant={activeTab === 'gantt' ? 'secondary' : 'ghost'}
             size="sm"
-            onClick={() => setActiveTab('gantt')}
+            onClick={() => handleTabChange('gantt')}
             className="h-7 px-2.5 text-xs font-medium"
           >
             <GanttChartSquare className="h-3.5 w-3.5 mr-1.5" />
             Ganttův diagram
+          </Button>
+          <Button
+            variant={activeTab === 'calendar' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => handleTabChange('calendar')}
+            className="h-7 px-2.5 text-xs font-medium"
+          >
+            <Calendar className="h-3.5 w-3.5 mr-1.5" />
+            Kalendář
           </Button>
         </div>
 
@@ -540,6 +574,11 @@ export function MilestoneTimeline({ projektId, milniky: initialMilniky, projektB
                 </div>
               )}
             </div>
+          )}
+
+          {/* D. KALENDÁŘ POHLED */}
+          {activeTab === 'calendar' && (
+            <PlanningCalendar projektId={projektId} />
           )}
         </>
       )}
