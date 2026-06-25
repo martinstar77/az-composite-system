@@ -251,6 +251,49 @@ projekty_planovani  →  milniky  →  ukoly_planovani  (NOVÁ tabulka)
 
 ---
 
+## KROK 10 — Cíle a Vize oddělení pro Milníky (Taktická meziúroveň) [PLÁNOVÁNO]
+
+Tento krok zavádí taktickou úroveň plánování pro propojení strategie (Milníky) a operativy (Úkoly).
+
+### 1. DB Migrace: `supabase/migrations/20260625180000_departmental_goals.sql`
+- Vytvořit tabulku `cile_oddeleni_milniku` s těmito sloupci:
+  - `id` UUID PK
+  - `milnik_id` UUID FK → `milniky(id)` ON DELETE CASCADE
+  - `oddeleni_id` TEXT NOT NULL REFERENCES `oddeleni(id)` ON DELETE CASCADE
+  - `nazev` TEXT NOT NULL
+  - `popis` TEXT
+  - `stav` TEXT CHECK (`planned` | `in_progress` | `completed` | `cancelled`) DEFAULT `planned`
+  - Auditní pole: `vytvoreno_at`, `aktualizovano_at`, `vytvoril_id`, `upravil_id`
+- Přidat sloupec `cil_id` UUID FK → `cile_oddeleni_milniku(id)` ON DELETE SET NULL do tabulky `ukoly_planovani`.
+- Zapnout RLS a nastavit politiky (přihlášení vidí vše, zápis pro vlastníky/adminy).
+
+### 2. TypeScript Typy (`src/modules/planning/types/index.ts`)
+- Přidat interface `CilOddeleniMilniku`:
+  ```ts
+  export interface CilOddeleniMilniku {
+    id: string
+    milnik_id: string
+    oddeleni_id: string
+    nazev: string
+    popis?: string | null
+    stav: 'planned' | 'in_progress' | 'completed' | 'cancelled'
+    vytvoreno_at: string
+    vytvoril_id?: string | null
+  }
+  ```
+- Upravit `UkolPlanovani` o volitelné pole `cil_id?: string | null`.
+
+### 3. Server Actions (`src/modules/planning/actions/goals.ts` [NEW])
+- `getCileByMilnik(milnikId: string): Promise<CilOddeleniMilniku[]>`
+- `upsertCil(payload: Partial<CilOddeleniMilniku>): Promise<CilOddeleniMilniku>`
+- `deleteCil(id: string): Promise<void>`
+
+### 4. UI Integrace
+- **Vytvoření/Správa cílů**: V detailu projektu / MilestoneTimeline přidat sekci „Taktické cíle oddělení“, kde může každý STO zapsat 1-2 vize pro danou fázi.
+- **Seskupování úkolů**: V detailu milníku a Kanban boardu seskupit úkoly pod tyto cíle (swimlanes/akordeony). Při tvorbě úkolu umožnit přiřadit jej pod jeden z cílů oddělení.
+
+---
+
 ## Závislosti a poznámky
 
 | Závislost | Status | Poznámka |

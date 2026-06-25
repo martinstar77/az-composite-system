@@ -152,53 +152,73 @@ CREATE TABLE public.ukoly_planovani (
 CREATE INDEX ukoly_milnik_idx ON public.ukoly_planovani (milnik_id);
 CREATE INDEX ukoly_oddeleni_idx ON public.ukoly_planovani (oddeleni_id);
 CREATE INDEX ukoly_vlastnik_idx ON public.ukoly_planovani (vlastnik_id);
+
+-- 4. Cíle oddělení v milníku (Departmental Goals/Visions)
+-- Slouží jako taktická meziúroveň mezi strategickým milníkem a operativními úkoly.
+CREATE TABLE public.cile_oddeleni_milniku (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    milnik_id           UUID NOT NULL REFERENCES public.milniky(id) ON DELETE CASCADE,
+    oddeleni_id         TEXT NOT NULL REFERENCES public.oddeleni(id) ON DELETE CASCADE,
+    nazev               TEXT NOT NULL,
+    popis               TEXT,
+    stav                TEXT NOT NULL DEFAULT 'planned' CHECK (stav IN ('planned', 'in_progress', 'completed', 'cancelled')),
+    vytvoreno_at        TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now()) NOT NULL,
+    aktualizovano_at    TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc', now()) NOT NULL,
+    vytvoril_id         UUID REFERENCES public.profily_uzivatelu(id) ON DELETE SET NULL,
+    upravil_id          UUID REFERENCES public.profily_uzivatelu(id) ON DELETE SET NULL
+);
+
+CREATE INDEX cile_milnik_idx ON public.cile_oddeleni_milniku (milnik_id);
+CREATE INDEX cile_oddeleni_idx ON public.cile_oddeleni_milniku (oddeleni_id);
+
+-- Propojení úkolů přímo s taktickým cílem oddělení
+ALTER TABLE public.ukoly_planovani
+ADD COLUMN cil_id UUID REFERENCES public.cile_oddeleni_milniku(id) ON DELETE SET NULL;
+
+CREATE INDEX ukoly_cil_idx ON public.ukoly_planovani (cil_id);
 ```
-
-### B. Oprávnění (RBAC) a Zabezpečení
-
-Oprávnění v systému budou přímo provázána s odděleními. Uživatel s určitou rolí má přístup k příslušným modulům:
-
-| Role v ERP | Přístupná oddělení (Zápis) | Příklad použití |
-|:---|:---|:---|
-| `admin` | Všechna oddělení | Úplná kontrola nad celým systémem |
-| `sales_manager` | Sales, Marketing, Product R&D | Filip (řídí obchod a nákup) |
-| `finance_manager`| Finance, Invoicing | Martin (platby, banka, ceníky) |
-| `ops_manager` | Logistics, Backoffice, Legal | Jarda (sklady, štítky, SDS/TDS) |
-| `developer` | Backbone, Planning | Martin (vývoj ERP a nastavení) |
 
 ---
 
-## 4. Metodika plánování: Master Plan vs. Departmental Backlog
+## 4. Metodika plánování: Master Plan vs. Taktické Cíle vs. Operativní Backlog
 
 Jedním z nejčastějších problémů plánování v rostoucích firmách je, že se strategický plán (Master Plan) zahltí stovkami malých úkolů (např. *„Koupit izolepu do skladu“* nebo *„Opravit překlep na webu“*). To znehodnocuje Ganttův diagram a management ztrácí přehled.
 
-Implementujeme **dvouúrovňové plánování (WBS - Work Breakdown Structure)**:
+Implementujeme **tříúrovňové plánování (WBS - Work Breakdown Structure)**, které slouží jako most mezi celofiremní strategií a každodenní operativou:
 
-### 1. Úroveň: Master Milestones (Strategie)
+### 1. Úroveň: Master Milestones (Strategie — Celofiremní)
 * Evidováno v tabulce `milniky`.
 * Definuje **kdy a co** se stane z pohledu celé firmy.
 * Příklady: `Milník 1 — Budování a růst` (Termín: 1. 8. – 30. 9.).
 * V Ganttově diagramu a na hlavní časové ose jsou vidět **pouze tyto strategické milníky**.
 
-### 2. Úroveň: Departmental Tasks (Operativa)
+### 2. Úroveň: Cíle a vize oddělení pro milník (Taktika — Oddělení)
+* Evidováno v tabulce `cile_oddeleni_milniku`.
+* Definuje **taktické zaměření a vizi** každého oddělení (vedeného jeho STO) pro danou fázi/milník. 
+* Předchází zahlcení úkoly tím, že jasně deklaruje, *čeho* chce oddělení v této fázi dosáhnout.
+* Příklady k milníku `Milník 1 — Budování a růst`:
+  * **Finance (Martin)**: *Zabezpečit stabilní Cash Flow a vybudovat přehledný forecast.*
+  * **Backbone / IT (Martin)**: *Zprovoznit CRM a finanční kalkulačky přímo v našem ERP.*
+  * **Sales / Obchod (Filip)**: *Vybudovat B2B prodejní pipeline a nastartovat aktivní akvizici.*
+  * **Logistika (Jarda/Filip)**: *Zajistit legislativní a fyzickou připravenost na chemickou distribuci.*
+
+### 3. Úroveň: Departmental Tasks (Operativa — Úkoly)
 * Evidováno v tabulce `ukoly_planovani`.
-* Každé oddělení má svůj **vlastní backlog úkolů** přiřazených k danému milníku.
-* Příklad: K milníku `Milník 1 — Budování a růst` se vážou tyto detailní úkoly:
-  * **Finance (Martin)**: *Zprovoznit účetní export do Pohody*, *Vytvořit šablonu cash flow*.
-  * **Sales (Filip)**: *Oslovit 30 laminátoven v ČR*, *Připravit ceník vzorků*.
-  * **Logistika (Jarda)**: *Objednat 500 ks krabic na pryskyřice*, *Sjednat ADR smlouvu s DPD*.
-  * **Backbone (Martin)**: *Vytvořit databázový modul pro CRM*, *Napojit ARES pro IČO*.
+* Konkrétní úkoly v backlogu, které **jsou přiřazeny pod konkrétní taktický cíl** daného oddělení.
+* Příklad úkolů seskupených pod výše uvedené cíle:
+  * Pod cíl **Backbone (Spustit CRM)** se váže: *Vytvořit DB modul CRM*, *Napojit ARES pro načítání IČO*, *Naprogramovat Kanban board příležitostí*.
+  * Pod cíl **Logistika (Zajistit připravenost)** se váže: *Sjednat ADR smlouvu s DPD*, *Objednat 500 ks krabic na pryskyřice*, *Nastavit záchytné vany ve skladu*.
 
 ### UI a UX v ERP: Jak to uvidíme?
 
 1. **Firemní Dashboard (Gantt / Timeline)**:
-   * Manažerský pohled. Zobrazuje pouze velké milníky.
+   * Zobrazuje pouze strategické milníky (1. úroveň).
+   * Rozkliknutím milníku se zobrazí přehledný rozpad na **taktické cíle jednotlivých oddělení** (2. úroveň) a jejich progres.
    * Progres milníku se automaticky vypočítává jako **procento splněných operačních úkolů** ze všech oddělení, které jsou k němu přiřazeny.
 
 2. **Oddělení (Departmental Board)**:
    * Zobrazení typu Kanban (To Do / In Progress / Done) filtrované pro jedno konkrétní oddělení (např. *Pohled Logistika*).
    * Jarda zde vidí pouze své úkoly z logistiky a backoffice, rozdělené podle aktuálního milníku. Ostatní oddělení ho neruší.
-
 3. **Můj přehled (Personal Dashboard)**:
    * Stránka po přihlášení uživatele.
    * Zobrazuje widgety:
