@@ -17,6 +17,7 @@ import {
   UkolPlanovani, 
   OddeleniType, 
   TypUdalostiType,
+  PrioritaUkolu,
   ODDELENI_CONFIG, 
   TYP_UDALOSTI_CONFIG, 
   STAV_UKOLU_CONFIG,
@@ -84,6 +85,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
   const [selectedOddeleni, setSelectedOddeleni] = useState<OddeleniType[]>([])
   const [selectedOwner, setSelectedOwner] = useState<string>('')
   const [selectedTyp, setSelectedTyp] = useState<TypUdalostiType[]>([])
+  const [selectedPriorita, setSelectedPriorita] = useState<PrioritaUkolu[]>([])
   const [showFilters, setShowFilters] = useState(false)
 
   // Touch swipe states
@@ -219,9 +221,32 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
     // Oddělení filter
     if (selectedOddeleni.length > 0 && !selectedOddeleni.includes(u.oddeleni)) return false
     // Vlastník filter
-    if (selectedOwner && selectedOwner !== '-' && u.vlastnik_id !== selectedOwner) return false
+    if (selectedOwner) {
+      if (selectedOwner === '-') {
+        if (u.vlastnik_id) return false
+      } else if (u.vlastnik_id !== selectedOwner) {
+        return false
+      }
+    }
     // Typ filter
     if (selectedTyp.length > 0 && !selectedTyp.includes(u.typ_udalosti)) return false
+    // Priorita filter
+    if (selectedPriorita.length > 0 && !selectedPriorita.includes(u.priorita as PrioritaUkolu)) return false
+    return true
+  })
+
+  // Filter application for milestone deadlines
+  const filteredMilniky = milnikyDeadlines.filter(m => {
+    if (projektId && m.projekt_id !== projektId) return false
+    // Only show milestones if 'deadline' is in selectedTyp or if no type filter is active
+    if (selectedTyp.length > 0 && !selectedTyp.includes('deadline')) return false
+    
+    // Milestones do not have department, owner, or task priority in this context.
+    // If user has filtered by department, owner, or priority, we should hide milestones since they don't match those filters.
+    if (selectedOddeleni.length > 0) return false
+    if (selectedOwner) return false
+    if (selectedPriorita.length > 0) return false
+    
     return true
   })
 
@@ -278,8 +303,8 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
       u.datum_splatnosti === dateStr || u.datum_zahajeni === dateStr
     )
 
-    const dayMilniky = milnikyDeadlines.filter(m => 
-      m.datum_splatnosti === dateStr && (!projektId || m.projekt_id === projektId)
+    const dayMilniky = filteredMilniky.filter(m => 
+      m.datum_splatnosti === dateStr
     )
 
     return { ukoly: dayUkoly, milniky: dayMilniky }
@@ -661,13 +686,13 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
           </div>
 
           <Button
-            variant={showFilters || selectedOddeleni.length > 0 || selectedOwner || selectedTyp.length > 0 ? 'secondary' : 'outline'}
+            variant={showFilters || selectedOddeleni.length > 0 || selectedOwner || selectedTyp.length > 0 || selectedPriorita.length > 0 ? 'secondary' : 'outline'}
             size="sm"
             onClick={() => setShowFilters(!showFilters)}
             className="h-7 text-xs"
           >
             <Filter className="h-3.5 w-3.5 mr-1" />
-            Filtry {(selectedOddeleni.length + (selectedOwner ? 1 : 0) + selectedTyp.length) > 0 && `(${selectedOddeleni.length + (selectedOwner ? 1 : 0) + selectedTyp.length})`}
+            Filtry {(selectedOddeleni.length + (selectedOwner ? 1 : 0) + selectedTyp.length + selectedPriorita.length) > 0 && `(${selectedOddeleni.length + (selectedOwner ? 1 : 0) + selectedTyp.length + selectedPriorita.length})`}
           </Button>
         </div>
       </div>
@@ -684,6 +709,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                 setSelectedOddeleni([])
                 setSelectedOwner('')
                 setSelectedTyp([])
+                setSelectedPriorita([])
               }}
               className="text-[10px] font-bold text-destructive hover:underline"
             >
@@ -691,7 +717,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             {/* Department Filter */}
             <div className="flex flex-col gap-1.5">
               <Label className="text-xs font-semibold flex items-center gap-1 text-muted-foreground"><Briefcase className="h-3.5 w-3.5" /> Oddělení</Label>
@@ -744,6 +770,31 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                       key={key}
                       onClick={() => {
                         setSelectedTyp(prev => 
+                          prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]
+                        )
+                      }}
+                      className={`text-[10px] font-medium px-2 py-0.5 rounded-full border transition-all ${
+                        active ? 'bg-primary text-primary-foreground border-transparent' : 'bg-transparent text-muted-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {cfg.icon} {cfg.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Priority Filter */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs font-semibold flex items-center gap-1 text-muted-foreground"><AlertCircle className="h-3.5 w-3.5" /> Priorita</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {(Object.entries(PRIORITA_CONFIG) as [PrioritaUkolu, typeof PRIORITA_CONFIG[PrioritaUkolu]][]).map(([key, cfg]) => {
+                  const active = selectedPriorita.includes(key)
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => {
+                        setSelectedPriorita(prev => 
                           prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]
                         )
                       }}
