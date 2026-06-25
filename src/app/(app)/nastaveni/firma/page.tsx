@@ -3,7 +3,7 @@ import { CompanySettingsForm } from '@/modules/invoicing/components/CompanySetti
 import { Building2, Info } from 'lucide-react'
 
 export const metadata = {
-  title: 'Nastavení Firmy — AZ Composite ERP',
+  title: 'Údaje o Firmě — AZ Composite ERP',
   description: 'Správa firemních fakturačních údajů — IČO, DIČ, adresa, IBAN pro QR platbu',
 }
 

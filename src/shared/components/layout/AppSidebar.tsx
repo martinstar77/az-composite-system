@@ -53,7 +53,7 @@ const navItems = [
   {
     title: "Správa",
     items: [
-      { title: "Nastavení firmy", url: "/nastaveni/firma", icon: Building },
+      { title: "Údaje o firmě", url: "/nastaveni/firma", icon: Building },
       { title: "Uživatelé a Tým", url: "/nastaveni/uzivatele", icon: Users },
       { title: "Manuál & Nápověda", url: "/manual", icon: HelpCircle },
     ],
