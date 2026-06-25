@@ -41,8 +41,7 @@ const UKOL_SELECT = `
   *,
   vlastnik:vlastnik_id (
     id,
-    jmeno,
-    avatar_url
+    jmeno
   ),
   milnik:milnik_id (
     id,
@@ -207,6 +206,17 @@ export async function upsertUkol(
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { success: false, error: 'Nepřihlášený uživatel' }
 
+    // Fetch parent milnik to get its tenant_id
+    let tenantId = null
+    if (validated.milnik_id) {
+      const { data: milnik } = await supabase
+        .from('milniky')
+        .select('tenant_id')
+        .eq('id', validated.milnik_id)
+        .single()
+      tenantId = milnik?.tenant_id ?? null
+    }
+
     const dbPayload = {
       milnik_id: validated.milnik_id,
       nazev: validated.nazev,
@@ -220,6 +230,17 @@ export async function upsertUkol(
       datum_splatnosti: validated.datum_splatnosti ?? null,
       checklist: validated.checklist,
       upravil_id: user.id,
+      tenant_id: tenantId,
+    }
+
+    let staryStav = null
+    if (ukolId) {
+      const { data: oldUkol } = await supabase
+        .from('ukoly_planovani')
+        .select('*')
+        .eq('id', ukolId)
+        .single()
+      staryStav = oldUkol
     }
 
     let data
@@ -248,10 +269,21 @@ export async function upsertUkol(
 
     if (error) throw error
 
+    // Zapsat do audit logu
+    await supabase.from('ukoly_planovani_audit_log').insert({
+      ukol_id: data.id,
+      akce: ukolId ? 'upraveno' : 'vytvoreno',
+      stary_stav: staryStav,
+      novy_stav: data,
+      uzivatel_id: user.id,
+    })
+
     // Recalculate milestone progress
     await recalculateMilnikProgress(supabase, validated.milnik_id)
 
     revalidatePath('/planovani')
+    revalidatePath('/planovani/ukoly')
+    revalidatePath('/')
     return { success: true, data: data as UkolPlanovani }
   } catch (e: any) {
     if (e.name === 'ZodError') {
@@ -274,6 +306,13 @@ export async function toggleUkolStav(
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { success: false, error: 'Nepřihlášený uživatel' }
 
+    // Načíst starý stav pro audit
+    const { data: current } = await supabase
+      .from('ukoly_planovani')
+      .select('stav, milnik_id')
+      .eq('id', ukolId)
+      .single()
+
     const { data: updated, error } = await supabase
       .from('ukoly_planovani')
       .update({ stav, upravil_id: user.id })
@@ -283,11 +322,22 @@ export async function toggleUkolStav(
 
     if (error) throw error
 
+    // Zapsat do audit logu
+    await supabase.from('ukoly_planovani_audit_log').insert({
+      ukol_id: ukolId,
+      akce: 'stav_zmeneno',
+      stary_stav: current ? { stav: current.stav } : null,
+      novy_stav: { stav },
+      uzivatel_id: user.id,
+    })
+
     if (updated?.milnik_id) {
       await recalculateMilnikProgress(supabase, updated.milnik_id)
     }
 
     revalidatePath('/planovani')
+    revalidatePath('/planovani/ukoly')
+    revalidatePath('/')
     return { success: true }
   } catch (e: any) {
     return { success: false, error: e.message }
@@ -364,11 +414,20 @@ export async function deleteUkol(
 
     if (error) throw error
 
+    // Zapsat do audit logu
+    await supabase.from('ukoly_planovani_audit_log').insert({
+      ukol_id: ukolId,
+      akce: 'smazano',
+      uzivatel_id: user.id,
+    })
+
     if (updated?.milnik_id) {
       await recalculateMilnikProgress(supabase, updated.milnik_id)
     }
 
     revalidatePath('/planovani')
+    revalidatePath('/planovani/ukoly')
+    revalidatePath('/')
     return { success: true }
   } catch (e: any) {
     return { success: false, error: e.message }
@@ -395,3 +454,60 @@ export async function createQuickUkol(
     checklist: [],
   })
 }
+
+// ============================================================
+// getUkolyGlobal
+// Načte úkoly napříč všemi projekty a milníky s volitelnými filtry
+// ============================================================
+export async function getUkolyGlobal(filters?: {
+  oddeleni?: OddeleniType
+  vlastnik_id?: string
+  stav?: UkolPlanovani['stav']
+  projekt_id?: string
+  limit?: number
+}): Promise<{ success: boolean; data?: UkolPlanovani[]; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Nepřihlášený uživatel' }
+
+    let query = supabase
+      .from('ukoly_planovani')
+      .select(UKOL_SELECT)
+      .is('deleted_at', null)
+
+    if (filters?.oddeleni) {
+      query = query.eq('oddeleni', filters.oddeleni)
+    }
+
+    if (filters?.vlastnik_id) {
+      query = query.eq('vlastnik_id', filters.vlastnik_id)
+    }
+
+    if (filters?.stav) {
+      query = query.eq('stav', filters.stav)
+    }
+
+    if (filters?.limit) {
+      query = query.limit(filters.limit)
+    }
+
+    // Seřadit: critical → high → medium → low, pak podle data splatnosti
+    const { data, error } = await query
+      .order('datum_splatnosti', { ascending: true, nullsFirst: false })
+
+    if (error) throw error
+
+    let result = (data ?? []) as UkolPlanovani[]
+
+    // In-memory filter pro projekt_id (pokud je zadán) kvůli jednoduchosti a spolehlivosti
+    if (filters?.projekt_id) {
+      result = result.filter(u => u.milnik?.projekt_id === filters.projekt_id)
+    }
+
+    return { success: true, data: result }
+  } catch (e: any) {
+    return { success: false, error: e.message }
+  }
+}
+

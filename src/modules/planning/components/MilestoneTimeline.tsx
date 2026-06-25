@@ -9,9 +9,9 @@ import {
   StavMilniku,
   PRIORITA_CONFIG,
 } from '../types'
+import Link from 'next/link'
 import { updatePoradi, deleteMilnik, updateMilnikStav } from '../actions/milniky'
 import { MilnikCard } from './MilnikCard'
-import { PlanningCalendar } from './PlanningCalendar'
 import { MilnikFormDialog } from './MilnikFormDialog'
 import { Button } from '@/shared/components/ui/button'
 import {
@@ -47,31 +47,11 @@ export function MilestoneTimeline({ projektId, milniky: initialMilniky, projektB
   // Řízení stavu dialogu pro editaci (mimo dropdown kvůli unmount chybě)
   const [activeEditMilnik, setActiveEditMilnik] = useState<Milnik | null>(null)
 
-  // Záložky: timeline / table / gantt / calendar
-  const [activeTab, setActiveTab] = useState<'timeline' | 'table' | 'gantt' | 'calendar'>('timeline')
+  // Záložky: timeline / table / gantt
+  const [activeTab, setActiveTab] = useState<'timeline' | 'table' | 'gantt'>('timeline')
 
-  // Synchronizace záložky s URL parametrem ?view=calendar
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const viewParam = params.get('view')
-      if (viewParam === 'calendar') {
-        setActiveTab('calendar')
-      }
-    }
-  }, [])
-
-  const handleTabChange = (tab: 'timeline' | 'table' | 'gantt' | 'calendar') => {
+  const handleTabChange = (tab: 'timeline' | 'table' | 'gantt') => {
     setActiveTab(tab)
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href)
-      if (tab === 'calendar') {
-        url.searchParams.set('view', 'calendar')
-      } else {
-        url.searchParams.delete('view')
-      }
-      window.history.pushState({}, '', url.toString())
-    }
   }
 
   // Statistiky
@@ -265,10 +245,10 @@ export function MilestoneTimeline({ projektId, milniky: initialMilniky, projektB
             Ganttův diagram
           </Button>
           <Button
-            variant={activeTab === 'calendar' ? 'secondary' : 'ghost'}
+            variant="ghost"
             size="sm"
-            onClick={() => handleTabChange('calendar')}
             className="h-7 px-2.5 text-xs font-medium"
+            render={<Link href={`/planovani/kalendar?projektId=${projektId}`} />}
           >
             <Calendar className="h-3.5 w-3.5 mr-1.5" />
             Kalendář
@@ -576,10 +556,7 @@ export function MilestoneTimeline({ projektId, milniky: initialMilniky, projektB
             </div>
           )}
 
-          {/* D. KALENDÁŘ POHLED */}
-          {activeTab === 'calendar' && (
-            <PlanningCalendar projektId={projektId} />
-          )}
+          {/* D. KALENDÁŘ POHLED ODSTRANĚN (přesměrován na globální) */}
         </>
       )}
 

@@ -242,3 +242,37 @@ export async function updateMilnikTasks(
     return { success: false, error: e.message }
   }
 }
+
+// --- Získání všech aktivních milníků napříč projekty ---
+export async function getAllMilnikyActive(): Promise<{ success: boolean; data?: { id: string; nazev: string; projekt_id: string; projekt_nazev?: string }[]; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Nepřihlášený uživatel' }
+
+    const { data, error } = await supabase
+      .from('milniky')
+      .select(`
+        id,
+        nazev,
+        projekt_id,
+        projekt:projekt_id ( nazev )
+      `)
+      .is('deleted_at', null)
+      .not('stav', 'eq', 'completed')
+      .not('stav', 'eq', 'cancelled')
+
+    if (error) throw error
+
+    const mapped = (data ?? []).map((m: any) => ({
+      id: m.id,
+      nazev: m.nazev,
+      projekt_id: m.projekt_id,
+      projekt_nazev: m.projekt?.nazev ?? 'Bez projektu'
+    }))
+
+    return { success: true, data: mapped }
+  } catch (e: any) {
+    return { success: false, error: e.message }
+  }
+}

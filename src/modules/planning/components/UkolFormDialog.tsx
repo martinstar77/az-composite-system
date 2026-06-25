@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { useState, useTransition } from 'react'
+import { useState, useTransition, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Plus, Trash2, X } from 'lucide-react'
 import {
@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/shared/components/ui/select'
 import { upsertUkol } from '../actions/ukoly'
+import { getAllMilnikyActive } from '../actions/milniky'
 import {
   UkolPlanovani,
   StavUkolu,
@@ -38,7 +39,7 @@ import {
 } from '../types'
 
 interface UkolFormDialogProps {
-  milnikId: string
+  milnikId?: string
   ukol?: UkolPlanovani
   userProfiles: { id: string; jmeno: string }[]
   trigger?: React.ReactNode
@@ -61,6 +62,28 @@ export function UkolFormDialog({
 
   const open = controlledOpen !== undefined ? controlledOpen : localOpen
   const setOpen = controlledOnOpenChange !== undefined ? controlledOnOpenChange : setLocalOpen
+
+  const [selectedMilnikId, setSelectedMilnikId] = useState(milnikId ?? ukol?.milnik_id ?? '')
+  const [activeMilniky, setActiveMilniky] = useState<{ id: string; nazev: string; projekt_nazev?: string }[]>([])
+
+  useEffect(() => {
+    if (open && !milnikId) {
+      getAllMilnikyActive().then(res => {
+        if (res.success && res.data) {
+          setActiveMilniky(res.data)
+          if (!selectedMilnikId && res.data.length > 0) {
+            setSelectedMilnikId(res.data[0].id)
+          }
+        }
+      })
+    }
+  }, [open, milnikId, selectedMilnikId])
+
+  useEffect(() => {
+    if (milnikId) {
+      setSelectedMilnikId(milnikId)
+    }
+  }, [milnikId])
 
   const [form, setForm] = useState({
     nazev: ukol?.nazev ?? '',
@@ -97,13 +120,18 @@ export function UkolFormDialog({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
+    if (!selectedMilnikId) {
+      toast.error('Musíte vybrat milník.')
+      return
+    }
+
     // Očistit prázdné položky checklistu
     const cleanChecklist = checklist.filter(item => item.text.trim().length > 0)
 
     startTransition(async () => {
       const result = await upsertUkol(
         {
-          milnik_id: milnikId,
+          milnik_id: selectedMilnikId,
           nazev: form.nazev,
           popis: form.popis || null,
           stav: form.stav,
@@ -157,6 +185,29 @@ export function UkolFormDialog({
           <DialogTitle>{isEdit ? 'Upravit úkol' : 'Nový úkol'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Milestone Selection (when milnikId is not provided) */}
+          {!milnikId && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="ukol-milnik">Přiřadit k projektu / milníku *</Label>
+              <Select value={selectedMilnikId} onValueChange={val => setSelectedMilnikId(val ?? '')}>
+                <SelectTrigger id="ukol-milnik">
+                  <SelectValue placeholder="Vyberte projekt a milník...">
+                    {activeMilniky.find(m => m.id === selectedMilnikId)
+                      ? `${activeMilniky.find(m => m.id === selectedMilnikId)?.projekt_nazev} — ${activeMilniky.find(m => m.id === selectedMilnikId)?.nazev}`
+                      : undefined}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {activeMilniky.map(m => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.projekt_nazev} — {m.nazev}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Název */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="ukol-nazev">Název úkolu *</Label>
@@ -187,7 +238,9 @@ export function UkolFormDialog({
               <Label>Oddělení *</Label>
               <Select value={form.oddeleni} onValueChange={v => handleChange('oddeleni', v ?? 'management')}>
                 <SelectTrigger id="ukol-oddeleni">
-                  <SelectValue />
+                  <SelectValue>
+                    {ODDELENI_CONFIG[form.oddeleni]?.label}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(Object.entries(ODDELENI_CONFIG) as [OddeleniType, typeof ODDELENI_CONFIG[OddeleniType]][]).map(([key, cfg]) => (
@@ -205,7 +258,9 @@ export function UkolFormDialog({
               <Label>Typ události</Label>
               <Select value={form.typ_udalosti} onValueChange={v => handleChange('typ_udalosti', v ?? 'task')}>
                 <SelectTrigger id="ukol-typ-udalosti">
-                  <SelectValue />
+                  <SelectValue>
+                    {TYP_UDALOSTI_CONFIG[form.typ_udalosti]?.icon} {TYP_UDALOSTI_CONFIG[form.typ_udalosti]?.label}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(Object.entries(TYP_UDALOSTI_CONFIG) as [TypUdalostiType, typeof TYP_UDALOSTI_CONFIG[TypUdalostiType]][]).map(([key, cfg]) => (
@@ -224,7 +279,9 @@ export function UkolFormDialog({
               <Label>Stav</Label>
               <Select value={form.stav} onValueChange={v => handleChange('stav', v ?? 'todo')}>
                 <SelectTrigger id="ukol-stav">
-                  <SelectValue />
+                  <SelectValue>
+                    {STAV_UKOLU_CONFIG[form.stav]?.label}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(Object.entries(STAV_UKOLU_CONFIG) as [StavUkolu, typeof STAV_UKOLU_CONFIG[StavUkolu]][]).map(([key, cfg]) => (
@@ -243,7 +300,9 @@ export function UkolFormDialog({
               <Label>Priorita</Label>
               <Select value={form.priorita} onValueChange={v => handleChange('priorita', v ?? 'medium')}>
                 <SelectTrigger id="ukol-priorita">
-                  <SelectValue />
+                  <SelectValue>
+                    {PRIORITA_CONFIG[form.priorita]?.icon} {PRIORITA_CONFIG[form.priorita]?.label}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {(Object.entries(PRIORITA_CONFIG) as [PrioritaUkolu, typeof PRIORITA_CONFIG[PrioritaUkolu]][]).map(([key, cfg]) => (
@@ -263,10 +322,14 @@ export function UkolFormDialog({
             <Label>Odpovědný (Vlastník)</Label>
             <Select value={form.vlastnik_id} onValueChange={v => handleChange('vlastnik_id', v ?? '')}>
               <SelectTrigger id="ukol-vlastnik">
-                <SelectValue placeholder="Přiřadit osobu..." />
+                <SelectValue placeholder="Přiřadit osobu...">
+                  {form.vlastnik_id === '' || form.vlastnik_id === '-'
+                    ? '-- Nepřiřazeno --'
+                    : userProfiles.find(u => u.id === form.vlastnik_id)?.jmeno}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="-">-- Nepřiřazeno --</SelectItem>
+                <SelectItem value="">-- Nepřiřazeno --</SelectItem>
                 {userProfiles.map(u => (
                   <SelectItem key={u.id} value={u.id}>
                     {u.jmeno}

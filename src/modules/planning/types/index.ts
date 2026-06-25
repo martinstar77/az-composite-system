@@ -129,6 +129,7 @@ export interface UkolPlanovani {
   datum_zahajeni: string | null   // ISO date string 'YYYY-MM-DD'
   datum_splatnosti: string | null // ISO date string 'YYYY-MM-DD'
   checklist: ChecklistItem[]
+  tenant_id: string | null
   deleted_at: string | null
   vytvoreno_at: string
   aktualizovano_at: string
