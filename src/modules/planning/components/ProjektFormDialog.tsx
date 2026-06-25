@@ -41,11 +41,22 @@ interface ProjektFormDialogProps {
   projekt?: Projekt
   trigger?: React.ReactNode
   onSuccess?: (id: string) => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function ProjektFormDialog({ projekt, trigger, onSuccess }: ProjektFormDialogProps) {
-  const [open, setOpen] = useState(false)
+export function ProjektFormDialog({
+  projekt,
+  trigger,
+  onSuccess,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+}: ProjektFormDialogProps) {
+  const [localOpen, setLocalOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
+
+  const open = controlledOpen !== undefined ? controlledOpen : localOpen
+  const setOpen = controlledOnOpenChange !== undefined ? controlledOnOpenChange : setLocalOpen
 
   const [form, setForm] = useState({
     nazev: projekt?.nazev ?? '',
@@ -87,6 +98,7 @@ export function ProjektFormDialog({ projekt, trigger, onSuccess }: ProjektFormDi
     })
   }
 
+  const hasTrigger = trigger !== null
   const triggerElement = trigger ?? (
     <Button size="sm">
       {isEdit ? 'Upravit projekt' : '+ Nový projekt'}
@@ -95,7 +107,7 @@ export function ProjektFormDialog({ projekt, trigger, onSuccess }: ProjektFormDi
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={triggerElement as React.ReactElement} />
+      {hasTrigger && <DialogTrigger render={triggerElement as React.ReactElement} />}
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Upravit projekt' : 'Nový projekt'}</DialogTitle>

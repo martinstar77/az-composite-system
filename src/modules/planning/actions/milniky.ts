@@ -204,3 +204,41 @@ export async function updateMilnikStav(
     return { success: false, error: e.message }
   }
 }
+
+// --- Aktualizace popisu a progressu (úkoly/checkboxy) ---
+export async function updateMilnikTasks(
+  milnikId: string,
+  popis: string,
+  progres_procenta: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Nepřihlášený uživatel' }
+
+    const update: Record<string, unknown> = {
+      popis,
+      progres_procenta,
+      upravil_id: user.id,
+    }
+
+    // Automaticky přehodit stav pokud je progress 100% nebo > 0%
+    if (progres_procenta === 100) {
+      update.stav = 'completed'
+      update.datum_dokonceni = new Date().toISOString().split('T')[0]
+    } else if (progres_procenta > 0) {
+      update.stav = 'in_progress'
+    }
+
+    const { error } = await supabase
+      .from('milniky')
+      .update(update)
+      .eq('id', milnikId)
+
+    if (error) throw error
+    revalidatePath('/planovani')
+    return { success: true }
+  } catch (e: any) {
+    return { success: false, error: e.message }
+  }
+}

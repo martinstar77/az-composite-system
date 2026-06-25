@@ -36,11 +36,23 @@ interface MilnikFormDialogProps {
   milnik?: Milnik
   trigger?: React.ReactNode
   onSuccess?: (milnik: Milnik) => void
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function MilnikFormDialog({ projektId, milnik, trigger, onSuccess }: MilnikFormDialogProps) {
-  const [open, setOpen] = useState(false)
+export function MilnikFormDialog({
+  projektId,
+  milnik,
+  trigger,
+  onSuccess,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+}: MilnikFormDialogProps) {
+  const [localOpen, setLocalOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
+
+  const open = controlledOpen !== undefined ? controlledOpen : localOpen
+  const setOpen = controlledOnOpenChange !== undefined ? controlledOnOpenChange : setLocalOpen
 
   const [form, setForm] = useState({
     nazev: milnik?.nazev ?? '',
@@ -90,6 +102,7 @@ export function MilnikFormDialog({ projektId, milnik, trigger, onSuccess }: Miln
     })
   }
 
+  const hasTrigger = trigger !== null
   const triggerElement = trigger ?? (
     <Button size="sm" variant="outline">
       {isEdit ? 'Upravit' : '+ Přidat milník'}
@@ -98,7 +111,7 @@ export function MilnikFormDialog({ projektId, milnik, trigger, onSuccess }: Miln
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={triggerElement as React.ReactElement} />
+      {hasTrigger && <DialogTrigger render={triggerElement as React.ReactElement} />}
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Upravit milník' : 'Nový milník'}</DialogTitle>

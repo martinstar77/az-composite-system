@@ -28,6 +28,7 @@ function formatDate(dateStr: string | null) {
 
 export function ProjektCard({ projekt }: ProjektCardProps) {
   const [isPending, startTransition] = useTransition()
+  const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false)
   const stavCfg = STAV_PROJEKTU_CONFIG[projekt.stav]
   const progres = projekt.prumerne_progres ?? 0
   const pocet = projekt.pocet_milniku ?? 0
@@ -82,15 +83,10 @@ export function ProjektCard({ projekt }: ProjektCardProps) {
                 <span className="sr-only">Akce projektu</span>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <ProjektFormDialog
-                  projekt={projekt}
-                  trigger={
-                    <DropdownMenuItem onSelect={e => e.preventDefault()}>
-                      <Pencil className="h-3.5 w-3.5 mr-2" />
-                      Upravit projekt
-                    </DropdownMenuItem>
-                  }
-                />
+                <DropdownMenuItem onSelect={() => setIsEditDialogOpen(true)}>
+                  <Pencil className="h-3.5 w-3.5 mr-2" />
+                  Upravit projekt
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
@@ -156,6 +152,13 @@ export function ProjektCard({ projekt }: ProjektCardProps) {
           </div>
         )}
       </div>
+
+      <ProjektFormDialog
+        projekt={projekt}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        trigger={null}
+      />
     </div>
   )
 }
