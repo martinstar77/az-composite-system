@@ -25,6 +25,7 @@ import {
 } from '@/shared/components/ui/select'
 import { upsertUkol } from '../actions/ukoly'
 import { getAllMilnikyActive } from '../actions/milniky'
+import { getCileByMilnik } from '../actions/goals'
 import {
   UkolPlanovani,
   StavUkolu,
@@ -36,6 +37,7 @@ import {
   STAV_UKOLU_CONFIG,
   TYP_UDALOSTI_CONFIG,
   PRIORITA_CONFIG,
+  CilOddeleniMilniku,
 } from '../types'
 
 interface UkolFormDialogProps {
@@ -104,9 +106,11 @@ export function UkolFormDialog({
     datum_splatnosti: ukol?.datum_splatnosti ?? '',
     lokalita: ukol?.lokalita ?? '',
     barva: ukol?.barva ?? '',
+    cil_id: ukol?.cil_id ?? '',
   })
 
   const [checklist, setChecklist] = useState<ChecklistItem[]>(ukol?.checklist ?? [])
+  const [milestoneGoals, setMilestoneGoals] = useState<CilOddeleniMilniku[]>([])
 
   // Sync state when dialog opens or task changes
   useEffect(() => {
@@ -123,11 +127,33 @@ export function UkolFormDialog({
         datum_splatnosti: ukol?.datum_splatnosti ?? '',
         lokalita: ukol?.lokalita ?? '',
         barva: ukol?.barva ?? '',
+        cil_id: ukol?.cil_id ?? '',
       })
       setChecklist(ukol?.checklist ?? [])
       setSelectedMilnikId(ukol?.milnik_id ?? milnikId ?? '')
     }
   }, [open, ukol, milnikId])
+
+  // Load goals for selected milestone
+  useEffect(() => {
+    if (open && selectedMilnikId) {
+      getCileByMilnik(selectedMilnikId).then(res => {
+        if (res.success && res.data) {
+          setMilestoneGoals(res.data)
+          // If editing or form already has a cil_id, make sure it's valid for this milestone
+          if (form.cil_id && !res.data.some(g => g.id === form.cil_id)) {
+            setForm(prev => ({ ...prev, cil_id: '' }))
+          }
+        } else {
+          setMilestoneGoals([])
+          setForm(prev => ({ ...prev, cil_id: '' }))
+        }
+      })
+    } else {
+      setMilestoneGoals([])
+      setForm(prev => ({ ...prev, cil_id: '' }))
+    }
+  }, [open, selectedMilnikId])
 
   function handleChange(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -172,6 +198,7 @@ export function UkolFormDialog({
           checklist: cleanChecklist,
           lokalita: form.lokalita || null,
           barva: form.barva || null,
+          cil_id: form.cil_id || null,
         },
         ukol?.id
       )
@@ -192,6 +219,7 @@ export function UkolFormDialog({
             datum_splatnosti: '',
             lokalita: '',
             barva: '',
+            cil_id: '',
           })
           setChecklist([])
         }
@@ -370,6 +398,38 @@ export function UkolFormDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Taktický cíl */}
+          {milestoneGoals.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <Label>Taktický cíl oddělení</Label>
+              <Select value={form.cil_id} onValueChange={v => handleChange('cil_id', v ?? '')}>
+                <SelectTrigger id="ukol-cil">
+                  <SelectValue placeholder="Přiřadit k cíli...">
+                    {form.cil_id === ''
+                      ? '-- Bez cíle --'
+                      : milestoneGoals.find(g => g.id === form.cil_id)?.nazev}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">-- Bez cíle --</SelectItem>
+                  {milestoneGoals.map(g => {
+                    const dept = ODDELENI_CONFIG[g.oddeleni_id]
+                    return (
+                      <SelectItem key={g.id} value={g.id}>
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded border shrink-0 font-medium ${dept?.bg} ${dept?.color}`}>
+                            {dept?.label || g.oddeleni_id}
+                          </span>
+                          <span className="truncate max-w-[280px]">{g.nazev}</span>
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Termíny */}
           <div className="grid grid-cols-2 gap-3">

@@ -166,6 +166,12 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
               {ukol.typ_udalosti === 'meeting' && '👥 '}
               {ukol.nazev}
             </span>
+            {ukol.cil_info && (
+              <div className="flex items-center gap-1 text-[9px] text-muted-foreground/75 mt-0.5 bg-muted/40 hover:bg-muted/60 border border-border/30 rounded px-1.5 py-0.5 w-fit select-none font-medium max-w-full">
+                <span className="shrink-0 text-[10px]">🎯</span>
+                <span className="truncate" title={ukol.cil_info.nazev}>{ukol.cil_info.nazev}</span>
+              </div>
+            )}
             <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/80 mt-0.5">
               <span className={oddeleniCfg.color}>{oddeleniCfg.label}</span>
               <span>•</span>

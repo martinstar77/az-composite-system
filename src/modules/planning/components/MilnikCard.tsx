@@ -14,14 +14,17 @@ import {
   CheckSquare2,
   Square,
   Sparkles,
+  Target,
 } from 'lucide-react'
-import { Milnik, STAV_MILNIKU_CONFIG, PRIORITA_CONFIG, UkolPlanovani } from '../types'
+import { Milnik, STAV_MILNIKU_CONFIG, PRIORITA_CONFIG, UkolPlanovani, CilOddeleniMilniku, ODDELENI_CONFIG, OddeleniType } from '../types'
 import { deleteMilnik, updateMilnikStav, updateMilnikTasks } from '../actions/milniky'
 import { MilnikFormDialog } from './MilnikFormDialog'
 import { getUkolyByMilnik, createQuickUkol } from '../actions/ukoly'
+import { getCileByMilnik } from '../actions/goals'
 import { getUsers } from '@/modules/users/actions'
 import { UkolRow } from './UkolRow'
 import { UkolFormDialog as AddUkolFormDialog } from './UkolFormDialog'
+import { CilFormDialog } from './CilFormDialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -82,6 +85,9 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
   // Stav pro databázové úkoly (Plánování v2.0)
   const [ukoly, setUkoly] = React.useState<UkolPlanovani[]>([])
   const [loadingUkoly, setLoadingUkoly] = React.useState(true)
+  const [goals, setGoals] = React.useState<CilOddeleniMilniku[]>([])
+  const [loadingGoals, setLoadingGoals] = React.useState(true)
+  const [isGoalsDialogOpen, setIsGoalsDialogOpen] = React.useState(false)
   const [userProfiles, setUserProfiles] = React.useState<any[]>([])
   const [isAddingQuick, setIsAddingQuick] = React.useState(false)
   const [quickTitle, setQuickTitle] = React.useState('')
@@ -95,8 +101,17 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
     setLoadingUkoly(false)
   }, [milnik.id])
 
+  const loadGoals = React.useCallback(async () => {
+    const res = await getCileByMilnik(milnik.id)
+    if (res.success && res.data) {
+      setGoals(res.data)
+    }
+    setLoadingGoals(false)
+  }, [milnik.id])
+
   React.useEffect(() => {
     loadUkoly()
+    loadGoals()
     
     async function loadUsers() {
       const res = await getUsers()
@@ -105,7 +120,7 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
       }
     }
     loadUsers()
-  }, [loadUkoly])
+  }, [loadUkoly, loadGoals])
 
   // Rychlé přidání úkolu
   async function handleQuickAddSubmit(e: React.FormEvent) {
@@ -272,6 +287,10 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
               <Pencil className="h-3.5 w-3.5 mr-2" />
               Upravit milník
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setIsGoalsDialogOpen(true)}>
+              <Target className="h-3.5 w-3.5 mr-2" />
+              Cíle oddělení
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={handleToggleComplete}>
               <CheckCircle2 className="h-3.5 w-3.5 mr-2 text-emerald-500" />
               {isCompleted ? 'Označit jako aktivní' : 'Označit jako splněný'}
@@ -320,6 +339,42 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
               {formatMarkdownLine(line)}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Taktické cíle oddělení */}
+      {goals.length > 0 && (
+        <div className="mt-4 flex flex-col gap-2 pt-3 border-t border-dashed">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+              🎯 Taktické cíle
+            </span>
+          </div>
+          <div className="flex flex-col gap-1.5 mt-1">
+            {goals.map(goal => {
+              const cfg = ODDELENI_CONFIG[goal.oddeleni_id as OddeleniType] || { label: goal.oddeleni_id, colorHex: '#4d4d4d' }
+              return (
+                <div 
+                  key={goal.id} 
+                  className="text-[11px] p-2 rounded-lg border leading-normal bg-card/40 flex flex-col gap-0.5"
+                  style={{ borderLeft: `3px solid ${cfg.colorHex || '#4d4d4d'}` }}
+                  title={`${cfg.label}: ${goal.nazev}`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[9px] font-bold opacity-80 uppercase tracking-wide" style={{ color: cfg.colorHex }}>
+                      {cfg.label}
+                    </span>
+                    <span className="text-[9px] text-muted-foreground italic">
+                      {goal.stav === 'completed' ? '✓ splněno' : goal.stav === 'in_progress' ? 'probíhá' : 'plánováno'}
+                    </span>
+                  </div>
+                  <span className={`font-semibold ${goal.stav === 'completed' ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                    {goal.nazev}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -475,6 +530,14 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
         open={isEditDialogOpen}
         onOpenChange={setIsEditDialogOpen}
         trigger={null}
+      />
+
+      <CilFormDialog
+        milnikId={milnik.id}
+        milnikNazev={milnik.nazev}
+        open={isGoalsDialogOpen}
+        onOpenChange={setIsGoalsDialogOpen}
+        onSuccess={loadGoals}
       />
     </div>
   )

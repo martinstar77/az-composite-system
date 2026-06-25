@@ -119,6 +119,19 @@ export interface UzivatelMinRef {
   avatar_url?: string | null
 }
 
+export interface CilOddeleniMilniku {
+  id: string
+  milnik_id: string
+  oddeleni_id: string
+  nazev: string
+  popis: string | null
+  stav: 'planned' | 'in_progress' | 'completed' | 'cancelled'
+  vytvoreno_at: string
+  aktualizovano_at: string
+  vytvoril_id: string | null
+  upravil_id: string | null
+}
+
 export interface UkolPlanovani {
   id: string
   milnik_id: string
@@ -140,10 +153,12 @@ export interface UkolPlanovani {
   upravil_id: string | null
   lokalita: string | null
   barva: string | null
+  cil_id: string | null
   // Joinovaná data (volitelné — dle dotazu)
   vlastnik?: UzivatelMinRef | null
   milnik?: Pick<Milnik, 'id' | 'nazev' | 'barva' | 'projekt_id'> | null
   oddeleni_info?: { id: string; nazev: string; barva: string; vlastnik_id: string | null } | null
+  cil_info?: { id: string; nazev: string; stav: string } | null
 }
 
 /** Payload pro INSERT / UPDATE — bez audit polí */
@@ -161,6 +176,7 @@ export interface UkolPlanovaniPayload {
   checklist?: ChecklistItem[]
   lokalita?: string | null
   barva?: string | null
+  cil_id?: string | null
 }
 
 // --- UI Konstanty pro úkoly ---

@@ -34,6 +34,7 @@ const ukolSchema = z.object({
   })).default([]),
   lokalita: z.string().optional().nullable(),
   barva: z.string().optional().nullable(),
+  cil_id: z.string().uuid().optional().nullable(),
 })
 
 // ============================================================
@@ -56,6 +57,11 @@ const UKOL_SELECT = `
     nazev,
     barva,
     vlastnik_id
+  ),
+  cil_info:cil_id (
+    id,
+    nazev,
+    stav
   )
 ` as const
 
@@ -239,6 +245,7 @@ export async function upsertUkol(
       checklist: validated.checklist,
       lokalita: validated.lokalita ?? null,
       barva: validated.barva ?? null,
+      cil_id: validated.cil_id ?? null,
       upravil_id: user.id,
       tenant_id: tenantId,
     }

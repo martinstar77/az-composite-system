@@ -13,6 +13,8 @@ import Link from 'next/link'
 import { updatePoradi, deleteMilnik, updateMilnikStav } from '../actions/milniky'
 import { MilnikCard } from './MilnikCard'
 import { MilnikFormDialog } from './MilnikFormDialog'
+import { TaktickeCileTab } from './TaktickeCileTab'
+import { getUsers } from '@/modules/users/actions'
 import { Button } from '@/shared/components/ui/button'
 import {
   Calendar,
@@ -25,6 +27,7 @@ import {
   Trash2,
   Pencil,
   Info,
+  Target,
 } from 'lucide-react'
 
 interface MilestoneTimelineProps {
@@ -46,13 +49,30 @@ export function MilestoneTimeline({ projektId, milniky: initialMilniky, projektB
   
   // Řízení stavu dialogu pro editaci (mimo dropdown kvůli unmount chybě)
   const [activeEditMilnik, setActiveEditMilnik] = useState<Milnik | null>(null)
+  const [userProfiles, setUserProfiles] = useState<{ id: string; jmeno: string }[]>([])
 
-  // Záložky: timeline / table / gantt
-  const [activeTab, setActiveTab] = useState<'timeline' | 'table' | 'gantt'>('timeline')
+  // Záložky: timeline / table / gantt / cile
+  const [activeTab, setActiveTab] = useState<'timeline' | 'table' | 'gantt' | 'cile'>('timeline')
 
-  const handleTabChange = (tab: 'timeline' | 'table' | 'gantt') => {
+  const handleTabChange = (tab: 'timeline' | 'table' | 'gantt' | 'cile') => {
     setActiveTab(tab)
   }
+
+  // Načíst profily uživatelů při připojení komponenty
+  React.useEffect(() => {
+    async function loadUsers() {
+      const res = await getUsers()
+      if (res.data) {
+        setUserProfiles(
+          res.data.map(u => ({
+            id: u.id,
+            jmeno: u.jmeno || u.email || 'Neznámý'
+          }))
+        )
+      }
+    }
+    loadUsers()
+  }, [])
 
   // Statistiky
   const total = milniky.length
@@ -243,6 +263,15 @@ export function MilestoneTimeline({ projektId, milniky: initialMilniky, projektB
           >
             <GanttChartSquare className="h-3.5 w-3.5 mr-1.5" />
             Ganttův diagram
+          </Button>
+          <Button
+            variant={activeTab === 'cile' ? 'secondary' : 'ghost'}
+            size="sm"
+            onClick={() => handleTabChange('cile')}
+            className="h-7 px-2.5 text-xs font-medium"
+          >
+            <Target className="h-3.5 w-3.5 mr-1.5" />
+            Taktické cíle
           </Button>
           <Button
             variant="ghost"
@@ -558,6 +587,15 @@ export function MilestoneTimeline({ projektId, milniky: initialMilniky, projektB
           )}
 
           {/* D. KALENDÁŘ POHLED ODSTRANĚN (přesměrován na globální) */}
+          
+          {/* E. TAKTICKÉ CÍLE ODDĚLENÍ */}
+          {activeTab === 'cile' && (
+            <TaktickeCileTab
+              milniky={milniky}
+              userProfiles={userProfiles}
+              projektBarva={projektBarva}
+            />
+          )}
         </>
       )}
 
