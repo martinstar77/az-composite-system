@@ -53,22 +53,16 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
 
   // Dynamic style calculator for events
   const getEventStyle = useCallback((u: UkolPlanovani) => {
-    const eventColor = u.barva || (u.typ_udalosti === 'meeting' ? '#8b5cf6' : null)
-    if (eventColor) {
-      return {
-        style: {
-          '--event-color': eventColor,
-          borderLeft: `3px solid ${eventColor}`,
-        } as React.CSSProperties,
-        className: `pl-1.5 bg-[color-mix(in_srgb,var(--event-color)_15%,#ffffff)] border-[color-mix(in_srgb,var(--event-color)_30%,#e4e4e7)] text-[color-mix(in_srgb,var(--event-color)_85%,#000000)] dark:bg-[color-mix(in_srgb,var(--event-color)_25%,#18181b)] dark:border-[color-mix(in_srgb,var(--event-color)_45%,#27272a)] dark:text-[color-mix(in_srgb,var(--event-color)_35%,#ffffff)] ${
-          u.stav === 'done' ? 'line-through opacity-50' : ''
-        }`
-      }
-    }
-    const cfg = ODDELENI_CONFIG[u.oddeleni]
+    const eventColor = u.barva || (u.typ_udalosti === 'meeting' ? '#8b5cf6' : ODDELENI_CONFIG[u.oddeleni].colorHex)
     return {
-      style: {},
-      className: `${cfg.bg} ${cfg.color} ${u.stav === 'done' ? 'line-through opacity-50' : ''}`
+      style: {
+        '--event-color': eventColor,
+        borderLeft: `3px solid ${eventColor}`,
+        boxShadow: `0 1px 2px rgba(0, 0, 0, 0.05), 0 0 10px color-mix(in srgb, ${eventColor} 30%, transparent)`,
+      } as React.CSSProperties,
+      className: `pl-1.5 bg-[color-mix(in_srgb,var(--event-color)_12%,#ffffff)] border-[color-mix(in_srgb,var(--event-color)_25%,#e4e4e7)] text-[color-mix(in_srgb,var(--event-color)_85%,#000000)] dark:bg-[color-mix(in_srgb,var(--event-color)_30%,#27272a)] dark:border-[color-mix(in_srgb,var(--event-color)_45%,#3f3f46)] dark:text-[color-mix(in_srgb,var(--event-color)_15%,#ffffff)] ${
+        u.stav === 'done' ? 'line-through opacity-50' : ''
+      }`
     }
   }, [])
   
