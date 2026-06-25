@@ -24,6 +24,7 @@ import {
   PRIORITA_CONFIG
 } from '../types'
 import { getUkolyByDateRange, getMilnikyDeadlines } from '../actions/ukoly'
+import { getProjekty } from '../actions/projekty'
 import { getUsers } from '@/modules/users/actions'
 import { UkolFormDialog } from './UkolFormDialog'
 import { Button } from '@/shared/components/ui/button'
@@ -82,11 +83,15 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
   const [activeEditUkol, setActiveEditUkol] = useState<UkolPlanovani | null>(null)
   
   // Filters
-  const [selectedOddeleni, setSelectedOddeleni] = useState<OddeleniType[]>([])
-  const [selectedOwner, setSelectedOwner] = useState<string>('')
-  const [selectedTyp, setSelectedTyp] = useState<TypUdalostiType[]>([])
-  const [selectedPriorita, setSelectedPriorita] = useState<PrioritaUkolu[]>([])
+  const [selectedOddeleni, setSelectedOddeleni] = useState<OddeleniType | 'all'>('all')
+  const [selectedOwner, setSelectedOwner] = useState<string | 'all'>('all')
+  const [selectedTyp, setSelectedTyp] = useState<TypUdalostiType | 'all'>('all')
+  const [selectedPriorita, setSelectedPriorita] = useState<PrioritaUkolu | 'all'>('all')
+  const [selectedProjekt, setSelectedProjekt] = useState<string | 'all'>('all')
   const [showFilters, setShowFilters] = useState(false)
+
+  // Projects list for filter
+  const [projekty, setProjekty] = useState<any[]>([])
 
   // Touch swipe states
   const [touchStart, setTouchStart] = useState<number | null>(null)
@@ -150,8 +155,17 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
         setUserProfiles(res.data)
       }
     }
+    async function loadProjects() {
+      if (!projektId) {
+        const res = await getProjekty()
+        if (res.data) {
+          setProjekty(res.data)
+        }
+      }
+    }
     loadUsers()
-  }, [])
+    loadProjects()
+  }, [projektId])
 
   // Navigation handlers
   function handlePrev() {
@@ -217,11 +231,15 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
   // Filter application
   const filteredUkoly = ukoly.filter(u => {
     // Projekt filter
-    if (projektId && u.milnik?.projekt_id !== projektId) return false
+    if (projektId) {
+      if (u.milnik?.projekt_id !== projektId) return false
+    } else if (selectedProjekt !== 'all') {
+      if (u.milnik?.projekt_id !== selectedProjekt) return false
+    }
     // Oddělení filter
-    if (selectedOddeleni.length > 0 && !selectedOddeleni.includes(u.oddeleni)) return false
+    if (selectedOddeleni !== 'all' && u.oddeleni !== selectedOddeleni) return false
     // Vlastník filter
-    if (selectedOwner) {
+    if (selectedOwner !== 'all') {
       if (selectedOwner === '-') {
         if (u.vlastnik_id) return false
       } else if (u.vlastnik_id !== selectedOwner) {
@@ -229,23 +247,28 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
       }
     }
     // Typ filter
-    if (selectedTyp.length > 0 && !selectedTyp.includes(u.typ_udalosti)) return false
+    if (selectedTyp !== 'all' && u.typ_udalosti !== selectedTyp) return false
     // Priorita filter
-    if (selectedPriorita.length > 0 && !selectedPriorita.includes(u.priorita as PrioritaUkolu)) return false
+    if (selectedPriorita !== 'all' && u.priorita !== selectedPriorita) return false
     return true
   })
 
   // Filter application for milestone deadlines
   const filteredMilniky = milnikyDeadlines.filter(m => {
-    if (projektId && m.projekt_id !== projektId) return false
-    // Only show milestones if 'deadline' is in selectedTyp or if no type filter is active
-    if (selectedTyp.length > 0 && !selectedTyp.includes('deadline')) return false
+    // Projekt filter
+    if (projektId) {
+      if (m.projekt_id !== projektId) return false
+    } else if (selectedProjekt !== 'all') {
+      if (m.projekt_id !== selectedProjekt) return false
+    }
+    // Only show milestones if 'deadline' is selected or if no type filter is active
+    if (selectedTyp !== 'all' && selectedTyp !== 'deadline') return false
     
     // Milestones do not have department, owner, or task priority in this context.
     // If user has filtered by department, owner, or priority, we should hide milestones since they don't match those filters.
-    if (selectedOddeleni.length > 0) return false
-    if (selectedOwner) return false
-    if (selectedPriorita.length > 0) return false
+    if (selectedOddeleni !== 'all') return false
+    if (selectedOwner !== 'all') return false
+    if (selectedPriorita !== 'all') return false
     
     return true
   })
@@ -685,15 +708,26 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
             </Button>
           </div>
 
-          <Button
-            variant={showFilters || selectedOddeleni.length > 0 || selectedOwner || selectedTyp.length > 0 || selectedPriorita.length > 0 ? 'secondary' : 'outline'}
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className="h-7 text-xs"
-          >
-            <Filter className="h-3.5 w-3.5 mr-1" />
-            Filtry {(selectedOddeleni.length + (selectedOwner ? 1 : 0) + selectedTyp.length + selectedPriorita.length) > 0 && `(${selectedOddeleni.length + (selectedOwner ? 1 : 0) + selectedTyp.length + selectedPriorita.length})`}
-          </Button>
+          {(() => {
+            const activeFiltersCount = 
+              (selectedOddeleni !== 'all' ? 1 : 0) +
+              (selectedOwner !== 'all' ? 1 : 0) +
+              (selectedTyp !== 'all' ? 1 : 0) +
+              (selectedPriorita !== 'all' ? 1 : 0) +
+              (!projektId && selectedProjekt !== 'all' ? 1 : 0)
+
+            return (
+              <Button
+                variant={showFilters || activeFiltersCount > 0 ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="h-7 text-xs"
+              >
+                <Filter className="h-3.5 w-3.5 mr-1" />
+                Filtry {activeFiltersCount > 0 && `(${activeFiltersCount})`}
+              </Button>
+            )
+          })()}
         </div>
       </div>
 
@@ -706,10 +740,11 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
             </h3>
             <button 
               onClick={() => {
-                setSelectedOddeleni([])
-                setSelectedOwner('')
-                setSelectedTyp([])
-                setSelectedPriorita([])
+                setSelectedOddeleni('all')
+                setSelectedOwner('all')
+                setSelectedTyp('all')
+                setSelectedPriorita('all')
+                setSelectedProjekt('all')
               }}
               className="text-[10px] font-bold text-destructive hover:underline"
             >
@@ -717,41 +752,48 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-            {/* Department Filter */}
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold flex items-center gap-1 text-muted-foreground"><Briefcase className="h-3.5 w-3.5" /> Oddělení</Label>
-              <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto pr-1">
-                {(Object.entries(ODDELENI_CONFIG) as [OddeleniType, typeof ODDELENI_CONFIG[OddeleniType]][]).map(([key, cfg]) => {
-                  const active = selectedOddeleni.includes(key)
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => {
-                        setSelectedOddeleni(prev => 
-                          prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]
-                        )
-                      }}
-                      className={`text-[10px] font-medium px-2 py-0.5 rounded-full border transition-all ${
-                        active ? `${cfg.bg} ${cfg.color} border-current ring-1 ring-offset-1 ring-current` : 'bg-transparent text-muted-foreground hover:bg-muted'
-                      }`}
-                    >
-                      {cfg.label}
-                    </button>
-                  )
-                })}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {/* Projekt Filter (only show if not locked to project) */}
+            {!projektId && (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Projekt</span>
+                <select
+                  value={selectedProjekt}
+                  onChange={e => setSelectedProjekt(e.target.value)}
+                  className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  <option value="all">Všechny projekty</option>
+                  {projekty.map(p => (
+                    <option key={p.id} value={p.id}>{p.nazev}</option>
+                  ))}
+                </select>
               </div>
+            )}
+
+            {/* Oddělení Filter */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Oddělení</span>
+              <select
+                value={selectedOddeleni}
+                onChange={e => setSelectedOddeleni(e.target.value as any)}
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="all">Všechna oddělení</option>
+                {Object.entries(ODDELENI_CONFIG).map(([key, cfg]) => (
+                  <option key={key} value={key}>{cfg.label}</option>
+                ))}
+              </select>
             </div>
 
             {/* Owner Filter */}
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold flex items-center gap-1 text-muted-foreground"><User className="h-3.5 w-3.5" /> Odpovědná osoba</Label>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Odpovědná osoba</span>
               <select
                 value={selectedOwner}
                 onChange={e => setSelectedOwner(e.target.value)}
-                className="w-full text-xs px-2.5 py-1.5 rounded-lg border bg-background border-border/80 focus:outline-none focus:ring-1 focus:ring-primary"
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <option value="">Všichni</option>
+                <option value="all">Všichni</option>
                 <option value="-">Nepřiřazeno</option>
                 {userProfiles.map(u => (
                   <option key={u.id} value={u.id}>{u.jmeno}</option>
@@ -761,52 +803,32 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
 
             {/* Type Filter */}
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold flex items-center gap-1 text-muted-foreground"><CalendarIcon className="h-3.5 w-3.5" /> Typ události</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {(Object.entries(TYP_UDALOSTI_CONFIG) as [TypUdalostiType, typeof TYP_UDALOSTI_CONFIG[TypUdalostiType]][]).map(([key, cfg]) => {
-                  const active = selectedTyp.includes(key)
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => {
-                        setSelectedTyp(prev => 
-                          prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]
-                        )
-                      }}
-                      className={`text-[10px] font-medium px-2 py-0.5 rounded-full border transition-all ${
-                        active ? 'bg-primary text-primary-foreground border-transparent' : 'bg-transparent text-muted-foreground hover:bg-muted'
-                      }`}
-                    >
-                      {cfg.icon} {cfg.label}
-                    </button>
-                  )
-                })}
-              </div>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Typ události</span>
+              <select
+                value={selectedTyp}
+                onChange={e => setSelectedTyp(e.target.value as any)}
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="all">Všechny typy</option>
+                {Object.entries(TYP_UDALOSTI_CONFIG).map(([key, cfg]) => (
+                  <option key={key} value={key}>{cfg.icon} {cfg.label}</option>
+                ))}
+              </select>
             </div>
 
             {/* Priority Filter */}
             <div className="flex flex-col gap-1.5">
-              <Label className="text-xs font-semibold flex items-center gap-1 text-muted-foreground"><AlertCircle className="h-3.5 w-3.5" /> Priorita</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {(Object.entries(PRIORITA_CONFIG) as [PrioritaUkolu, typeof PRIORITA_CONFIG[PrioritaUkolu]][]).map(([key, cfg]) => {
-                  const active = selectedPriorita.includes(key)
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => {
-                        setSelectedPriorita(prev => 
-                          prev.includes(key) ? prev.filter(x => x !== key) : [...prev, key]
-                        )
-                      }}
-                      className={`text-[10px] font-medium px-2 py-0.5 rounded-full border transition-all ${
-                        active ? 'bg-primary text-primary-foreground border-transparent' : 'bg-transparent text-muted-foreground hover:bg-muted'
-                      }`}
-                    >
-                      {cfg.icon} {cfg.label}
-                    </button>
-                  )
-                })}
-              </div>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Priorita</span>
+              <select
+                value={selectedPriorita}
+                onChange={e => setSelectedPriorita(e.target.value as any)}
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="all">Všechny priority</option>
+                {Object.entries(PRIORITA_CONFIG).map(([key, cfg]) => (
+                  <option key={key} value={key}>{cfg.icon} {cfg.label}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
