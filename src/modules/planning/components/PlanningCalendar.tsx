@@ -454,7 +454,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                               type="button"
                               className={`text-left w-full text-[9px] border rounded px-1.5 py-0.5 truncate flex items-center gap-1 cursor-pointer transition-all font-medium shadow-[0_0_8px_rgba(0,0,0,0.02)] ${
                                 isSchuzka
-                                  ? 'bg-amber-500/15 border-amber-500/35 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25 dark:bg-amber-500/20 dark:border-amber-500/45 dark:hover:bg-amber-500/30 dark:shadow-[0_0_10px_rgba(245,158,11,0.25)]'
+                                  ? 'bg-yellow-500/15 border-yellow-500/35 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-500/25 dark:bg-yellow-500/20 dark:border-yellow-500/45 dark:hover:bg-yellow-500/30 dark:shadow-[0_0_10px_rgba(234,179,8,0.25)]'
                                   : 'bg-orange-500/15 border-orange-500/35 text-orange-600 dark:text-orange-400 hover:bg-orange-500/25 dark:bg-orange-500/20 dark:border-orange-500/45 dark:hover:bg-orange-500/30 dark:shadow-[0_0_10px_rgba(249,115,22,0.25)]'
                               }`}
                               title={`${isSchuzka ? 'Schůzka (ext.)' : 'Meeting (int.)'}: ${event.nazev}${event.lokalita ? ' (📍 ' + event.lokalita + ')' : ''}`}
@@ -501,7 +501,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                   {dayUdalosti.map(e => (
                     <span 
                       key={e.id}
-                      className={`h-1.5 w-1.5 rounded-full shrink-0 shadow-[0_0_6px_currentColor] ${e.typ === 'schuzka' ? 'bg-amber-500' : 'bg-orange-500'}`}
+                      className={`h-1.5 w-1.5 rounded-full shrink-0 shadow-[0_0_6px_currentColor] ${e.typ === 'schuzka' ? 'bg-yellow-500' : 'bg-orange-500'}`}
                       title={e.nazev}
                     />
                   ))}
@@ -562,7 +562,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                           type="button"
                           className={`text-left w-full flex flex-col gap-1 p-2.5 rounded-lg border cursor-pointer transition-colors shadow-sm ${
                             isSchuzka
-                              ? 'border-amber-500/35 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400'
+                              ? 'border-yellow-500/35 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
                               : 'border-orange-500/35 bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-400'
                           }`}
                         >
@@ -572,7 +572,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                             </span>
                             <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold border ${
                               isSchuzka
-                                ? 'border-amber-500/40 bg-amber-500/20 text-amber-700 dark:text-amber-400'
+                                ? 'border-yellow-500/40 bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
                                 : 'border-orange-500/40 bg-orange-500/20 text-orange-700 dark:text-orange-400'
                             }`}>
                               {isSchuzka ? 'Schůzka (ext.)' : 'Meeting (int.)'}
@@ -676,7 +676,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                           type="button"
                           className={`text-left w-full p-2.5 rounded-lg border text-[11px] leading-normal flex flex-col gap-1 cursor-pointer transition-all mb-2 shadow-sm ${
                             isSchuzka
-                              ? 'border-amber-500/35 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 dark:shadow-[0_0_8px_rgba(245,158,11,0.2)]'
+                              ? 'border-yellow-500/35 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-700 dark:text-yellow-400 dark:shadow-[0_0_8px_rgba(234,179,8,0.2)]'
                               : 'border-orange-500/35 bg-orange-500/10 hover:bg-orange-500/20 text-orange-700 dark:text-orange-400 dark:shadow-[0_0_8px_rgba(249,115,22,0.2)]'
                           }`}
                         >
@@ -764,22 +764,22 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                         type="button"
                         className={`text-left w-full p-3 rounded-lg border cursor-pointer transition-colors flex justify-between items-center gap-4 shadow-sm ${
                           isSchuzka
-                            ? 'border-amber-500/35 bg-amber-500/10 hover:bg-amber-500/20'
+                            ? 'border-yellow-500/35 bg-yellow-500/10 hover:bg-yellow-500/20'
                             : 'border-orange-500/35 bg-orange-500/10 hover:bg-orange-500/20'
                         }`}
                       >
                         <div className="flex flex-col gap-1 min-w-0">
-                          <span className={`text-xs font-bold leading-normal truncate ${isSchuzka ? 'text-amber-700 dark:text-amber-400' : 'text-orange-700 dark:text-orange-400'}`}>
+                          <span className={`text-xs font-bold leading-normal truncate ${isSchuzka ? 'text-yellow-700 dark:text-yellow-400' : 'text-orange-700 dark:text-orange-400'}`}>
                             {isSchuzka ? '🤝' : '👥'} {event.nazev}
                           </span>
-                          <span className={`text-[10px] opacity-80 ${isSchuzka ? 'text-amber-700/80 dark:text-amber-400/80' : 'text-orange-700/80 dark:text-orange-400/80'}`}>
+                          <span className={`text-[10px] opacity-80 ${isSchuzka ? 'text-yellow-700/80 dark:text-yellow-400/80' : 'text-orange-700/80 dark:text-orange-400/80'}`}>
                             Organizátor: {userProfiles.find(p => p.id === event.organizator_id)?.jmeno || "Nepřiřazeno"}
                             {event.lokalita && ` • 📍 ${event.lokalita}`}
                           </span>
                         </div>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
                           isSchuzka
-                            ? 'border-amber-500/40 bg-amber-500/20 text-amber-700 dark:text-amber-400'
+                            ? 'border-yellow-500/40 bg-yellow-500/20 text-yellow-700 dark:text-yellow-400'
                             : 'border-orange-500/40 bg-orange-500/20 text-orange-700 dark:text-orange-400'
                         }`}>
                           {isSchuzka ? 'Schůzka (ext.)' : 'Meeting (int.)'}
@@ -889,7 +889,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
               onSuccess={loadData}
               defaultTyp="schuzka"
               trigger={
-                <Button size="sm" variant="ghost" className="h-7 text-xs px-2 sm:px-2.5 font-semibold text-amber-500 hover:text-amber-600 hover:bg-amber-500/10 gap-1 shrink-0">
+                <Button size="sm" variant="ghost" className="h-7 text-xs px-2 sm:px-2.5 font-semibold text-yellow-500 hover:text-yellow-600 hover:bg-yellow-500/10 gap-1 shrink-0">
                   <span>🤝 Schůzka</span>
                 </Button>
               }

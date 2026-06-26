@@ -17,7 +17,8 @@ import {
   User, 
   ListTodo, 
   FileText, 
-  BookOpen 
+  BookOpen,
+  Settings
 } from "lucide-react"
 
 import { Button } from "@/shared/components/ui/button"
@@ -42,6 +43,7 @@ import { Separator } from "@/shared/components/ui/separator"
 import { RichTextEditor } from "@/modules/notes/components/RichTextEditor"
 import { UdalostPlanovani, AgendaTopic, ODDELENI_CONFIG } from "../types"
 import { upsertUdalost, generateMeetingOutputViaAI, getTasksByMeeting } from "../actions/udalosti"
+import { UdalostFormDialog } from "./UdalostFormDialog"
 
 interface MeetingWorkspaceProps {
   meeting: UdalostPlanovani
@@ -56,12 +58,12 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
   const [activeTab, setActiveTab] = useState<"agenda" | "notes" | "outputs">("agenda")
 
   const isSchuzka = meeting.typ === 'schuzka'
-  const brandColorClass = isSchuzka ? 'text-amber-400' : 'text-orange-400'
-  const brandBadgeClass = isSchuzka ? 'border-amber-500/30 text-amber-400 bg-amber-500/5' : 'border-orange-500/30 text-orange-400 bg-orange-500/5'
-  const brandBtnClass = isSchuzka ? 'border-amber-500/30 hover:bg-amber-500/10 text-amber-400' : 'border-orange-500/30 hover:bg-orange-500/10 text-orange-400'
-  const brandTabActiveStyle = isSchuzka ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
-  const brandItemActiveStyle = isSchuzka ? 'bg-amber-500/10 border-amber-500/40 text-white font-semibold' : 'bg-orange-500/10 border-orange-500/40 text-white font-semibold'
-  const brandTextHoverClass = isSchuzka ? 'hover:text-amber-400' : 'hover:text-orange-400'
+  const brandColorClass = isSchuzka ? 'text-yellow-400 font-semibold' : 'text-orange-400 font-semibold'
+  const brandBadgeClass = isSchuzka ? 'border-yellow-400/40 text-yellow-400 bg-yellow-500/10 font-bold shadow-[0_0_8px_rgba(234,179,8,0.2)]' : 'border-orange-500/40 text-orange-400 bg-orange-500/10 font-bold shadow-[0_0_8px_rgba(249,115,22,0.2)]'
+  const brandBtnClass = isSchuzka ? 'border-yellow-400/40 hover:bg-yellow-500/20 text-yellow-400 shadow-[0_0_8px_rgba(234,179,8,0.15)]' : 'border-orange-500/40 hover:bg-orange-500/20 text-orange-400 shadow-[0_0_8px_rgba(249,115,22,0.15)]'
+  const brandTabActiveStyle = isSchuzka ? 'bg-yellow-500/15 text-yellow-400 border border-yellow-500/30 shadow-[0_0_8px_rgba(234,179,8,0.1)]' : 'bg-orange-500/15 text-orange-400 border border-orange-500/30 shadow-[0_0_8px_rgba(249,115,22,0.1)]'
+  const brandItemActiveStyle = isSchuzka ? 'bg-yellow-500/15 border-yellow-500/45 text-white font-semibold shadow-[0_0_8px_rgba(234,179,8,0.15)]' : 'bg-orange-500/15 border-orange-500/45 text-white font-semibold shadow-[0_0_8px_rgba(249,115,22,0.15)]'
+  const brandTextHoverClass = isSchuzka ? 'hover:text-yellow-400' : 'hover:text-orange-400'
 
   // Workspace Local States
   const [agenda, setAgenda] = useState<AgendaTopic[]>(meeting.agenda || [])
@@ -298,6 +300,21 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
             >
               <Save className="h-3.5 w-3.5" /> Uložit stav
             </Button>
+
+            <UdalostFormDialog
+              udalost={meeting}
+              userProfiles={userProfiles}
+              onSuccess={onSuccess}
+              trigger={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 border-zinc-800 bg-zinc-900 hover:bg-zinc-850 gap-1.5 text-xs text-zinc-300"
+                >
+                  <Settings className="h-3.5 w-3.5" /> Nastavení
+                </Button>
+              }
+            />
           </div>
         </div>
 
@@ -349,8 +366,8 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
               <Button
                 onClick={handleGenerateAI}
                 disabled={isPending || !zapis.trim()}
-                className={`w-full h-11 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white gap-2 font-bold shadow-lg ${
-                  isSchuzka ? 'shadow-amber-500/15' : 'shadow-orange-500/15'
+                className={`w-full h-11 bg-gradient-to-r from-orange-600 to-yellow-500 hover:from-orange-500 hover:to-yellow-400 text-white gap-2 font-bold shadow-lg ${
+                  isSchuzka ? 'shadow-yellow-500/20' : 'shadow-orange-500/20'
                 }`}
               >
                 <Sparkles className="h-4 w-4 fill-current animate-pulse text-yellow-300" />
