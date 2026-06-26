@@ -29,6 +29,7 @@ import { getUdalostiByDateRange } from '../actions/udalosti'
 import { getProjekty } from '../actions/projekty'
 import { getUsers } from '@/modules/users/actions'
 import { UkolFormDialog } from './UkolFormDialog'
+import { UdalostFormDialog } from './UdalostFormDialog'
 import { MeetingWorkspace } from './MeetingWorkspace'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
@@ -433,22 +434,26 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
 
                   {/* Meetings & Events */}
                   {dayUdalosti.map(event => (
-                    <MeetingWorkspace
+                    <div
                       key={event.id}
-                      meeting={event}
-                      userProfiles={userProfiles}
-                      onSuccess={loadData}
-                      trigger={
-                        <button
-                          type="button"
-                          className="event-item text-left w-full text-[9px] bg-purple-500/10 dark:bg-purple-950/40 border border-purple-500/20 dark:border-purple-800/40 text-purple-400 rounded px-1.5 py-0.5 truncate flex items-center gap-1 cursor-pointer transition-all hover:bg-purple-500/20 font-medium"
-                          title={`Schůzka: ${event.nazev}${event.lokalita ? ' (📍 ' + event.lokalita + ')' : ''}`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          👥 {event.nazev}
-                        </button>
-                      }
-                    />
+                      onClick={(e) => e.stopPropagation()}
+                      className="event-item w-full"
+                    >
+                      <MeetingWorkspace
+                        meeting={event}
+                        userProfiles={userProfiles}
+                        onSuccess={loadData}
+                        trigger={
+                          <button
+                            type="button"
+                            className="text-left w-full text-[9px] bg-purple-500/10 dark:bg-purple-950/40 border border-purple-500/20 dark:border-purple-800/40 text-purple-400 rounded px-1.5 py-0.5 truncate flex items-center gap-1 cursor-pointer transition-all hover:bg-purple-500/20 font-medium"
+                            title={`Schůzka: ${event.nazev}${event.lokalita ? ' (📍 ' + event.lokalita + ')' : ''}`}
+                          >
+                            👥 {event.nazev}
+                          </button>
+                        }
+                      />
+                    </div>
                   ))}
                   
                   {/* Tasks */}
@@ -797,7 +802,31 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
         </div>
 
         {/* View togglers & Filters toggler */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          {/* Quick Create Buttons */}
+          <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border shrink-0">
+            <UkolFormDialog
+              milnikId={ukoly.length > 0 ? ukoly[0].milnik_id : (milnikyDeadlines.length > 0 ? milnikyDeadlines[0].id : '')}
+              userProfiles={userProfiles}
+              onSuccess={loadData}
+              trigger={
+                <Button size="sm" variant="ghost" className="h-7 text-xs px-2 sm:px-2.5 font-semibold text-blue-500 hover:text-blue-600 hover:bg-blue-500/10 gap-1 shrink-0">
+                  <span>✓ Úkol</span>
+                </Button>
+              }
+            />
+            <UdalostFormDialog
+              milnikId={ukoly.length > 0 ? ukoly[0].milnik_id : (milnikyDeadlines.length > 0 ? milnikyDeadlines[0].id : '')}
+              userProfiles={userProfiles}
+              onSuccess={loadData}
+              trigger={
+                <Button size="sm" variant="ghost" className="h-7 text-xs px-2 sm:px-2.5 font-semibold text-purple-500 hover:text-purple-600 hover:bg-purple-500/10 gap-1 shrink-0">
+                  <span>👥 Schůzka</span>
+                </Button>
+              }
+            />
+          </div>
+
           <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border flex-1 sm:flex-initial justify-center">
             <Button
               variant={view === 'month' ? 'secondary' : 'ghost'}
