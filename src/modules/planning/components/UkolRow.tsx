@@ -25,6 +25,7 @@ import { toggleUkolStav, toggleChecklistItem, deleteUkol } from '../actions/ukol
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { UkolFormDialog } from './UkolFormDialog'
+import { MeetingWorkspace } from './MeetingWorkspace'
 
 interface UkolRowProps {
   ukol: UkolPlanovani
@@ -288,9 +289,28 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
 
           {/* Bottom Actions Row */}
           <div className="flex items-center justify-between mt-1 pt-2 border-t border-border/30">
-            <span className="text-[10px] text-muted-foreground">
-              Stav: <span className={`font-semibold ${stavCfg.color}`}>{stavCfg.label}</span>
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] text-muted-foreground">
+                Stav: <span className={`font-semibold ${stavCfg.color}`}>{stavCfg.label}</span>
+              </span>
+
+              {ukol.typ_udalosti === 'meeting' && (
+                <MeetingWorkspace
+                  meeting={ukol}
+                  userProfiles={userProfiles}
+                  onSuccess={onSuccess}
+                  trigger={
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-7 px-2 text-[10px] font-semibold gap-1 bg-purple-500/5 border-purple-500/20 hover:bg-purple-500/10 text-purple-400"
+                    >
+                      <span>👥 Otevřít Workspace schůzky</span>
+                    </Button>
+                  }
+                />
+              )}
+            </div>
 
             <div className="flex items-center gap-1.5">
               {/* Edit button */}

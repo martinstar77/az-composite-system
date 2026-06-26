@@ -132,6 +132,15 @@ export interface CilOddeleniMilniku {
   upravil_id: string | null
 }
 
+export interface AgendaTopic {
+  id: string
+  nazev: string
+  popis: string | null
+  prezentuje_id: string | null
+  doba_minut: number
+  stav: 'planned' | 'discussed'
+}
+
 export interface UkolPlanovani {
   id: string
   milnik_id: string
@@ -154,6 +163,9 @@ export interface UkolPlanovani {
   lokalita: string | null
   barva: string | null
   cil_id: string | null
+  agenda: AgendaTopic[]
+  zapis: string | null
+  parent_id: string | null
   // Joinovaná data (volitelné — dle dotazu)
   vlastnik?: UzivatelMinRef | null
   milnik?: Pick<Milnik, 'id' | 'nazev' | 'barva' | 'projekt_id'> | null
@@ -177,6 +189,9 @@ export interface UkolPlanovaniPayload {
   lokalita?: string | null
   barva?: string | null
   cil_id?: string | null
+  agenda?: AgendaTopic[]
+  zapis?: string | null
+  parent_id?: string | null
 }
 
 // --- UI Konstanty pro úkoly ---
