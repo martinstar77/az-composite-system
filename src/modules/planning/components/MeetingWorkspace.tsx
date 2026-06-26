@@ -228,7 +228,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={trigger} nativeButton={false} />
-      <DialogContent className="max-w-7xl w-[96vw] h-[92vh] flex flex-col p-0 overflow-hidden bg-zinc-950 border-zinc-800 text-white">
+      <DialogContent className="max-w-none sm:max-w-none w-[98vw] h-[96vh] flex flex-col p-0 overflow-hidden bg-zinc-950 border-zinc-800 text-white">
         
         {/* Workspace Top Header Bar */}
         <div className="px-6 py-4 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between shrink-0">
