@@ -1,10 +1,15 @@
 import { Client } from 'pg';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as dotenv from 'dotenv';
+
+// Load local environment variables
+dotenv.config({ path: '.env.local' });
 
 const isLocal = process.argv.includes('--local');
 const migrationFile = process.argv.slice(2).find(arg => !arg.startsWith('--')) || '20260624120000_planning_module.sql';
 const password = isLocal ? 'postgres' : process.env.DB_PASSWORD;
+
 
 if (!isLocal && !password) {
   console.error('ERROR: Pro spuštění skriptu musíte nastavit proměnnou prostředí DB_PASSWORD.');
