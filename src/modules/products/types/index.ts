@@ -88,9 +88,11 @@ export interface Product {
     mena: string
     is_primary: boolean
     logisticka_sablona_id?: string | null
+    nakupni_mj_id?: string | null
     prevodni_pomer_na_zakladni?: number | null
     moq?: number | null
     logisticke_sablony?: { nazev: string } | null
+    dodavatele?: { nazev_spolecnosti: string } | null
   }[]
   produkt_mnozstevni_slevy?: {
     id: string

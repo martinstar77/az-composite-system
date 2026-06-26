@@ -26,6 +26,7 @@ export async function getProducts(): Promise<{ data: Product[] | null, error: an
         mena,
         is_primary,
         logisticka_sablona_id,
+        nakupni_mj_id,
         prevodni_pomer_na_zakladni,
         moq,
         logisticke_sablony ( nazev )
@@ -84,9 +85,11 @@ export async function getProductsPaged({
         mena,
         is_primary,
         logisticka_sablona_id,
+        nakupni_mj_id,
         prevodni_pomer_na_zakladni,
         moq,
-        logisticke_sablony ( nazev )
+        logisticke_sablony ( nazev ),
+        dodavatele ( nazev_spolecnosti )
       ),
       produkt_mnozstevni_slevy (
         id,
@@ -383,6 +386,7 @@ export async function cloneProduct(id: string) {
         mena,
         is_primary,
         logisticka_sablona_id,
+        nakupni_mj_id,
         prevodni_pomer_na_zakladni,
         moq,
         logisticke_sablony ( nazev )
@@ -468,7 +472,7 @@ export async function bulkUpdateLogisticsTemplate(productIds: string[], template
 export async function getProductLookups() {
   const supabase = await createClient()
 
-  const [categories, units, statuses, labels, processes, templates, fiberCodes, profiles] = await Promise.all([
+  const [categories, units, statuses, labels, processes, templates, fiberCodes, profiles, suppliers] = await Promise.all([
     supabase.from('c_kategorie').select('*').order('nazev'),
     supabase.from('c_merne_jednotky').select('*').order('nazev'),
     supabase.from('c_stavy_produktu').select('*').order('nazev'),
@@ -476,7 +480,8 @@ export async function getProductLookups() {
     supabase.from('c_procesy_odeslani').select('*').order('nazev'),
     supabase.from('logisticke_sablony').select('*').order('nazev'),
     supabase.from('c_kody_vlakna').select('*').order('id'),
-    supabase.from('c_balici_profily').select('*').order('nazev')
+    supabase.from('c_balici_profily').select('*').order('nazev'),
+    supabase.from('dodavatele').select('id, kod, nazev_spolecnosti, zeme_puvodu, vychozi_mena, vychozi_lead_time_tydny').is('deleted_at', null).order('nazev_spolecnosti')
   ])
 
   return {
@@ -487,8 +492,173 @@ export async function getProductLookups() {
     processes: processes.data || [],
     templates: templates.data || [],
     fiberCodes: fiberCodes.data || [],
-    profiles: profiles.data || []
+    profiles: profiles.data || [],
+    suppliers: suppliers.data || []
   }
+}
+
+// ─── Bulk Sourcing ────────────────────────────────────────────────────────────
+
+/**
+ * Hromadně přiřadí dodavatele k více produktům (UPSERT).
+ * Pokud produkt NEMÁ záznam pro tohoto dodavatele → INSERT.
+ * Pokud produkt JIŽ MÁ aktivní záznam → UPDATE logistiky/podmínek (cenu nemění).
+ * Cenu záměrně NEVKLÁDÁME — doplní se přes Speed Pricing (quickUpdateSourcingPrice).
+ */
+export async function bulkUpsertSupplierToProducts(
+  productIds: string[],
+  supplierData: {
+    dodavatel_id: string
+    mena: string
+    logisticka_sablona_id?: string | null
+    nakupni_mj_id?: string | null
+    prevodni_pomer_na_zakladni?: number
+    is_primary: boolean
+  }
+): Promise<{ inserted: number; updated: number; error: any }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const now = new Date().toISOString()
+
+  let inserted = 0
+  let updated = 0
+  let lastError: any = null
+
+  // Pokud nastavujeme jako primárního, odinstalujeme is_primary u ostatních
+  if (supplierData.is_primary) {
+    await supabase
+      .from('produkt_dodavatel')
+      .update({ is_primary: false })
+      .in('produkt_id', productIds)
+      .is('deleted_at', null)
+  }
+
+  // Načteme existující aktivní záznamy pro kombinaci produkty × dodavatel
+  const { data: existingRecords } = await supabase
+    .from('produkt_dodavatel')
+    .select('id, produkt_id, nakupni_cena')
+    .in('produkt_id', productIds)
+    .eq('dodavatel_id', supplierData.dodavatel_id)
+    .is('deleted_at', null)
+
+  const existingByProduct = new Map(
+    (existingRecords || []).map(r => [r.produkt_id, r])
+  )
+
+  for (const productId of productIds) {
+    const existing = existingByProduct.get(productId)
+
+    if (existing) {
+      // UPDATE — pouze logistika + podmínky, cenu zachováváme
+      const { error } = await supabase
+        .from('produkt_dodavatel')
+        .update({
+          logisticka_sablona_id: supplierData.logisticka_sablona_id ?? null,
+          nakupni_mj_id: supplierData.nakupni_mj_id ?? null,
+          prevodni_pomer_na_zakladni: supplierData.prevodni_pomer_na_zakladni ?? 1,
+          is_primary: supplierData.is_primary,
+          mena: supplierData.mena,
+          upravil_id: user?.id,
+          aktualizovano_at: now
+        })
+        .eq('id', existing.id)
+
+      if (error) lastError = error
+      else updated++
+    } else {
+      // INSERT — nový záznam bez ceny (nakupni_cena = 0, doplní Speed Pricing)
+      const { error } = await supabase
+        .from('produkt_dodavatel')
+        .insert({
+          produkt_id: productId,
+          dodavatel_id: supplierData.dodavatel_id,
+          nakupni_cena: 0,
+          mena: supplierData.mena,
+          moq: 1,
+          is_primary: supplierData.is_primary,
+          logisticka_sablona_id: supplierData.logisticka_sablona_id ?? null,
+          nakupni_mj_id: supplierData.nakupni_mj_id ?? null,
+          prevodni_pomer_na_zakladni: supplierData.prevodni_pomer_na_zakladni ?? 1,
+          vytvoril_id: user?.id,
+          upravil_id: user?.id,
+          vytvoreno_at: now,
+          aktualizovano_at: now
+        })
+
+      if (error) lastError = error
+      else inserted++
+    }
+  }
+
+  if (!lastError) revalidatePath('/produkty')
+  return { inserted, updated, error: lastError }
+}
+
+// ─── Speed Pricing ────────────────────────────────────────────────────────────
+
+/**
+ * Rychlá aktualizace nákupní ceny — hledá primárního dodavatele produktu automaticky.
+ * Používáno Speed Pricing Drawerem.
+ */
+export async function quickUpdateSourcingPriceByProduct(
+  productId: string,
+  newPrice: number,
+  mena: string,
+  prevodniPomer?: number,
+  nakupniMjId?: string | null
+): Promise<{ data: any; error: any }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const now = new Date().toISOString()
+
+  // Načteme primárního dodavatele (nebo prvního aktivního)
+  const { data: existing, error: fetchError } = await supabase
+    .from('produkt_dodavatel')
+    .select('*')
+    .eq('produkt_id', productId)
+    .is('deleted_at', null)
+    .order('is_primary', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (fetchError) return { data: null, error: fetchError }
+  if (!existing) return { data: null, error: { message: 'Produkt nemá žádného dodavatele.' } }
+
+  const hasChanges = 
+    existing.nakupni_cena !== newPrice || 
+    existing.mena !== mena ||
+    (prevodniPomer !== undefined && existing.prevodni_pomer_na_zakladni !== prevodniPomer) ||
+    (nakupniMjId !== undefined && existing.nakupni_mj_id !== nakupniMjId)
+
+  if (!hasChanges) return { data: existing, error: null }
+
+  // Soft-delete starého záznamu → zachování cenové historie
+  await supabase
+    .from('produkt_dodavatel')
+    .update({ deleted_at: now, is_primary: false, upravil_id: user?.id, aktualizovano_at: now })
+    .eq('id', existing.id)
+
+  // INSERT nového záznamu s novou cenou a jednotkami
+  const { id: _id, vytvoreno_at: _created, aktualizovano_at: _updated, deleted_at: _del, ...rest } = existing
+  const { data, error } = await supabase
+    .from('produkt_dodavatel')
+    .insert({
+      ...rest,
+      nakupni_cena: newPrice,
+      mena,
+      prevodni_pomer_na_zakladni: prevodniPomer !== undefined ? prevodniPomer : existing.prevodni_pomer_na_zakladni,
+      nakupni_mj_id: nakupniMjId !== undefined ? nakupniMjId : existing.nakupni_mj_id,
+      is_primary: true,
+      vytvoril_id: existing.vytvoril_id,
+      upravil_id: user?.id,
+      vytvoreno_at: now,
+      aktualizovano_at: now
+    })
+    .select()
+    .single()
+
+  if (!error) revalidatePath('/produkty')
+  return { data, error }
 }
 
 export async function getProductQuantityBreaks(productId: string) {

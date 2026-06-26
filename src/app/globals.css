@@ -90,8 +90,8 @@
   --card-foreground: #fafafa;
   --popover: #18181b;
   --popover-foreground: #fafafa;
-  --primary: #8A0485; /* Brand Main Purple - Accent */
-  --primary-foreground: #ffffff;
+  --primary: #f0abfc; /* Very bright fuchsia/purple for dark mode */
+  --primary-foreground: #09090b; /* Dark foreground for high contrast on light bg */
   --secondary: #27272a; /* Neutral dark for secondary */
   --secondary-foreground: #fafafa;
   --muted: #27272a;
@@ -101,20 +101,20 @@
   --destructive: oklch(0.704 0.191 22.216);
   --border: #27272a; /* Subtle borders */
   --input: #27272a;
-  --ring: #8A0485; /* Purple focus ring */
-  --chart-1: #8A0485;
+  --ring: #f0abfc; /* Purple focus ring */
+  --chart-1: #f0abfc;
   --chart-2: #4D4D4D; /* Brand Dark Gray */
   --chart-3: #a1a1aa;
   --chart-4: #52525b;
   --chart-5: #27272a;
   --sidebar: #09090b; /* Merge sidebar into background for a sleek look */
   --sidebar-foreground: #fafafa;
-  --sidebar-primary: #8A0485;
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary: #f0abfc;
+  --sidebar-primary-foreground: #09090b;
   --sidebar-accent: #27272a;
   --sidebar-accent-foreground: #fafafa;
   --sidebar-border: #27272a;
-  --sidebar-ring: #8A0485;
+  --sidebar-ring: #f0abfc;
 }
 
 @layer base {

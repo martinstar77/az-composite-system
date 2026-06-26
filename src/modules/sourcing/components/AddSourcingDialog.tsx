@@ -29,26 +29,6 @@ import { upsertProductSourcing } from "../actions"
 import { Supplier } from "../types"
 import { LogisticsTemplate } from "@/modules/finance/types/logistics"
 
-const ZEME_LIST = [
-  { val: "CZ", label: "Česká republika" },
-  { val: "CN", label: "Čína" },
-  { val: "IT", label: "Itálie" },
-  { val: "DE", label: "Německo" },
-  { val: "PL", label: "Polsko" },
-  { val: "NL", label: "Nizozemsko" },
-  { val: "ES", label: "Španělsko" },
-  { val: "FR", label: "Francie" },
-  { val: "other", label: "Vlastní / Ostatní" },
-]
-
-const DOPRAVA_LIST = [
-  { val: "balik_standard", label: "Standardní krabice / balík" },
-  { val: "balik_dlouhy", label: "Dlouhý / nadrozměrný balík" },
-  { val: "sacek_lq", label: "LQ Sáček / Malý karton" },
-  { val: "paleta", label: "Paleta" },
-  { val: "custom", label: "Vlastní trasa / Ostatní" },
-]
-
 interface AddSourcingDialogProps {
   productId: string
   suppliers: Supplier[]
@@ -77,32 +57,10 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
   const [priceInputMode, setPriceInputMode] = useState<"package" | "unit">("package")
   const [unitPrice, setUnitPrice] = useState("")
 
-  const [selectedCountry, setSelectedCountry] = useState("")
-  const [selectedTransportType, setSelectedTransportType] = useState("")
-
   useEffect(() => {
     if (open && initialData) {
       setSupplierId(initialData.dodavatel_id || "")
       setLogisticsTemplateId(initialData.logisticka_sablona_id || "")
-      
-      const templateId = initialData.logisticka_sablona_id
-      if (templateId) {
-        const match = templates.find(t => t.id === templateId)
-        if (match && match.zeme_puvodu && match.typ_dopravy) {
-          setSelectedCountry(match.zeme_puvodu)
-          setSelectedTransportType(match.typ_dopravy)
-        } else if (match) {
-          setSelectedCountry("other")
-          setSelectedTransportType("custom")
-        } else {
-          setSelectedCountry("")
-          setSelectedTransportType("")
-        }
-      } else {
-        setSelectedCountry("")
-        setSelectedTransportType("")
-      }
-      
       setNakupniMjId(initialData.nakupni_mj_id || "")
       const ratioStr = initialData.prevodni_pomer_na_zakladni?.toString() || "1"
       const priceStr = initialData.nakupni_cena?.toString() || ""
@@ -113,15 +71,12 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
       setLeadTime(initialData.lead_time_tydny?.toString() || "")
       setIsPrimary(initialData.is_primary || false)
       setPriceInputMode("package")
-      
       const ratio = parseFloat(ratioStr) || 1
       const pr = parseFloat(priceStr) || 0
       setUnitPrice((pr / ratio).toFixed(4).replace(/\.?0+$/, ""))
     } else if (open && !initialData) {
       setSupplierId("")
       setLogisticsTemplateId("")
-      setSelectedCountry("")
-      setSelectedTransportType("")
       setNakupniMjId("")
       setPrevodniPomer("1")
       setPrice("")
@@ -132,7 +87,7 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
       setPriceInputMode("package")
       setUnitPrice("")
     }
-  }, [open, initialData, templates])
+  }, [open, initialData])
 
   const handleToggleMode = (mode: "package" | "unit") => {
     setPriceInputMode(mode)
@@ -170,32 +125,6 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
       const pr = parseFloat(price) || 0
       setUnitPrice((pr / ratio).toFixed(4).replace(/\.?0+$/, ""))
     }
-  }
-
-  const resolveTemplate = (country: string, type: string) => {
-    if (!country || !type) {
-      setLogisticsTemplateId("")
-      return
-    }
-    if (country === "other" || type === "custom") {
-      return
-    }
-    const match = templates.find(t => t.zeme_puvodu === country && t.typ_dopravy === type)
-    if (match) {
-      setLogisticsTemplateId(match.id || "")
-    } else {
-      setLogisticsTemplateId("")
-    }
-  }
-
-  const handleCountryChange = (country: string) => {
-    setSelectedCountry(country)
-    resolveTemplate(country, selectedTransportType)
-  }
-
-  const handleTransportTypeChange = (type: string) => {
-    setSelectedTransportType(type)
-    resolveTemplate(selectedCountry, type)
   }
 
   const router = useRouter()
@@ -275,61 +204,32 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Odkud (Země původu)</Label>
-              <Select value={selectedCountry} onValueChange={(val) => handleCountryChange(val || "")}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-800 w-full text-left">
-                  <SelectValue placeholder="— Vyberte zemi —" />
-                </SelectTrigger>
-                <SelectContent className="min-w-[320px] md:min-w-[380px]">
-                  {ZEME_LIST.map(z => (
-                    <SelectItem key={z.val} value={z.val}>{z.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Typ dopravy / zásilky</Label>
-              <Select value={selectedTransportType} onValueChange={(val) => handleTransportTypeChange(val || "")}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-800 w-full text-left">
-                  <SelectValue placeholder="— Vyberte typ —" />
-                </SelectTrigger>
-                <SelectContent className="min-w-[320px] md:min-w-[380px]">
-                  {DOPRAVA_LIST.map(d => (
-                    <SelectItem key={d.val} value={d.val}>{d.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Logistická šablona — přímý select */}
+          <div className="space-y-2">
+            <Label>Logistická šablona</Label>
+            <Select value={logisticsTemplateId} onValueChange={(val) => setLogisticsTemplateId(val || "")}>
+              <SelectTrigger className="bg-zinc-900 border-zinc-800 w-full text-left">
+                <span className="truncate">
+                  {logisticsTemplateId
+                    ? templates.find(t => t.id === logisticsTemplateId)?.nazev
+                    : "— Bez logistické šablony —"}
+                </span>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">— Bez šablony —</SelectItem>
+                {templates.map(t => (
+                  <SelectItem key={t.id} value={t.id!}>
+                    {t.nazev}
+                    <span className="text-zinc-500 ml-2 text-xs">
+                      {t.typ_vypoctu_dopravy === 'procentualni'
+                        ? `${(t.sazba_dopravy * 100).toFixed(0)}%`
+                        : `${t.sazba_dopravy} EUR`}
+                    </span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-
-          {(selectedCountry === "other" || selectedTransportType === "custom") && (
-            <div className="space-y-2 pt-1">
-              <Label>Konkrétní trasa / šablona (Vlastní)</Label>
-              <Select value={logisticsTemplateId} onValueChange={(val) => setLogisticsTemplateId(val || "")}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                  <SelectValue placeholder="— Vyberte trasu —">
-                    {templates.find(t => t.id === logisticsTemplateId)?.nazev}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="min-w-[320px] md:min-w-[380px]">
-                  {templates.map(t => (
-                    <SelectItem key={t.id} value={t.id!}>
-                      {t.nazev}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {selectedCountry && selectedCountry !== "other" && selectedTransportType && selectedTransportType !== "custom" && !logisticsTemplateId && (
-            <div className="p-2.5 bg-amber-500/5 border border-amber-500/20 rounded text-[11px] text-amber-500 font-semibold leading-relaxed">
-              Upozornění: Pro tuto kombinaci země a dopravy není v nastavení systému nakonfigurována logistická trasa.
-            </div>
-          )}
 
           <div className="grid grid-cols-6 gap-3">
             <div className="col-span-2 space-y-2">

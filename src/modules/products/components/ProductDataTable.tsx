@@ -11,7 +11,8 @@ import {
   RowSelectionState,
 } from "@tanstack/react-table"
 import Link from "next/link"
-import { ArrowUpDown, MoreHorizontal, FileEdit, Search, FilterX, ExternalLink, Settings2, Copy, Trash2 } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, FileEdit, Search, FilterX, ExternalLink, Settings2, Copy, Trash2, Building2, Zap } from "lucide-react"
+import { cn } from "@/shared/lib/utils"
 
 import {
   Table,
@@ -49,6 +50,8 @@ import { EditProductDialog } from "./forms/EditProductDialog"
 import { DataTableFacetedFilter } from "@/shared/components/DataTableFacetedFilter"
 import { BulkEditMarginsDialog } from "./forms/BulkEditMarginsDialog"
 import { BulkEditLogisticsDialog } from "./forms/BulkEditLogisticsDialog"
+import { BulkEditSourcingDialog } from "./forms/BulkEditSourcingDialog"
+import { SpeedPricingDrawer } from "./SpeedPricingDrawer"
 import { LogisticsTemplate } from "@/modules/finance/types/logistics"
 import { cloneProduct, deleteProduct, getProductsPaged, getCategoryFacets } from "../actions"
 import { toast } from "sonner"
@@ -63,6 +66,7 @@ interface ProductDataTableProps {
     labels: any[]
     processes: any[]
     templates: LogisticsTemplate[]
+    suppliers: { id: string; kod: string; nazev_spolecnosti: string; vychozi_mena: string }[]
   }
 }
 
@@ -218,12 +222,17 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
   const [isFacetsLoading, setIsFacetsLoading] = React.useState(false)
   
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
+  const [columnVisibility, setColumnVisibility] = React.useState<Record<string, boolean>>({
+    audit: false,
+  })
   const [editingProduct, setEditingProduct] = React.useState<Product | null>(null)
   const [productToDelete, setProductToDelete] = React.useState<Product | null>(null)
 
   // Bulk Actions State
   const [isBulkMarginsOpen, setIsBulkMarginsOpen] = React.useState(false)
   const [isBulkLogisticsOpen, setIsBulkLogisticsOpen] = React.useState(false)
+  const [isBulkSourcingOpen, setIsBulkSourcingOpen] = React.useState(false)
+  const [isSpeedPricingOpen, setIsSpeedPricingOpen] = React.useState(false)
 
   const observerTargetRef = React.useRef<HTMLDivElement>(null)
   const isFirstRender = React.useRef(true)
@@ -584,7 +593,11 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
           SKU <ArrowUpDown className="ml-1 h-3 w-3" />
         </Button>
       ),
-      cell: ({ row }) => <div className="font-mono text-xs font-medium text-zinc-400">{row.getValue("sku")}</div>,
+      cell: ({ row }) => (
+        <div className="font-mono text-[9px] font-medium text-zinc-300 truncate" title={row.getValue("sku")}>
+          {row.getValue("sku")}
+        </div>
+      ),
     },
     {
       accessorKey: "nazev",
@@ -593,12 +606,17 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
           Název <ArrowUpDown className="ml-1 h-3 w-3" />
         </Button>
       ),
-      cell: ({ row }) => (
-        <Link href={`/produkty/${row.original.id}`} className="group flex items-center gap-2">
-          <span className="font-semibold text-sm group-hover:text-primary transition-colors underline-offset-4 group-hover:underline">{row.getValue("nazev")}</span>
-          <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 text-primary transition-all" />
-        </Link>
-      ),
+      cell: ({ row }) => {
+        const nazev = row.getValue("nazev") as string
+        return (
+          <Link href={`/produkty/${row.original.id}`} className="group flex items-center gap-2 max-w-full" title={nazev}>
+            <span className="font-semibold text-sm group-hover:text-primary transition-colors underline-offset-4 group-hover:underline truncate block w-full">
+              {nazev}
+            </span>
+            <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 text-primary transition-all shrink-0" />
+          </Link>
+        )
+      },
     },
     {
       accessorKey: "kategorie_id",
@@ -609,9 +627,10 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       ),
       cell: ({ row }) => {
         const product = row.original;
+        const label = product.kategorie_id === 'spotrebni_chemie' ? 'Čističe' : (product.c_kategorie?.nazev || product.kategorie_id);
         return (
-          <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 hover:bg-primary/10 text-[10px] py-0 px-2 h-5">
-            {product.kategorie_id === 'spotrebni_chemie' ? 'Čističe' : (product.c_kategorie?.nazev || product.kategorie_id)}
+          <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 hover:bg-primary/10 text-[10px] py-0 px-2 h-5 max-w-[85px] truncate" title={label}>
+            {label}
           </Badge>
         )
       },
@@ -627,33 +646,56 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
         const product = row.original;
         const status = product.c_stavy_produktu?.nazev || product.stav_katalogu_id || "";
         return (
-          <div className="flex items-center gap-2">
-            <div className={`h-1.5 w-1.5 rounded-full ${status.includes('Aktivní') ? 'bg-green-500' : 'bg-zinc-500'}`} />
-            <span className="text-[10px] font-medium text-muted-foreground">{status}</span>
+          <div className="flex items-center gap-2 max-w-full">
+            <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${status.includes('Aktivní') ? 'bg-green-500' : 'bg-zinc-500'}`} />
+            <span className="text-[10px] font-medium text-muted-foreground truncate max-w-[90px]" title={status}>{status}</span>
           </div>
         )
       },
     },
     {
       id: "sourcing",
-      header: "Nákupní cena / Trasa",
+      header: "Nákupní cena",
       cell: ({ row }) => {
         const sourcing = row.original.produkt_dodavatel?.find(s => s.is_primary) || row.original.produkt_dodavatel?.[0]
         if (!sourcing) return <span className="text-[10px] text-zinc-500 italic">Nedefinováno</span>
         
         return (
-          <div className="flex flex-col gap-1">
-            <span className="font-mono text-xs font-bold text-primary">
-              {sourcing.nakupni_cena.toFixed(2)} {sourcing.mena}
-            </span>
-            {sourcing.logisticke_sablony ? (
-              <span className="text-[10px] text-zinc-400 max-w-[120px] truncate" title={sourcing.logisticke_sablony.nazev}>
-                🚚 {sourcing.logisticke_sablony.nazev}
-              </span>
-            ) : (
-              <span className="text-[10px] text-yellow-600">Bez logistické trasy</span>
-            )}
-          </div>
+          <span className="font-mono text-xs font-bold text-primary">
+            {sourcing.nakupni_cena.toFixed(2)} {sourcing.mena}
+          </span>
+        )
+      }
+    },
+    {
+      id: "dodavatel",
+      header: "Dodavatel",
+      cell: ({ row }) => {
+        const sourcing = row.original.produkt_dodavatel?.find(s => s.is_primary) || row.original.produkt_dodavatel?.[0]
+        const supplierName = sourcing?.dodavatele?.nazev_spolecnosti
+        return supplierName ? (
+          <span className="text-xs text-zinc-300 font-medium max-w-[100px] truncate block" title={supplierName}>
+            {supplierName}
+          </span>
+        ) : (
+          <span className="text-[10px] text-zinc-500 italic">Nedefinováno</span>
+        )
+      }
+    },
+    {
+      id: "logistika",
+      header: "Logistika",
+      cell: ({ row }) => {
+        const sourcing = row.original.produkt_dodavatel?.find(s => s.is_primary) || row.original.produkt_dodavatel?.[0]
+        const templateName = sourcing?.logisticke_sablony?.nazev
+        return templateName ? (
+          <Badge variant="secondary" className="bg-zinc-800 text-zinc-300 border-zinc-700 text-[10px] py-0 px-2 h-5 max-w-[80px] truncate" title={templateName}>
+            🚚 {templateName}
+          </Badge>
+        ) : (
+          <Badge variant="outline" className="border-yellow-600/30 text-yellow-600 bg-yellow-600/5 text-[10px] py-0 px-2 h-5">
+            Bez šablony
+          </Badge>
         )
       }
     },
@@ -758,12 +800,14 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     onRowSelectionChange: setRowSelection,
+    onColumnVisibilityChange: setColumnVisibility,
     getRowId: (row) => row.id,
     state: {
       sorting,
       columnFilters,
       globalFilter,
       rowSelection,
+      columnVisibility,
     },
   })
 
@@ -774,18 +818,25 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     <div className="w-full space-y-4 relative">
       {/* Floating Action Bar for Bulk Operations */}
       {selectedRows.length > 0 && (
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 bg-zinc-900 border border-zinc-700 shadow-2xl p-4 rounded-full animate-in slide-in-from-bottom-5">
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-zinc-900 border border-zinc-700 shadow-2xl p-3 rounded-full animate-in slide-in-from-bottom-5">
           <Badge className="bg-primary/20 text-primary border-primary/50 text-sm">
             Vybráno {selectedRows.length} produktů
           </Badge>
-          <div className="h-6 w-px bg-zinc-700 mx-2" />
-          <Button size="sm" onClick={() => setIsBulkMarginsOpen(true)} className="gap-2 bg-zinc-800 hover:bg-zinc-700 text-white">
-            <Settings2 className="h-4 w-4" /> Hromadně upravit marže
+          <div className="h-6 w-px bg-zinc-700 mx-1" />
+          <Button size="sm" onClick={() => setIsBulkMarginsOpen(true)} className="gap-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full">
+            <Settings2 className="h-4 w-4" /> Upravit marže
           </Button>
-          <Button size="sm" onClick={() => setIsBulkLogisticsOpen(true)} className="gap-2 bg-zinc-800 hover:bg-zinc-700 text-white">
-            <Settings2 className="h-4 w-4" /> Hromadně upravit logistiku
+          <Button size="sm" onClick={() => setIsBulkLogisticsOpen(true)} className="gap-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full">
+            <Settings2 className="h-4 w-4" /> Upravit logistiku
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => table.toggleAllRowsSelected(false)} className="text-zinc-400 hover:text-white">
+          <Button size="sm" onClick={() => setIsBulkSourcingOpen(true)} className="gap-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full">
+            <Building2 className="h-4 w-4" /> Přidat dodavatele
+          </Button>
+          <Button size="sm" onClick={() => setIsSpeedPricingOpen(true)} className="gap-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 border border-yellow-500/30 rounded-full">
+            <Zap className="h-4 w-4" /> Zadat ceny
+          </Button>
+          <div className="h-6 w-px bg-zinc-700 mx-1" />
+          <Button size="sm" variant="ghost" onClick={() => table.toggleAllRowsSelected(false)} className="text-zinc-400 hover:text-white rounded-full">
             Zrušit výběr
           </Button>
         </div>
@@ -814,6 +865,37 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
         templates={lookups.templates || []}
       />
 
+      {/* Bulk Sourcing Dialog */}
+      <BulkEditSourcingDialog
+        open={isBulkSourcingOpen}
+        onOpenChange={setIsBulkSourcingOpen}
+        selectedProductIds={selectedProductIds}
+        suppliers={lookups.suppliers || []}
+        templates={lookups.templates || []}
+        units={lookups.units || []}
+        onSuccess={(openSpeedPricing) => {
+          resetAndReload()
+          if (openSpeedPricing) {
+            // Po přiřazení dodavatele rovnou otevřeme Speed Pricing
+            setTimeout(() => setIsSpeedPricingOpen(true), 400)
+          } else {
+            table.toggleAllRowsSelected(false)
+          }
+        }}
+      />
+
+      {/* Speed Pricing Drawer */}
+      <SpeedPricingDrawer
+        open={isSpeedPricingOpen}
+        onOpenChange={setIsSpeedPricingOpen}
+        products={selectedRows.length > 0 ? selectedRows.map(r => r.original) : products}
+        units={lookups.units || []}
+        onComplete={() => {
+          table.toggleAllRowsSelected(false)
+          resetAndReload()
+        }}
+      />
+
       {/* Search and Filters Bar */}
       <div className="flex flex-col md:flex-row gap-3 items-center justify-between bg-zinc-900/50 p-3 rounded-lg border border-zinc-800">
         <div className="flex flex-1 items-center gap-3 w-full">
@@ -840,6 +922,50 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
             title="Stav"
             options={lookups.statuses.map(s => ({ label: s.nazev, value: s.id }))}
           />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="h-9 gap-2 border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white">
+              <Settings2 className="h-4 w-4" /> Sloupce
+            </Button>}>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-zinc-950 border-zinc-800 text-white">
+              <DropdownMenuLabel>Zobrazit sloupce</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-zinc-800" />
+              {table
+                .getAllColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => {
+                  return (
+                    <DropdownMenuItem
+                      key={column.id}
+                      className="flex items-center gap-2 cursor-pointer focus:bg-zinc-900"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        column.toggleVisibility(!column.getIsVisible())
+                      }}
+                    >
+                      <Checkbox
+                        checked={column.getIsVisible()}
+                        onCheckedChange={() => column.toggleVisibility(!column.getIsVisible())}
+                        id={`col-toggle-${column.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <label htmlFor={`col-toggle-${column.id}`} className="cursor-pointer text-xs flex-1 select-none">
+                        {column.id === 'kategorie_id' ? 'Kategorie' :
+                         column.id === 'stav_katalogu_id' ? 'Stav' :
+                         column.id === 'sourcing' ? 'Nákupní cena' :
+                         column.id === 'dodavatel' ? 'Dodavatel' :
+                         column.id === 'logistika' ? 'Logistika' :
+                         column.id === 'margins' ? 'Cílové marže' :
+                         column.id === 'stock' ? 'Skladem' :
+                         column.id === 'audit' ? 'Autor / Změna' :
+                         column.id}
+                      </label>
+                    </DropdownMenuItem>
+                  )
+                })}
+            </DropdownMenuContent>
+          </DropdownMenu>
           
           {/* Dynamic specification filters based on category */}
           {selectedCategories && selectedCategories.length === 1 && (
@@ -904,33 +1030,83 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       </div>
 
       {/* Table Area */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 overflow-hidden shadow-2xl">
-        <Table>
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 overflow-x-auto shadow-2xl scrollbar-thin">
+        <Table className="table-fixed w-full">
           <TableHeader className="bg-zinc-900/80">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent border-zinc-800">
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id} className="h-10 text-zinc-500">
-                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const cid = header.column.id
+                  const isStickySelect = cid === "select"
+                  const isStickySku = cid === "sku"
+                  
+                  return (
+                    <TableHead 
+                      key={header.id} 
+                      className={cn(
+                        "h-10 text-zinc-500",
+                        isStickySelect && "sticky left-0 bg-zinc-900 z-20 min-w-[36px] w-[36px] max-w-[36px] text-center",
+                        isStickySku && "sticky left-[36px] bg-zinc-900 z-20 min-w-[115px] w-[115px] max-w-[115px] border-r border-zinc-800",
+                        cid === "nazev" && "min-w-[200px] w-full border-r border-zinc-800",
+                        cid === "kategorie_id" && "min-w-[95px] w-[95px] max-w-[95px]",
+                        cid === "stav_katalogu_id" && "min-w-[110px] w-[110px] max-w-[110px]",
+                        cid === "sourcing" && "min-w-[80px] w-[80px] max-w-[80px]",
+                        cid === "dodavatel" && "min-w-[110px] w-[110px] max-w-[110px]",
+                        cid === "logistika" && "min-w-[90px] w-[90px] max-w-[90px]",
+                        cid === "margins" && "min-w-[115px] w-[115px] max-w-[115px]",
+                        cid === "stock" && "min-w-[80px] w-[80px] max-w-[80px]",
+                        cid === "audit" && "min-w-[160px] w-[160px] max-w-[160px]",
+                        cid === "actions" && "min-w-[36px] w-[36px] max-w-[36px] text-center"
+                      )}
+                    >
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
+                  )
+                })}
               </TableRow>
             ))}
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className="hover:bg-zinc-900/50 border-zinc-800 transition-colors">
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="py-2.5">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
+                <TableRow 
+                  key={row.id} 
+                  className="hover:bg-zinc-900/50 border-zinc-800 transition-colors group" 
+                  data-state={row.getIsSelected() ? "selected" : undefined}
+                >
+                  {row.getVisibleCells().map((cell) => {
+                    const cid = cell.column.id
+                    const isStickySelect = cid === "select"
+                    const isStickySku = cid === "sku"
+                    
+                    return (
+                      <TableCell 
+                        key={cell.id} 
+                        className={cn(
+                          "py-2.5",
+                          isStickySelect && "sticky left-0 bg-zinc-950 z-10 min-w-[36px] w-[36px] max-w-[36px] text-center group-hover:bg-zinc-900 transition-colors group-data-[state=selected]:bg-zinc-800",
+                          isStickySku && "sticky left-[36px] bg-zinc-950 z-10 min-w-[115px] w-[115px] max-w-[115px] border-r border-zinc-800 group-hover:bg-zinc-900 transition-colors group-data-[state=selected]:bg-zinc-800",
+                          cid === "nazev" && "min-w-[200px] w-full border-r border-zinc-800",
+                          cid === "kategorie_id" && "min-w-[95px] w-[95px] max-w-[95px]",
+                          cid === "stav_katalogu_id" && "min-w-[110px] w-[110px] max-w-[110px]",
+                          cid === "sourcing" && "min-w-[80px] w-[80px] max-w-[80px]",
+                          cid === "dodavatel" && "min-w-[110px] w-[110px] max-w-[110px]",
+                          cid === "logistika" && "min-w-[90px] w-[90px] max-w-[90px]",
+                          cid === "margins" && "min-w-[115px] w-[115px] max-w-[115px]",
+                          cid === "stock" && "min-w-[80px] w-[80px] max-w-[80px]",
+                          cid === "audit" && "min-w-[160px] w-[160px] max-w-[160px]",
+                          cid === "actions" && "min-w-[36px] w-[36px] max-w-[36px] text-center"
+                        )}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    )
+                  })}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-32 text-center text-zinc-500 italic">
+                <TableCell colSpan={table.getVisibleFlatColumns().length} className="h-32 text-center text-zinc-500 italic">
                   Nebyly nalezeny žádné produkty odpovídající filtrům.
                 </TableCell>
               </TableRow>
