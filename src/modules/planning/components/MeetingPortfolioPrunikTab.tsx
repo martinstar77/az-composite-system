@@ -1,14 +1,14 @@
 'use client'
 
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { PORTFOLIO_SKUPINY, type PortfolioPrunikStav } from '../utils/portfolioPrunik'
-import { updateZakaznikPortfolioPrunik } from '@/modules/invoicing/actions/customers'
 import { CheckCircle2, Star, Target, Minus } from 'lucide-react'
 import { cn } from '@/shared/lib/utils'
 
 interface MeetingPortfolioPrunikTabProps {
   zakaznikId: string | null
-  initialPrunik: Record<string, PortfolioPrunikStav> | null
+  prunik: Record<string, PortfolioPrunikStav> | null
+  onPrunikChange: (next: Record<string, PortfolioPrunikStav>) => void
 }
 
 type StavDef = {
@@ -43,32 +43,28 @@ const INACTIVE_CLASSES = 'bg-background text-muted-foreground border-border hove
 
 export default function MeetingPortfolioPrunikTab({
   zakaznikId,
-  initialPrunik,
+  prunik: prunikProp,
+  onPrunikChange,
 }: MeetingPortfolioPrunikTabProps) {
-  const [prunik, setPrunik] = useState<Record<string, PortfolioPrunikStav>>(
-    initialPrunik ?? {}
-  )
+  const prunik = prunikProp ?? {}
   const [saving, setSaving] = useState(false)
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const prevPrunikRef = useRef(prunik)
+
+  useEffect(() => {
+    if (prevPrunikRef.current !== prunik) {
+      setSaving(true)
+      const timer = setTimeout(() => setSaving(false), 800)
+      prevPrunikRef.current = prunik
+      return () => clearTimeout(timer)
+    }
+  }, [prunik])
 
   const handleToggle = useCallback(
     (polozka: string, stav: PortfolioPrunikStav) => {
-      setPrunik(prev => {
-        // klik na aktivní stav → odznačit
-        const next = { ...prev, [polozka]: prev[polozka] === stav ? null : stav }
-        // debounced save
-        if (saveTimer.current) clearTimeout(saveTimer.current)
-        setSaving(true)
-        saveTimer.current = setTimeout(async () => {
-          if (zakaznikId) {
-            await updateZakaznikPortfolioPrunik(zakaznikId, next)
-          }
-          setSaving(false)
-        }, 800)
-        return next
-      })
+      const next = { ...prunik, [polozka]: prunik[polozka] === stav ? null : stav }
+      onPrunikChange(next)
     },
-    [zakaznikId]
+    [prunik, onPrunikChange]
   )
 
   const getCount = (stav: PortfolioPrunikStav) =>

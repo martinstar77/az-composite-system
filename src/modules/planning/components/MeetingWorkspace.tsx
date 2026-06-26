@@ -84,7 +84,23 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
   const [createdTasks, setCreatedTasks] = useState<any[]>([])
   const [newTopicName, setNewTopicName] = useState("")
   const [meetingStav, setMeetingStav] = useState(meeting.stav)
+  // Průnik portfolia — sdílený stav (přežije přepnutí záložek)
+  const [prunik, setPrunik] = useState<Record<string, 'ano' | 'zajem' | 'zamereni' | null>>(
+    (meeting.zakaznik?.portfolio_prunik as Record<string, any>) ?? {}
+  )
+  // Cíl schůzky — sdílený stav
+  const [cilSchuzky, setCilSchuzky] = useState(meeting.cil_schuzky ?? "")
+  const prunikSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const cilSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   
+  const hasInitializedRef = useRef(false)
+
+  const prunikRef = useRef(prunik)
+  prunikRef.current = prunik
+
+  const cilSchuzkyRef = useRef(cilSchuzky)
+  cilSchuzkyRef.current = cilSchuzky
+
   // Timer States
   const [isMeetingActive, setIsMeetingActive] = useState(false)
   const [meetingSeconds, setMeetingSeconds] = useState(0)
@@ -104,38 +120,45 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
   // Sync state with meeting prop when opened
   useEffect(() => {
     if (open) {
-      setAgenda(meeting.agenda || [])
-      setZapis(meeting.zapis || "")
-      setPriprava(meeting.priprava || "")
-      setSurovyPrepis(meeting.surovy_prepis || "")
-      setEmailNavrh(meeting.email_navrh || "")
-      setIsMeetingActive(false)
-      setMeetingSeconds(0)
-      setActiveTopicId(null)
-      setTopicSeconds(0)
-      setNotesSubTab("write")
-      setAudioBlob(null)
-      setMeetingStav(meeting.stav)
-      
-      if (meeting.stav === 'completed') {
-        // Load action tasks created from this meeting
-        getTasksByMeeting(meeting.id).then(res => {
-          if (res.success && res.data) {
-            setCreatedTasks(res.data)
+      if (!hasInitializedRef.current) {
+        hasInitializedRef.current = true
+        setAgenda(meeting.agenda || [])
+        setZapis(meeting.zapis || "")
+        setPriprava(meeting.priprava || "")
+        setSurovyPrepis(meeting.surovy_prepis || "")
+        setEmailNavrh(meeting.email_navrh || "")
+        setIsMeetingActive(false)
+        setMeetingSeconds(0)
+        setActiveTopicId(null)
+        setTopicSeconds(0)
+        setNotesSubTab("write")
+        setAudioBlob(null)
+        setMeetingStav(meeting.stav)
+        setPrunik((meeting.zakaznik?.portfolio_prunik as Record<string, any>) ?? {})
+        setCilSchuzky(meeting.cil_schuzky ?? "")
+        
+        if (meeting.stav === 'completed') {
+          // Load action tasks created from this meeting
+          getTasksByMeeting(meeting.id).then(res => {
+            if (res.success && res.data) {
+              setCreatedTasks(res.data)
+            }
+          })
+        } else {
+          // Try parsing draft tasks from meeting.popis
+          let parsedDraftTasks: any[] = []
+          try {
+            if (meeting.popis && meeting.popis.startsWith('[')) {
+              parsedDraftTasks = JSON.parse(meeting.popis)
+            }
+          } catch (e) {
+            console.error("Chyba při parsování draft úkolů:", e)
           }
-        })
-      } else {
-        // Try parsing draft tasks from meeting.popis
-        let parsedDraftTasks: any[] = []
-        try {
-          if (meeting.popis && meeting.popis.startsWith('[')) {
-            parsedDraftTasks = JSON.parse(meeting.popis)
-          }
-        } catch (e) {
-          console.error("Chyba při parsování draft úkolů:", e)
+          setCreatedTasks(parsedDraftTasks)
         }
-        setCreatedTasks(parsedDraftTasks)
       }
+    } else {
+      hasInitializedRef.current = false
     }
   }, [open, meeting])
 
@@ -156,20 +179,62 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
     }
   }, [isMeetingActive, activeTopicId])
 
-  // Cleanup recording timers on unmount
+  // Cleanup recording timers and flush pending changes on unmount
   useEffect(() => {
     return () => {
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
         mediaRecorderRef.current.stop()
       }
+      
+      // Flush prunik on unmount if timer was running
+      if (prunikSaveTimer.current) {
+        clearTimeout(prunikSaveTimer.current)
+        if (meeting.zakaznik_id) {
+          import('@/modules/invoicing/actions/customers').then(m =>
+            m.updateZakaznikPortfolioPrunik(meeting.zakaznik_id!, prunikRef.current)
+          )
+        }
+      }
+      // Flush cilSchuzky on unmount if timer was running
+      if (cilSaveTimer.current) {
+        clearTimeout(cilSaveTimer.current)
+        import('../actions/udalosti').then(m =>
+          m.updateCilSchuzky(meeting.id, cilSchuzkyRef.current || null)
+        )
+      }
     }
-  }, [])
+  }, [meeting.id, meeting.zakaznik_id])
 
   const formatTimer = (totalSecs: number) => {
     const mins = Math.floor(totalSecs / 60)
     const secs = totalSecs % 60
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+  }
+
+  // Ulo\u017e\u00ed okam\u017eit\u011b ve\u0161ker\u00e9 neulo\u017een\u00e9 \u00e9ndn\u00ed p\u0159i p\u0159epnut\u00ed z\u00e1lo\u017eky
+  const handleTabChange = async (tab: typeof activeTab) => {
+    // Flush prunik — zru\u0161\u00ed debounce a ulo\u017e\u00ed hned
+    if (prunikSaveTimer.current) {
+      clearTimeout(prunikSaveTimer.current)
+      prunikSaveTimer.current = null
+      if (meeting.zakaznik_id) {
+        await import('../actions/udalosti').then(() =>
+          import('@/modules/invoicing/actions/customers').then(m =>
+            m.updateZakaznikPortfolioPrunik(meeting.zakaznik_id!, prunik)
+          )
+        )
+      }
+    }
+    // Flush cilSchuzky
+    if (cilSaveTimer.current) {
+      clearTimeout(cilSaveTimer.current)
+      cilSaveTimer.current = null
+      await import('../actions/udalosti').then(m =>
+        m.updateCilSchuzky(meeting.id, cilSchuzky || null)
+      )
+    }
+    setActiveTab(tab)
   }
 
   // Audio Recording Handlers
@@ -357,6 +422,23 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
 
   // Save changes locally to database
   const handleSaveMeeting = async () => {
+    // Flush prunik
+    if (prunikSaveTimer.current) {
+      clearTimeout(prunikSaveTimer.current)
+      prunikSaveTimer.current = null
+    }
+    if (meeting.zakaznik_id) {
+      await import('@/modules/invoicing/actions/customers').then(m =>
+        m.updateZakaznikPortfolioPrunik(meeting.zakaznik_id!, prunik)
+      )
+    }
+
+    // Flush cilSchuzky timer
+    if (cilSaveTimer.current) {
+      clearTimeout(cilSaveTimer.current)
+      cilSaveTimer.current = null
+    }
+
     startTransition(async () => {
       const result = await upsertUdalost({
         ...meeting,
@@ -364,7 +446,8 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
         zapis,
         priprava,
         surovy_prepis: surovyPrepis,
-        email_navrh: emailNavrh
+        email_navrh: emailNavrh,
+        cil_schuzky: cilSchuzky
       }, meeting.id)
 
       if (result.success) {
@@ -399,7 +482,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
         email_navrh: emailNavrh
       }, meeting.id)
       
-      const result = await generateMeetingOutputViaAI(meeting.id, undefined, undefined, surovyPrepis || zapis)
+      const result = await generateMeetingOutputViaAI(meeting.id, undefined, undefined, undefined)
       if (result.success && result.data) {
         setZapis(result.data.summary || "")
         setSurovyPrepis(result.data.transcript || "")
@@ -525,6 +608,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
         if (details?.reason === "outsidePress" || details?.reason === "focusOut") {
           return
         }
+        onSuccess?.()
       }
       setOpen(isOpen)
     }}>
@@ -629,7 +713,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
               
               {isSchuzka && (
                 <button
-                  onClick={() => setActiveTab("prep")}
+                  onClick={() => handleTabChange("prep")}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
                     activeTab === "prep" ? brandTabActiveStyle : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
                   }`}
@@ -641,7 +725,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
 
               {isSchuzka && (
                 <button
-                  onClick={() => setActiveTab("prunik")}
+                  onClick={() => handleTabChange("prunik")}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
                     activeTab === "prunik" ? brandTabActiveStyle : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
                   }`}
@@ -652,7 +736,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
               )}
 
               <button
-                onClick={() => setActiveTab("agenda")}
+                onClick={() => handleTabChange("agenda")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
                   activeTab === "agenda" ? brandTabActiveStyle : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
                 }`}
@@ -667,7 +751,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
               </button>
 
               <button
-                onClick={() => setActiveTab("notes")}
+                onClick={() => handleTabChange("notes")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
                   activeTab === "notes" ? brandTabActiveStyle : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
                 }`}
@@ -677,7 +761,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
               </button>
 
               <button
-                onClick={() => setActiveTab("outputs")}
+                onClick={() => handleTabChange("outputs")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
                   activeTab === "outputs" ? brandTabActiveStyle : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
                 }`}
@@ -688,7 +772,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
 
               {isSchuzka && (
                 <button
-                  onClick={() => setActiveTab("email")}
+                  onClick={() => handleTabChange("email")}
                   className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
                     activeTab === "email" ? brandTabActiveStyle : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
                   }`}
@@ -727,7 +811,22 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                   </p>
                 </div>
                 <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-5 text-zinc-100">
-                  <MeetingPripravaTab meeting={meeting} zakaznik={(meeting.zakaznik as any) ?? null} />
+                  <MeetingPripravaTab
+                    meeting={meeting}
+                    zakaznik={(meeting.zakaznik as any) ?? null}
+                    cilSchuzky={cilSchuzky}
+                    onCilSchuzkyChange={(val) => {
+                      setCilSchuzky(val)
+                      // debounce save
+                      if (cilSaveTimer.current) clearTimeout(cilSaveTimer.current)
+                      cilSaveTimer.current = setTimeout(async () => {
+                        cilSaveTimer.current = null
+                        await import('../actions/udalosti').then(m =>
+                          m.updateCilSchuzky(meeting.id, val || null)
+                        )
+                      }, 1000)
+                    }}
+                  />
                 </div>
               </div>
             )}
@@ -744,7 +843,20 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                 <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-5 text-zinc-100">
                   <MeetingPortfolioPrunikTab
                     zakaznikId={meeting.zakaznik_id}
-                    initialPrunik={(meeting.zakaznik?.portfolio_prunik as Record<string, any>) ?? null}
+                    prunik={prunik}
+                    onPrunikChange={(next) => {
+                      setPrunik(next)
+                      // debounce save
+                      if (prunikSaveTimer.current) clearTimeout(prunikSaveTimer.current)
+                      prunikSaveTimer.current = setTimeout(async () => {
+                        prunikSaveTimer.current = null
+                        if (meeting.zakaznik_id) {
+                          await import('@/modules/invoicing/actions/customers').then(m =>
+                            m.updateZakaznikPortfolioPrunik(meeting.zakaznik_id!, next)
+                          )
+                        }
+                      }, 600)
+                    }}
                   />
                 </div>
               </div>
@@ -1173,10 +1285,16 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                       </Badge>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto prose prose-sm dark:prose-invert max-w-none bg-zinc-950/20 border border-zinc-850 p-4 rounded-lg select-text">
+                    <div className="flex-1 overflow-y-auto prose prose-sm dark:prose-invert max-w-none bg-zinc-950/20 border border-zinc-850 p-4 rounded-lg select-text flex flex-col">
                       {zapis ? (
-                        <div className="text-sm leading-relaxed text-zinc-300 whitespace-pre-wrap">
-                          {zapis}
+                        <div className="flex-1 overflow-hidden select-text">
+                          <RichTextEditor
+                            value={zapis}
+                            onChange={() => {}}
+                            editable={false}
+                            showToolbar={false}
+                            className="border-none bg-transparent min-h-full"
+                          />
                         </div>
                       ) : (
                         <p className="text-zinc-500 text-xs italic">Zatím žádný zápis schůzky. Přejděte na záložku Poznámky a nahrajte nebo zapište průběh.</p>

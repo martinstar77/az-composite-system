@@ -27,6 +27,7 @@ import { Input } from '@/shared/components/ui/input'
 import { Badge } from '@/shared/components/ui/badge'
 import { getCrmEntities } from '../actions/udalosti'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 interface GlobalMeetingsTableProps {
   initialMeetings: UdalostPlanovani[]
@@ -46,6 +47,7 @@ export function GlobalMeetingsTable({
   users, 
   projekty 
 }: GlobalMeetingsTableProps) {
+  const router = useRouter()
   const [meetings, setMeetings] = useState<UdalostPlanovani[]>(initialMeetings)
   
   // Search and Filters State
@@ -75,8 +77,8 @@ export function GlobalMeetingsTable({
   }, [])
 
   const refreshMeetings = React.useCallback(async () => {
-    setMeetings(initialMeetings)
-  }, [initialMeetings])
+    router.refresh()
+  }, [router])
 
   // Filter Logic
   const filteredMeetings = useMemo(() => {

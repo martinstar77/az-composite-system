@@ -304,6 +304,101 @@ export async function updateZapisSchuzky(
   }
 }
 
+// Helper function to convert TiPtap HTML to clean plain text/markdown style for Gemini
+function cleanHtmlForAI(html: string): string {
+  if (!html) return '';
+  return html
+    // Convert list items to markdown list format
+    .replace(/<li>/gi, '\n- ')
+    .replace(/<\/li>/gi, '')
+    // Convert paragraph tags to newlines
+    .replace(/<p>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    // Convert line breaks to newlines
+    .replace(/<br\s*\/?>/gi, '\n')
+    // Remove presentation tags (spans, marks, etc)
+    .replace(/<span\b[^>]*>/gi, '')
+    .replace(/<\/span>/gi, '')
+    .replace(/<mark\b[^>]*>/gi, '')
+    .replace(/<\/mark>/gi, '')
+    // Remove all remaining HTML tags
+    .replace(/<[^>]*>/g, ' ')
+    // Decode HTML entities
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    // Split, clean lines and collapse spacing
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .join('\n')
+    .trim();
+}
+
+// Helper to escape and format inline markdown formatting (bold, italic)
+function formatInlineMarkdown(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>');
+}
+
+// Convert markdown returned by Gemini to rich text HTML for TipTap editor
+function markdownToHtml(md: string): string {
+  if (!md) return '';
+  
+  const lines = md.split('\n');
+  const result: string[] = [];
+  let inList = false;
+
+  for (let line of lines) {
+    const trimmed = line.trim();
+    
+    // Checklist or bullet points
+    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+      if (!inList) {
+        result.push('<ul>');
+        inList = true;
+      }
+      const itemContent = trimmed.substring(2).trim();
+      result.push(`<li>${formatInlineMarkdown(itemContent)}</li>`);
+      continue;
+    }
+
+    // Close list if we are exiting bullet items
+    if (inList && !trimmed.startsWith('- ') && !trimmed.startsWith('* ')) {
+      result.push('</ul>');
+      inList = false;
+    }
+
+    if (!trimmed) {
+      continue;
+    }
+
+    // Headers
+    if (trimmed.startsWith('### ')) {
+      result.push(`<h3>${formatInlineMarkdown(trimmed.substring(4))}</h3>`);
+    } else if (trimmed.startsWith('## ')) {
+      result.push(`<h2>${formatInlineMarkdown(trimmed.substring(3))}</h2>`);
+    } else if (trimmed.startsWith('# ')) {
+      result.push(`<h1>${formatInlineMarkdown(trimmed.substring(2))}</h1>`);
+    } else {
+      // Regular paragraph
+      result.push(`<p>${formatInlineMarkdown(trimmed)}</p>`);
+    }
+  }
+
+  if (inList) {
+    result.push('</ul>');
+  }
+
+  return result.join('\n');
+}
+
 // ============================================================
 // generateMeetingOutputViaAI
 // ============================================================
@@ -350,33 +445,86 @@ export async function generateMeetingOutputViaAI(
       return { success: false, error: 'Chybí konfigurace GEMINI_API_KEY v .env.local.' }
     }
 
-    // 2. Příprava promptu pro Gemini
+    // 2. Příprava promptu pro Gemini (s vyčištěným HTML)
     const dateFormatted = new Date(meeting.datum_zahajeni).toLocaleDateString('cs-CZ')
     
+    const cleanZapis = cleanHtmlForAI(meeting.zapis || '')
+    const cleanSurovyPrepis = cleanHtmlForAI(meeting.surovy_prepis || '')
+    const cleanPriprava = cleanHtmlForAI(meeting.priprava || '')
+    const cleanCustomTranscript = customTranscript ? cleanHtmlForAI(customTranscript) : ''
+
+    const isAudio = !!audioBase64
+    const isRecalculate = !audioBase64 && !!customTranscript
+
     let sourceInputDesc = ''
-    if (customTranscript) {
-      sourceInputDesc = `
-Uživatel ručně upravil surový přepis schůzky. Použij tento text jako hlavní zdroj pro zápis a ulož ho beze změn (nebo jen s opravou překlepů) do klíče "transcript":
----
-${customTranscript}
----`
-    } else if (audioBase64) {
+    let responseFormatDesc = ''
+
+    if (isAudio) {
       sourceInputDesc = `
 K tomuto requestu je přiložen zvukový záznam (audio) s diktováním nových poznámek ze schůzky.
-Poslechni si nahrávku a ulož její doslovný a přesný přepis (v českém jazyce) do klíče "transcript".
+Poslechni si nahrávku a ulož její doslovný a přesný přepis (v českém jazyce) do klíče "transcript" (jako čistý text bez HTML).
 Pokud v nahrávce zazní specifické pojmy, napiš je správně gramaticky.
 
 Zde je dosavadní surový přepis schůzky (předchozí diktování/poznámky):
 ---
-${meeting.surovy_prepis || 'Bez předchozího přepisu.'}
+${cleanSurovyPrepis || 'Bez předchozího přepisu.'}
 ---
-DŮLEŽITÉ: Jako podklad pro generování "summaryMarkdown", "tasks" a "followUpEmail" použij jak dosavadní surový přepis schůzky, tak novou nahrávku. Ale v klíči "transcript" vrať POUZE přepis té nové nahrávky (předchozí přepis k němu připojíme programově v aplikaci).`
+DŮLEŽITÉ: Jako podklad pro generování "summaryMarkdown", "tasks" a "followUpEmail" použij jak dosavadní surový přepis schůzky, tak novou nahrávku. Ale v klíči "transcript" vrať POUZE přepis té nové nahrávky jako čistý text (předchozí přepis k němu připojíme programově v aplikaci).`
+
+      responseFormatDesc = `
+Vrátíš JSON objekt s těmito klíči:
+1. "transcript": Doslovný přepis nové audio nahrávky jako čistý text bez jakýchkoli HTML tagů.
+2. "summaryMarkdown": Krásně strukturovaný zápis v češtině (Markdown). Měl by obsahovat:
+   - Stručný souhrn schůzky (Executive Summary)
+   - Seznam klíčových rozhodnutí (Key Decisions)
+   - Stručné shrnutí jednotlivých témat, která se projednala
+3. "tasks": Pole nově navržených úkolů (akčních kroků). Pro každý úkol urči:
+   - "nazev": krátký výstižný název úkolu
+   - "popis": detailní vysvětlení, co se má udělat
+   - "vlastnik_id": UUID vlastníka ze seznamu výše (pokud dokážeš jednoznačně ztotožnit např. "Martin", "Filip" s ID z tabulky). Pokud nevíš, nech null.
+   - "datum_splatnosti": termín splnění ve formátu YYYY-MM-DD. Pokud byl termín vyjádřen relativně vůči datu schůzky (např. "do pátku", "do týdne"), spočítej přesné datum vůči datu schůzky ${meeting.datum_zahajeni}. Pokud termín chybí, nech null.
+   - "oddeleni": jedno z: management, sales, purchasing, logistics, backbone, finance, rd, marketing, backoffice, legal. Vyber podle zaměření úkolu.
+4. "followUpEmail": Návrh profesionálního, slušného a výstižného follow-up e-mailu pro klienta/dodavatele v českém jazyce. Měl by shrnout hlavní body schůzky a další postup. Pokud jde o interní meeting, napiš sem stručné shrnutí pro interní oběžník, jinak pro externí schůzku naformátuj e-mail s předmětem a tělem.`
+    } else if (isRecalculate) {
+      sourceInputDesc = `
+Uživatel ručně upravil surový přepis schůzky. Použij tento text jako hlavní zdroj pro zápis a analýzu:
+---
+${cleanCustomTranscript}
+---`
+
+      responseFormatDesc = `
+Vrátíš JSON objekt s těmito klíči:
+1. "summaryMarkdown": Krásně strukturovaný zápis v češtině (Markdown). Měl by obsahovat:
+   - Stručný souhrn schůzky (Executive Summary)
+   - Seznam klíčových rozhodnutí (Key Decisions)
+   - Stručné shrnutí jednotlivých témat, která se projednala
+2. "tasks": Pole nově navržených úkolů (akčních kroků). Pro každý úkol urči:
+   - "nazev": krátký výstižný název úkolu
+   - "popis": detailní vysvětlení, co se má udělat
+   - "vlastnik_id": UUID vlastníka ze seznamu výše (pokud dokážeš jednoznačně ztotožnit např. "Martin", "Filip" s ID z tabulky). Pokud nevíš, nech null.
+   - "datum_splatnosti": termín splnění ve formátu YYYY-MM-DD. Pokud byl termín vyjádřen relativně vůči datu schůzky (např. "do pátku", "do týdne"), spočítej přesné datum vůči datu schůzky ${meeting.datum_zahajeni}. Pokud termín chybí, nech null.
+   - "oddeleni": jedno z: management, sales, purchasing, logistics, backbone, finance, rd, marketing, backoffice, legal. Vyber podle zaměření úkolu.
+3. "followUpEmail": Návrh profesionálního, slušného a výstižného follow-up e-mailu pro klienta/dodavatele v českém jazyce. Měl by shrnout hlavní body schůzky a další postup. Pokud jde o interní meeting, napiš sem stručné shrnutí pro interní oběžník, jinak pro externí schůzku naformátuj e-mail s předmětem a tělem.`
     } else {
       sourceInputDesc = `
-Použij tyto stávající poznámky/zápis jako hlavní zdroj pro analýzu a ulož je do klíče "transcript":
+Použij tyto stávající poznámky/zápis jako hlavní zdroj pro analýzu a vygenerování výstupů:
 ---
-${meeting.zapis || meeting.surovy_prepis || 'Bez zápisu.'}
+${cleanZapis || 'Bez zápisu.'}
 ---`
+
+      responseFormatDesc = `
+Vrátíš JSON objekt s těmito klíči:
+1. "summaryMarkdown": Krásně strukturovaný zápis v češtině (Markdown). Měl by obsahovat:
+   - Stručný souhrn schůzky (Executive Summary)
+   - Seznam klíčových rozhodnutí (Key Decisions)
+   - Stručné shrnutí jednotlivých témat, která se projednala
+2. "tasks": Pole nově navržených úkolů (akčních kroků). Pro každý úkol urči:
+   - "nazev": krátký výstižný název úkolu
+   - "popis": detailní vysvětlení, co se má udělat
+   - "vlastnik_id": UUID vlastníka ze seznamu výše (pokud dokážeš jednoznačně ztotožnit např. "Martin", "Filip" s ID z tabulky). Pokud nevíš, nech null.
+   - "datum_splatnosti": termín splnění ve formátu YYYY-MM-DD. Pokud byl termín vyjádřen relativně vůči datu schůzky (např. "do pátku", "do týdne"), spočítej přesné datum vůči datu schůzky ${meeting.datum_zahajeni}. Pokud termín chybí, nech null.
+   - "oddeleni": jedno z: management, sales, purchasing, logistics, backbone, finance, rd, marketing, backoffice, legal. Vyber podle zaměření úkolu.
+3. "followUpEmail": Návrh profesionálního, slušného a výstižného follow-up e-mailu pro klienta/dodavatele v českém jazyce. Měl by shrnout hlavní body schůzky a další postup. Pokud jde o interní meeting, napiš sem stručné shrnutí pro interní oběžník, jinak pro externí schůzku naformátuj e-mail s předmětem a tělem.`
     }
 
     const promptText = `
@@ -385,7 +533,7 @@ Máme schůzku s názvem "${meeting.nazev}" konanou dne ${dateFormatted} (typ: $
 
 Zde je předem připravený plán a cíle schůzky (příprava):
 ---
-${meeting.priprava || 'Bez přípravy.'}
+${cleanPriprava || 'Bez přípravy.'}
 ---
 
 Zde je seznam témat schůzky (agenda):
@@ -397,19 +545,7 @@ ${sourceInputDesc}
 ${userListText}
 
 Zpracuj tyto vstupní údaje a vygeneruj JSON výstup podle následující specifikace.
-Vrátíš objekt s těmito klíči:
-1. "transcript": Doslovný přepis audia (pokud bylo přiloženo audio), nebo nezměněný text (pokud byl předán textový přepis z customTranscript).
-2. "summaryMarkdown": Krásně strukturovaný zápis v češtině (Markdown). Měl by obsahovat:
-   - Stručný souhrn schůzky (Executive Summary)
-   - Seznam klíčových rozhodnutí (Key Decisions)
-   - Stručné shrnutí jednotlivých témat, která se projednala
-3. "tasks": Pole nově navržených úkolů (akčních kroků). Pro každý úkol urči:
-   - "nazev": krátký výstižný název úkolu
-   - "popis": detailní vysvětlení, co se má udělat
-   - "vlastnik_id": UUID vlastníka ze seznamu výše (pokud dokážeš jednoznačně ztotožnit např. "Martin", "Filip" s ID z tabulky). Pokud nevíš, nech null.
-   - "datum_splatnosti": termín splnění ve formátu YYYY-MM-DD. Pokud byl termín vyjádřen relativně vůči datu schůzky (např. "do pátku", "do týdne"), spočítej přesné datum vůči datu schůzky ${meeting.datum_zahajeni}. Pokud termín chybí, nech null.
-   - "oddeleni": jedno z: management, sales, purchasing, logistics, backbone, finance, rd, marketing, backoffice, legal. Vyber podle zaměření úkolu.
-4. "followUpEmail": Návrh profesionálního, slušného a výstižného follow-up e-mailu pro klienta/dodavatele v českém jazyce. Měl by shrnout hlavní body schůzky a další postup. Pokud jde o interní meeting, napiš sem stručné shrnutí pro interní oběžník, jinak pro externí schůzku naformátuj e-mail s předmětem a tělem.
+${responseFormatDesc}
 
 Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" ani nepoužívej json tagy. Pouze čistý JSON objekt.
 `
@@ -457,22 +593,25 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
 
     const result = JSON.parse(textOutput.trim())
 
-    // Sloučení nového přepisu se stávajícím pokud se jedná o audio nahrávku
+    // Sloučení nového přepisu se stávajícím pokud se jedná o audio nahrávku, nebo ošetření textových přepisů
     let finalTranscript = ''
-    if (audioBase64) {
+    if (isAudio) {
       const newTranscript = (result.transcript || '').trim()
       if (meeting.surovy_prepis) {
         finalTranscript = `${meeting.surovy_prepis}\n\n${newTranscript}`.trim()
       } else {
         finalTranscript = newTranscript
       }
-    } else if (customTranscript) {
-      finalTranscript = customTranscript
+    } else if (isRecalculate) {
+      finalTranscript = cleanCustomTranscript
     } else {
-      finalTranscript = meeting.surovy_prepis || ''
+      // Pro notes: pokud je surovy_prepis prázdný, přesuneme tam zapsané poznámky před tím, než
+      // zapis přepíšeme AI výstupem. Tím nepřijde uživatel o surové poznámky.
+      finalTranscript = meeting.surovy_prepis || cleanZapis
     }
 
-    const finalSummary = result.summaryMarkdown || ''
+    // Convert markdown returned from AI to HTML for the rich text editor
+    const finalSummary = markdownToHtml(result.summaryMarkdown || '')
     const finalEmail = result.followUpEmail || ''
     const serializedTasks = Array.isArray(result.tasks) ? JSON.stringify(result.tasks) : '[]'
 
@@ -505,7 +644,7 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
     }
   } catch (e: any) {
     console.error('Error in generateMeetingOutputViaAI:', e)
-    return { success: false, error: e.message || 'Neočekávaná chyba při zpracování AI' }
+    return { success: false, error: e.message || 'Neočekávaná chyby při zpracování AI' }
   }
 }
 
@@ -718,7 +857,17 @@ export async function getUdalostiGlobal(filters?: {
         ),
         zakaznik:zakaznik_id (
           id,
-          nazev_spolecnosti
+          nazev_spolecnosti,
+          ico,
+          dic,
+          adresa,
+          telefon,
+          pocet_zamestnancu,
+          odhadovany_obrat,
+          je_dluznik,
+          pouzivane_technologie,
+          pozadovane_technologie,
+          portfolio_prunik
         ),
         dodavatel:dodavatel_id (
           id,

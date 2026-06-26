@@ -1,8 +1,7 @@
 'use client'
 
-import React, { useState, useCallback, useRef } from 'react'
+import React, { useState, useCallback, useRef, useEffect } from 'react'
 import type { UdalostPlanovani } from '../types'
-import { updateCilSchuzky } from '../actions/udalosti'
 import { updateZakaznikCrmData } from '@/modules/invoicing/actions/customers'
 import { Building2, Users, TrendingUp, Phone, AlertCircle } from 'lucide-react'
 
@@ -23,6 +22,8 @@ type ZakaznikInline = {
 interface MeetingPripravaTabProps {
   meeting: UdalostPlanovani
   zakaznik: ZakaznikInline | null
+  cilSchuzky: string
+  onCilSchuzkyChange: (val: string) => void
 }
 
 const OBRATY = [
@@ -34,8 +35,12 @@ const OBRATY = [
   '> 200M CZK',
 ]
 
-export default function MeetingPripravaTab({ meeting, zakaznik }: MeetingPripravaTabProps) {
-  const [cil, setCil] = useState(meeting.cil_schuzky ?? '')
+export default function MeetingPripravaTab({
+  meeting,
+  zakaznik,
+  cilSchuzky,
+  onCilSchuzkyChange,
+}: MeetingPripravaTabProps) {
   const [pouzTech, setPouzTech] = useState(zakaznik?.pouzivane_technologie ?? '')
   const [pozadTech, setPozadTech] = useState(zakaznik?.pozadovane_technologie ?? '')
   const [pocetZam, setPocetZam] = useState<string>(zakaznik?.pocet_zamestnancu?.toString() ?? '')
@@ -43,30 +48,61 @@ export default function MeetingPripravaTab({ meeting, zakaznik }: MeetingPriprav
   const [isDluznik, setIsDluznik] = useState(zakaznik?.je_dluznik ?? false)
   const [saving, setSaving] = useState<string | null>(null)
 
-  const cilTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const crmTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingCrmPatch = useRef<Parameters<typeof updateZakaznikCrmData>[1] | null>(null)
+  const zakaznikIdRef = useRef(zakaznik?.id)
+  zakaznikIdRef.current = zakaznik?.id
 
-  // ── auto-save cíl schůzky (debounced 1s) ──────────────────────────
-  const handleCilChange = useCallback((v: string) => {
-    setCil(v)
-    if (cilTimer.current) clearTimeout(cilTimer.current)
-    cilTimer.current = setTimeout(async () => {
-      setSaving('cil')
-      await updateCilSchuzky(meeting.id, v || null)
-      setSaving(null)
-    }, 1000)
-  }, [meeting.id])
+  // ── Local saving indicator for cilSchuzky ──────────────────────────
+  const [savingCil, setSavingCil] = useState(false)
+  const prevCilRef = useRef(cilSchuzky)
+
+  useEffect(() => {
+    if (prevCilRef.current !== cilSchuzky) {
+      setSavingCil(true)
+      const timer = setTimeout(() => setSavingCil(false), 1000)
+      prevCilRef.current = cilSchuzky
+      return () => clearTimeout(timer)
+    }
+  }, [cilSchuzky])
 
   // ── auto-save CRM pole (debounced 1.5s) ─────────────────────────────
   const saveCrm = useCallback((patch: Parameters<typeof updateZakaznikCrmData>[1]) => {
-    if (!zakaznik?.id) return
+    if (!zakaznikIdRef.current) return
+    
+    // Merge patches
+    pendingCrmPatch.current = {
+      ...pendingCrmPatch.current,
+      ...patch
+    }
+
     if (crmTimer.current) clearTimeout(crmTimer.current)
     crmTimer.current = setTimeout(async () => {
-      setSaving('crm')
-      await updateZakaznikCrmData(zakaznik.id, patch)
-      setSaving(null)
+      const id = zakaznikIdRef.current
+      const currentPatch = pendingCrmPatch.current
+      if (id && currentPatch) {
+        setSaving('crm')
+        pendingCrmPatch.current = null
+        crmTimer.current = null
+        await updateZakaznikCrmData(id, currentPatch)
+        setSaving(null)
+      }
     }, 1500)
-  }, [zakaznik?.id])
+  }, [])
+
+  // Flush pending CRM changes on unmount
+  useEffect(() => {
+    return () => {
+      if (crmTimer.current) {
+        clearTimeout(crmTimer.current)
+      }
+      const id = zakaznikIdRef.current
+      const currentPatch = pendingCrmPatch.current
+      if (id && currentPatch) {
+        updateZakaznikCrmData(id, currentPatch)
+      }
+    }
+  }, [])
 
   const handlePouzTechChange = (v: string) => {
     setPouzTech(v)
@@ -101,13 +137,13 @@ export default function MeetingPripravaTab({ meeting, zakaznik }: MeetingPriprav
       <section>
         <div className="flex items-center justify-between mb-2">
           <label className="text-sm font-semibold text-foreground">Cíl schůzky</label>
-          {saving === 'cil' && (
+          {savingCil && (
             <span className="text-xs text-muted-foreground animate-pulse">Ukládám…</span>
           )}
         </div>
         <textarea
-          value={cil}
-          onChange={e => handleCilChange(e.target.value)}
+          value={cilSchuzky}
+          onChange={e => onCilSchuzkyChange(e.target.value)}
           placeholder="Čeho chceme touto schůzkou dosáhnout? (automaticky se ukládá)"
           rows={3}
           className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/40"
