@@ -25,7 +25,6 @@ import { toggleUkolStav, toggleChecklistItem, deleteUkol } from '../actions/ukol
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { UkolFormDialog } from './UkolFormDialog'
-import { MeetingWorkspace } from './MeetingWorkspace'
 
 interface UkolRowProps {
   ukol: UkolPlanovani
@@ -117,7 +116,7 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
     ? ukol.vlastnik.jmeno.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase()
     : null
 
-  const eventColor = ukol.barva || (ukol.typ_udalosti === 'meeting' ? '#8b5cf6' : null)
+  const eventColor = ukol.barva
   const rowStyle = eventColor && !isCompleted ? {
     backgroundColor: eventColor + '0d',
     borderColor: eventColor + '25',
@@ -164,7 +163,6 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
           {/* Name & Metadata */}
           <div className="flex flex-col min-w-0 flex-1">
             <span className={`text-xs font-semibold leading-normal truncate ${isCompleted ? 'line-through text-muted-foreground/80' : 'text-foreground'}`}>
-              {ukol.typ_udalosti === 'meeting' && '👥 '}
               {ukol.nazev}
             </span>
             {ukol.cil_info && (
@@ -293,23 +291,6 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
               <span className="text-[10px] text-muted-foreground">
                 Stav: <span className={`font-semibold ${stavCfg.color}`}>{stavCfg.label}</span>
               </span>
-
-              {ukol.typ_udalosti === 'meeting' && (
-                <MeetingWorkspace
-                  meeting={ukol}
-                  userProfiles={userProfiles}
-                  onSuccess={onSuccess}
-                  trigger={
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="h-7 px-2 text-[10px] font-semibold gap-1 bg-purple-500/5 border-purple-500/20 hover:bg-purple-500/10 text-purple-400"
-                    >
-                      <span>👥 Otevřít Workspace schůzky</span>
-                    </Button>
-                  }
-                />
-              )}
             </div>
 
             <div className="flex items-center gap-1.5">

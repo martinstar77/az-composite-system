@@ -106,7 +106,7 @@ export interface FirmaOddeleni {
   pocet_aktivnich_ukolu?: number
 }
 
-export type TypUdalostiType = 'task' | 'meeting' | 'order' | 'deadline'
+export type TypUdalostiType = 'task' | 'order' | 'deadline'
 
 export interface ChecklistItem {
   text: string
@@ -163,9 +163,7 @@ export interface UkolPlanovani {
   lokalita: string | null
   barva: string | null
   cil_id: string | null
-  agenda: AgendaTopic[]
-  zapis: string | null
-  parent_id: string | null
+  parent_meeting_id: string | null
   // Joinovaná data (volitelné — dle dotazu)
   vlastnik?: UzivatelMinRef | null
   milnik?: Pick<Milnik, 'id' | 'nazev' | 'barva' | 'projekt_id'> | null
@@ -189,9 +187,47 @@ export interface UkolPlanovaniPayload {
   lokalita?: string | null
   barva?: string | null
   cil_id?: string | null
+  parent_meeting_id?: string | null
+}
+
+export type StavUdalosti = 'scheduled' | 'active' | 'completed' | 'cancelled'
+
+export interface UdalostPlanovani {
+  id: string
+  milnik_id: string | null
+  nazev: string
+  popis: string | null
+  datum_zahajeni: string // ISO timestamp string
+  datum_ukonceni: string | null // ISO timestamp string
+  lokalita: string | null
+  organizator_id: string | null
+  ucastnici_ids: string[]
+  agenda: AgendaTopic[]
+  zapis: string | null
+  stav: StavUdalosti
+  tenant_id: string | null
+  deleted_at: string | null
+  vytvoreno_at: string
+  aktualizovano_at: string
+  vytvoril_id: string | null
+  upravil_id: string | null
+  // Joined
+  organizator?: UzivatelMinRef | null
+  milnik?: Pick<Milnik, 'id' | 'nazev' | 'barva' | 'projekt_id'> | null
+}
+
+export interface UdalostPlanovaniPayload {
+  milnik_id?: string | null
+  nazev: string
+  popis?: string | null
+  datum_zahajeni: string
+  datum_ukonceni?: string | null
+  lokalita?: string | null
+  organizator_id?: string | null
+  ucastnici_ids?: string[]
   agenda?: AgendaTopic[]
   zapis?: string | null
-  parent_id?: string | null
+  stav?: StavUdalosti
 }
 
 // --- UI Konstanty pro úkoly ---
@@ -218,7 +254,6 @@ export const ODDELENI_CONFIG: Record<OddeleniType, { label: string; color: strin
 
 export const TYP_UDALOSTI_CONFIG: Record<TypUdalostiType, { label: string; icon: string; color: string }> = {
   task:     { label: 'Úkol',        icon: '✓',  color: 'text-blue-700 dark:text-blue-200' },
-  meeting:  { label: 'Schůzka',     icon: '👥', color: 'text-purple-700 dark:text-purple-200' },
   order:    { label: 'Objednávka',  icon: '📦', color: 'text-yellow-700 dark:text-yellow-200' },
   deadline: { label: 'Deadline',    icon: '🔴', color: 'text-red-700 dark:text-red-200' },
 }

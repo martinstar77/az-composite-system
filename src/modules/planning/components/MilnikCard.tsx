@@ -16,13 +16,15 @@ import {
   Sparkles,
   Target,
 } from 'lucide-react'
-import { Milnik, STAV_MILNIKU_CONFIG, PRIORITA_CONFIG, UkolPlanovani, CilOddeleniMilniku, ODDELENI_CONFIG, OddeleniType } from '../types'
+import { Milnik, STAV_MILNIKU_CONFIG, PRIORITA_CONFIG, UkolPlanovani, UdalostPlanovani, CilOddeleniMilniku, ODDELENI_CONFIG, OddeleniType } from '../types'
 import { deleteMilnik, updateMilnikStav, updateMilnikTasks } from '../actions/milniky'
 import { MilnikFormDialog } from './MilnikFormDialog'
 import { getUkolyByMilnik, createQuickUkol } from '../actions/ukoly'
+import { getUdalostiByMilnik } from '../actions/udalosti'
 import { getCileByMilnik } from '../actions/goals'
 import { getUsers } from '@/modules/users/actions'
 import { UkolRow } from './UkolRow'
+import { MeetingWorkspace } from './MeetingWorkspace'
 import { UkolFormDialog as AddUkolFormDialog } from './UkolFormDialog'
 import { CilFormDialog } from './CilFormDialog'
 import {
@@ -85,6 +87,8 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
   // Stav pro databázové úkoly (Plánování v2.0)
   const [ukoly, setUkoly] = React.useState<UkolPlanovani[]>([])
   const [loadingUkoly, setLoadingUkoly] = React.useState(true)
+  const [udalosti, setUdalosti] = React.useState<UdalostPlanovani[]>([])
+  const [loadingUdalosti, setLoadingUdalosti] = React.useState(true)
   const [goals, setGoals] = React.useState<CilOddeleniMilniku[]>([])
   const [loadingGoals, setLoadingGoals] = React.useState(true)
   const [isGoalsDialogOpen, setIsGoalsDialogOpen] = React.useState(false)
@@ -101,6 +105,14 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
     setLoadingUkoly(false)
   }, [milnik.id])
 
+  const loadUdalosti = React.useCallback(async () => {
+    const res = await getUdalostiByMilnik(milnik.id)
+    if (res.success && res.data) {
+      setUdalosti(res.data)
+    }
+    setLoadingUdalosti(false)
+  }, [milnik.id])
+
   const loadGoals = React.useCallback(async () => {
     const res = await getCileByMilnik(milnik.id)
     if (res.success && res.data) {
@@ -111,6 +123,7 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
 
   React.useEffect(() => {
     loadUkoly()
+    loadUdalosti()
     loadGoals()
     
     async function loadUsers() {
@@ -120,7 +133,7 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
       }
     }
     loadUsers()
-  }, [loadUkoly, loadGoals])
+  }, [loadUkoly, loadUdalosti, loadGoals])
 
   // Rychlé přidání úkolu
   async function handleQuickAddSubmit(e: React.FormEvent) {
@@ -495,6 +508,52 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
             </div>
           )}
         </div>
+      </div>
+
+      {/* Nová sekce: Schůzky fáze */}
+      <div className="mt-4 pt-3 border-t border-dashed flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+            👥 Schůzky a meetingy
+          </span>
+          {udalosti.length > 0 && (
+            <span className="text-[10px] font-mono font-semibold text-muted-foreground">
+              {udalosti.filter(u => u.stav === 'completed').length}/{udalosti.length}
+            </span>
+          )}
+        </div>
+
+        {loadingUdalosti ? (
+          <span className="text-[11px] text-muted-foreground italic">Načítám schůzky...</span>
+        ) : udalosti.length === 0 ? (
+          <span className="text-[11px] text-muted-foreground/50 italic py-0.5">Bez plánovaných schůzek</span>
+        ) : (
+          <div className="flex flex-col gap-1.5 max-h-[150px] overflow-y-auto pr-0.5">
+            {udalosti.map(event => (
+              <div key={event.id} className="p-2 bg-purple-500/5 hover:bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-between transition-colors">
+                <div className="flex flex-col gap-0.5 min-w-0">
+                  <span className="text-xs font-semibold truncate text-purple-400">
+                    👥 {event.nazev}
+                  </span>
+                  <span className="text-[9px] text-zinc-500 font-mono">
+                    {new Date(event.datum_zahajeni).toLocaleDateString('cs-CZ')} {new Date(event.datum_zahajeni).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+                
+                <MeetingWorkspace
+                  meeting={event}
+                  userProfiles={userProfiles}
+                  onSuccess={loadUdalosti}
+                  trigger={
+                    <Button variant="ghost" size="icon-sm" className="h-7 w-7 text-purple-400 hover:text-purple-300">
+                      <Clock className="h-4 w-4" />
+                    </Button>
+                  }
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Vlastník a Progress Bar */}

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { 
   UkolPlanovani, 
+  UdalostPlanovani,
   OddeleniType, 
   TypUdalostiType,
   PrioritaUkolu,
@@ -24,9 +25,11 @@ import {
   PRIORITA_CONFIG
 } from '../types'
 import { getUkolyByDateRange, getMilnikyDeadlines } from '../actions/ukoly'
+import { getUdalostiByDateRange } from '../actions/udalosti'
 import { getProjekty } from '../actions/projekty'
 import { getUsers } from '@/modules/users/actions'
 import { UkolFormDialog } from './UkolFormDialog'
+import { MeetingWorkspace } from './MeetingWorkspace'
 import { Button } from '@/shared/components/ui/button'
 import { Badge } from '@/shared/components/ui/badge'
 import { Label } from '@/shared/components/ui/label'
@@ -56,8 +59,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
   // Dynamic style calculator for events
   const getEventStyle = useCallback((u: UkolPlanovani) => {
     const eventColor = u.barva || 
-      (u.typ_udalosti === 'meeting' ? '#8b5cf6' : 
-       u.typ_udalosti === 'order' ? '#eab308' : 
+      (u.typ_udalosti === 'order' ? '#eab308' : 
        u.typ_udalosti === 'deadline' ? '#ef4444' : 
        ODDELENI_CONFIG[u.oddeleni].colorHex)
     return {
@@ -74,6 +76,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
   
   // Data
   const [ukoly, setUkoly] = useState<UkolPlanovani[]>([])
+  const [udalosti, setUdalosti] = useState<UdalostPlanovani[]>([])
   const [milnikyDeadlines, setMilnikyDeadlines] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [userProfiles, setUserProfiles] = useState<any[]>([])
@@ -85,7 +88,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
   // Filters
   const [selectedOddeleni, setSelectedOddeleni] = useState<OddeleniType | 'all'>('all')
   const [selectedOwner, setSelectedOwner] = useState<string | 'all'>('all')
-  const [selectedTyp, setSelectedTyp] = useState<TypUdalostiType | 'all'>('all')
+  const [selectedTyp, setSelectedTyp] = useState<TypUdalostiType | 'meeting' | 'all'>('all')
   const [selectedPriorita, setSelectedPriorita] = useState<PrioritaUkolu | 'all'>('all')
   const [selectedProjekt, setSelectedProjekt] = useState<string | 'all'>('all')
   const [showFilters, setShowFilters] = useState(false)
@@ -130,9 +133,10 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
     const fromStr = toISODateString(start)
     const toStr = toISODateString(end)
 
-    const [ukolyRes, deadlinesRes] = await Promise.all([
+    const [ukolyRes, deadlinesRes, udalostiRes] = await Promise.all([
       getUkolyByDateRange(fromStr, toStr),
-      getMilnikyDeadlines(fromStr, toStr)
+      getMilnikyDeadlines(fromStr, toStr),
+      getUdalostiByDateRange(fromStr, toStr)
     ])
 
     if (ukolyRes.success && ukolyRes.data) {
@@ -140,6 +144,9 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
     }
     if (deadlinesRes.success && deadlinesRes.data) {
       setMilnikyDeadlines(deadlinesRes.data)
+    }
+    if (udalostiRes.success && udalostiRes.data) {
+      setUdalosti(udalostiRes.data)
     }
     setLoading(false)
   }, [getRangeDates])
@@ -253,6 +260,22 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
     return true
   })
 
+  // Filter application for meetings/events
+  const filteredUdalosti = udalosti.filter(u => {
+    // Projekt filter
+    if (projektId) {
+      if (u.milnik?.projekt_id !== projektId) return false
+    } else if (selectedProjekt !== 'all') {
+      if (u.milnik?.projekt_id !== selectedProjekt) return false
+    }
+    // Typ filter
+    if (selectedTyp !== 'all' && selectedTyp !== 'meeting') return false
+    // Since meetings don't have department, owner, or priority check them if filters are active
+    if (selectedOddeleni !== 'all') return false
+    if (selectedOwner !== 'all' && u.organizator_id !== selectedOwner) return false
+    return true
+  })
+
   // Filter application for milestone deadlines
   const filteredMilniky = milnikyDeadlines.filter(m => {
     // Projekt filter
@@ -330,7 +353,13 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
       m.datum_splatnosti === dateStr
     )
 
-    return { ukoly: dayUkoly, milniky: dayMilniky }
+    const dayUdalosti = filteredUdalosti.filter(u => {
+      if (!u.datum_zahajeni) return false
+      const eventDateStr = toISODateString(new Date(u.datum_zahajeni))
+      return eventDateStr === dateStr
+    })
+
+    return { ukoly: dayUkoly, milniky: dayMilniky, udalosti: dayUdalosti }
   }
 
   // Click on empty grid cell -> quick create
@@ -364,8 +393,8 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
           {gridDays.map(({ date, isCurrentMonth }, idx) => {
             const isToday = isSameDay(date, today)
             const isSelected = isSameDay(date, selectedDate)
-            const { ukoly: dayUkoly, milniky: dayMilniky } = getEventsForDay(date)
-            const hasEvents = dayUkoly.length > 0 || dayMilniky.length > 0
+            const { ukoly: dayUkoly, milniky: dayMilniky, udalosti: dayUdalosti } = getEventsForDay(date)
+            const hasEvents = dayUkoly.length > 0 || dayMilniky.length > 0 || dayUdalosti.length > 0
 
             return (
               <div
@@ -401,6 +430,25 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                       🎯 {m.nazev}
                     </div>
                   ))}
+
+                  {/* Meetings & Events */}
+                  {dayUdalosti.map(event => (
+                    <MeetingWorkspace
+                      key={event.id}
+                      meeting={event}
+                      userProfiles={userProfiles}
+                      onSuccess={loadData}
+                      trigger={
+                        <div
+                          className="event-item text-[9px] bg-purple-500/10 dark:bg-purple-950/40 border border-purple-500/20 dark:border-purple-800/40 text-purple-400 rounded px-1.5 py-0.5 truncate flex items-center gap-1 cursor-pointer transition-all hover:bg-purple-500/20 font-medium"
+                          title={`Schůzka: ${event.nazev}${event.lokalita ? ' (📍 ' + event.lokalita + ')' : ''}`}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          👥 {event.nazev}
+                        </div>
+                      }
+                    />
+                  ))}
                   
                   {/* Tasks */}
                   {dayUkoly.map(u => {
@@ -419,7 +467,6 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                         title={`${u.nazev}${u.lokalita ? ' (📍 ' + u.lokalita + ')' : ''} (${cfg.label})`}
                       >
                         <span className="truncate flex-1 font-medium">
-                          {u.typ_udalosti === 'meeting' ? '👥 ' : ''}
                           {u.nazev}
                           {u.lokalita && ' 📍'}
                         </span>
@@ -435,7 +482,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                     <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
                   )}
                   {dayUkoly.map(u => {
-                    const eventColor = u.barva || (u.typ_udalosti === 'meeting' ? '#8b5cf6' : null)
+                    const eventColor = u.barva
                     const style = eventColor 
                       ? { backgroundColor: eventColor, borderColor: eventColor } 
                       : { borderColor: 'currentColor', color: ODDELENI_CONFIG[u.oddeleni].color }
@@ -470,13 +517,34 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
             </Button>
           </div>
           {(() => {
-            const { ukoly: selectedUkoly, milniky: selectedMilniky } = getEventsForDay(selectedDate)
-            const hasAny = selectedUkoly.length > 0 || selectedMilniky.length > 0
+            const { ukoly: selectedUkoly, milniky: selectedMilniky, udalosti: selectedUdalosti } = getEventsForDay(selectedDate)
+            const hasAny = selectedUkoly.length > 0 || selectedMilniky.length > 0 || selectedUdalosti.length > 0
             if (!hasAny) {
               return <p className="text-xs text-muted-foreground italic py-2 text-center">Žádné události</p>
             }
             return (
               <div className="flex flex-col gap-2">
+                {/* Meetings & Events */}
+                {selectedUdalosti.map(event => (
+                  <MeetingWorkspace
+                    key={event.id}
+                    meeting={event}
+                    userProfiles={userProfiles}
+                    onSuccess={loadData}
+                    trigger={
+                      <div className="flex flex-col gap-1 p-2 rounded-lg border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 text-purple-400 cursor-pointer transition-colors">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-xs">👥 {event.nazev}</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold border border-purple-500/30 bg-purple-500/10 text-purple-400">Schůzka</span>
+                        </div>
+                        <span className="text-[10px] opacity-80">
+                          Organizátor: {userProfiles.find(p => p.id === event.organizator_id)?.jmeno || "Nepřiřazeno"}
+                          {event.lokalita && ` • 📍 ${event.lokalita}`}
+                        </span>
+                      </div>
+                    }
+                  />
+                ))}
                 {selectedMilniky.map(m => (
                   <div key={m.id} className="text-xs bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-200 rounded-lg p-2 font-bold border border-red-200 dark:border-red-900/50">
                     🎯 Deadline milníku: <span className="font-semibold">{m.nazev}</span>
@@ -495,7 +563,6 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className={`text-xs font-bold ${u.stav === 'done' ? 'line-through' : ''}`}>
-                          {u.typ_udalosti === 'meeting' ? '👥 ' : ''}
                           {u.nazev}
                         </span>
                         <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold border border-black/10 dark:border-white/10 ${stavCfg.bg} ${stavCfg.color}`}>{stavCfg.label}</span>
@@ -530,7 +597,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
       <div className="grid grid-cols-1 md:grid-cols-7 border rounded-xl divide-y md:divide-y-0 md:divide-x overflow-hidden select-none bg-card">
         {days.map((date, idx) => {
           const isToday = isSameDay(date, new Date())
-          const { ukoly: dayUkoly, milniky: dayMilniky } = getEventsForDay(date)
+          const { ukoly: dayUkoly, milniky: dayMilniky, udalosti: dayUdalosti } = getEventsForDay(date)
           
           return (
             <div key={idx} className="flex flex-col min-h-[150px] p-3">
@@ -553,8 +620,24 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                   </div>
                 ))}
                 
+                {/* Meetings & Events */}
+                {dayUdalosti.map(event => (
+                  <MeetingWorkspace
+                    key={event.id}
+                    meeting={event}
+                    userProfiles={userProfiles}
+                    onSuccess={loadData}
+                    trigger={
+                      <div className="p-2 rounded-lg border border-purple-500/20 bg-purple-500/5 text-purple-400 text-[11px] leading-normal flex flex-col gap-1 cursor-pointer transition-all hover:bg-purple-500/10 mb-2">
+                        <span className="font-bold">👥 {event.nazev}</span>
+                        {event.lokalita && <span className="text-[9px] opacity-80 flex items-center gap-0.5">📍 {event.lokalita}</span>}
+                      </div>
+                    }
+                  />
+                ))}
+
                 {/* Tasks */}
-                {dayUkoly.length === 0 && dayMilniky.length === 0 ? (
+                {dayUkoly.length === 0 && dayMilniky.length === 0 && dayUdalosti.length === 0 ? (
                   <span className="text-[10px] text-muted-foreground/50 italic py-2 text-center md:text-left">Bez událostí</span>
                 ) : (
                   dayUkoly.map(u => {
@@ -569,7 +652,6 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                         className={`p-2 rounded-lg border text-[11px] leading-normal flex flex-col gap-1 cursor-pointer transition-all hover:brightness-95 dark:hover:brightness-110 ${className}`}
                       >
                         <span className={`font-bold ${u.stav === 'done' ? 'line-through' : ''}`}>
-                          {u.typ_udalosti === 'meeting' ? '👥 ' : ''}
                           {u.nazev}
                         </span>
                         {u.lokalita && <span className="text-[9px] opacity-80 flex items-center gap-0.5">📍 {u.lokalita}</span>}
@@ -591,7 +673,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
 
   // Day view render
   const renderDayView = () => {
-    const { ukoly: dayUkoly, milniky: dayMilniky } = getEventsForDay(currentDate)
+    const { ukoly: dayUkoly, milniky: dayMilniky, udalosti: dayUdalosti } = getEventsForDay(currentDate)
 
     return (
       <div className="border rounded-xl p-4 bg-card flex flex-col gap-4 select-none">
@@ -612,9 +694,35 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
         )}
 
         <div className="flex flex-col gap-2">
+          {dayUdalosti.length > 0 && (
+            <div className="flex flex-col gap-2 mb-4">
+              <h4 className="text-xs font-bold text-purple-600 dark:text-purple-400">Schůzky a meetingy</h4>
+              {dayUdalosti.map(event => (
+                <MeetingWorkspace
+                  key={event.id}
+                  meeting={event}
+                  userProfiles={userProfiles}
+                  onSuccess={loadData}
+                  trigger={
+                    <div className="p-3 rounded-lg border border-purple-500/20 bg-purple-500/5 cursor-pointer hover:bg-purple-500/10 transition-colors flex justify-between items-center gap-4">
+                      <div className="flex flex-col gap-1 min-w-0">
+                        <span className="text-xs font-bold leading-normal truncate text-purple-400">👥 {event.nazev}</span>
+                        <span className="text-[10px] opacity-80 text-purple-300">
+                          Organizátor: {userProfiles.find(p => p.id === event.organizator_id)?.jmeno || "Nepřiřazeno"}
+                          {event.lokalita && ` • 📍 ${event.lokalita}`}
+                        </span>
+                      </div>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border border-purple-500/30 bg-purple-500/10 text-purple-400">Schůzka</span>
+                    </div>
+                  }
+                />
+              ))}
+            </div>
+          )}
+
           <h4 className="text-xs font-bold text-muted-foreground">Úkoly a události</h4>
-          {dayUkoly.length === 0 ? (
-            <p className="text-xs text-muted-foreground italic py-4 text-center border border-dashed rounded-lg bg-muted/10">Žádné úkoly pro tento den</p>
+          {dayUkoly.length === 0 && dayUdalosti.length === 0 ? (
+            <p className="text-xs text-muted-foreground italic py-4 text-center border border-dashed rounded-lg bg-muted/10">Žádné události pro tento den</p>
           ) : (
             <div className="flex flex-col gap-3">
               {dayUkoly.map(u => {
@@ -631,7 +739,6 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                   >
                     <div className="flex flex-col gap-1 min-w-0">
                       <span className={`text-xs font-bold leading-normal truncate ${u.stav === 'done' ? 'line-through' : ''}`}>
-                        {u.typ_udalosti === 'meeting' ? '👥 ' : ''}
                         {u.nazev}
                       </span>
                       <span className="text-[10px] opacity-80">
@@ -810,6 +917,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="all">Všechny typy</option>
+                <option value="meeting">👥 Schůzka / Meeting</option>
                 {Object.entries(TYP_UDALOSTI_CONFIG).map(([key, cfg]) => (
                   <option key={key} value={key}>{cfg.icon} {cfg.label}</option>
                 ))}

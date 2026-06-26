@@ -8,7 +8,6 @@ import type {
   UkolPlanovaniPayload,
   OddeleniType,
   ChecklistItem,
-  AgendaTopic,
 } from '../types'
 
 // ============================================================
@@ -25,7 +24,7 @@ const ukolSchema = z.object({
     'management', 'sales', 'purchasing', 'logistics',
     'backbone', 'finance', 'rd', 'marketing', 'backoffice', 'legal',
   ]).default('management'),
-  typ_udalosti: z.enum(['task', 'meeting', 'order', 'deadline']).default('task'),
+  typ_udalosti: z.enum(['task', 'order', 'deadline']).default('task'),
   vlastnik_id: z.string().uuid().optional().nullable(),
   datum_zahajeni: z.string().optional().nullable(),
   datum_splatnosti: z.string().optional().nullable(),
@@ -36,16 +35,7 @@ const ukolSchema = z.object({
   lokalita: z.string().optional().nullable(),
   barva: z.string().optional().nullable(),
   cil_id: z.string().uuid().optional().nullable(),
-  agenda: z.array(z.object({
-    id: z.string(),
-    nazev: z.string(),
-    popis: z.string().optional().nullable(),
-    prezentuje_id: z.string().uuid().optional().nullable(),
-    doba_minut: z.number().default(0),
-    stav: z.enum(['planned', 'discussed']).default('planned'),
-  })).default([]),
-  zapis: z.string().optional().nullable(),
-  parent_id: z.string().uuid().optional().nullable(),
+  parent_meeting_id: z.string().uuid().optional().nullable(),
 })
 
 // ============================================================
@@ -257,9 +247,7 @@ export async function upsertUkol(
       lokalita: validated.lokalita ?? null,
       barva: validated.barva ?? null,
       cil_id: validated.cil_id ?? null,
-      agenda: validated.agenda,
-      zapis: validated.zapis ?? null,
-      parent_id: validated.parent_id ?? null,
+      parent_meeting_id: validated.parent_meeting_id ?? null,
       upravil_id: user.id,
       tenant_id: tenantId,
     }
@@ -541,164 +529,3 @@ export async function getUkolyGlobal(filters?: {
     return { success: false, error: e.message }
   }
 }
-
-// ============================================================
-// generateMeetingOutputViaAI
-// Volá Gemini API k analýze agendy a poznámek a automaticky
-// zakládá úkoly (akční kroky) schůzky.
-// ============================================================
-export async function generateMeetingOutputViaAI(
-  meetingId: string
-): Promise<{ success: boolean; data?: { summary: string; createdTasks: any[] }; error?: string }> {
-  try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { success: false, error: 'Nepřihlášený uživatel' }
-
-    // 1. Načteme schůzku
-    const { data: meeting, error: meetingError } = await supabase
-      .from('ukoly_planovani')
-      .select('*')
-      .eq('id', meetingId)
-      .single()
-
-    if (meetingError || !meeting) {
-      return { success: false, error: 'Nepodařilo se načíst schůzku.' }
-    }
-
-    if (meeting.typ_udalosti !== 'meeting') {
-      return { success: false, error: 'Tento úkol není typu schůzka.' }
-    }
-
-    // Načteme všechny uživatele systému (profily_uzivatelu) pro ztotožnění
-    const { data: profiles } = await supabase
-      .from('profily_uzivatelu')
-      .select('id, jmeno')
-
-    const userListText = profiles?.map(p => `- ${p.jmeno} (ID: ${p.id})`).join('\n') || ''
-
-    const apiKey = process.env.GEMINI_API_KEY
-    if (!apiKey) {
-      return { success: false, error: 'Chybí konfigurace GEMINI_API_KEY v .env.local.' }
-    }
-
-    // 2. Příprava promptu pro Gemini
-    const promptText = `
-Jsi asistent řízení projektů pro společnost AZ-Composites.
-Máme schůzku s názvem "${meeting.nazev}" konanou dne ${meeting.datum_splatnosti || 'dnes'}.
-
-Zde je seznam témat schůzky (agenda):
-${JSON.stringify(meeting.agenda, null, 2)}
-
-Zde jsou surové poznámky pořízené v průběhu schůzky (zápis):
----
-${meeting.zapis || 'Bez zápisu.'}
----
-
-Úkoly pro spárování uživatelů:
-${userListText}
-
-Zpracuj tyto poznámky a vygeneruj JSON výstup podle následující specifikace.
-Vrátíš objekt s klíči:
-1. "summaryMarkdown": krásně strukturovaný zápis v Markdownu. Měl by obsahovat:
-   - Stručný souhrn (Executive Summary)
-   - Seznam klíčových rozhodnutí (Key Decisions)
-   - Stručné shrnutí jednotlivých témat, která se projednala
-2. "tasks": pole nově vytvořených úkolů (akčních kroků). Pro každý úkol urči:
-   - "nazev": krátký výstižný název úkolu
-   - "popis": detailní vysvětlení, co se má udělat
-   - "vlastnik_id": UUID vlastníka ze seznamu výše (pokud dokážeš jednoznačně ztotožnit např. "Martin", "Filip", "Jarda" s ID z tabulky). Pokud nevíš, nech null.
-   - "datum_splatnosti": termín splnění ve formátu YYYY-MM-DD. Pokud byl termín vyjádřen relativně vůči datu schůzky (např. "do pátku", "do týdne"), spočítej přesné datum vůči datu schůzky ${meeting.datum_splatnosti || 'dnes'}. Pokud termín chybí, nech null.
-   - "oddeleni": jedno z: management, sales, purchasing, logistics, backbone, finance, rd, marketing, backoffice, legal. Vyber podle zaměření úkolu.
-
-Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" ani nepoužívej json tagy. Pouze čistý JSON objekt.
-`
-
-    // 3. Volání Gemini API
-    const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey
-    const response = await fetch(
-      url,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: promptText }]
-          }],
-          generationConfig: {
-            responseMimeType: 'application/json',
-          }
-        })
-      }
-    )
-
-    if (!response.ok) {
-      const errText = await response.text()
-      throw new Error('Gemini API error: ' + errText)
-    }
-
-    const resJson = await response.json()
-    const textOutput = resJson.candidates?.[0]?.content?.parts?.[0]?.text
-    if (!textOutput) {
-      throw new Error('Nebyly vráceny žádné výsledky z Gemini API.')
-    }
-
-    // 4. Parsování výsledku
-    const result = JSON.parse(textOutput.trim())
-
-    // 5. Uložení zápisu zformátovaného AI zpět do schůzky
-    await supabase
-      .from('ukoly_planovani')
-      .update({
-        zapis: result.summaryMarkdown,
-        upravil_id: user.id
-      })
-      .eq('id', meetingId)
-
-    // 6. Automatické založení vygenerovaných úkolů v DB
-    const createdTasks = []
-    if (Array.isArray(result.tasks) && result.tasks.length > 0) {
-      for (const t of result.tasks) {
-        // Vytvoříme úkol v DB
-        const { data: inserted, error: insertError } = await supabase
-          .from('ukoly_planovani')
-          .insert({
-            milnik_id: meeting.milnik_id,
-            parent_id: meetingId,
-            nazev: t.nazev,
-            popis: t.popis || null,
-            vlastnik_id: t.vlastnik_id || null,
-            datum_splatnosti: t.datum_splatnosti || null,
-            oddeleni: t.oddeleni || 'management',
-            typ_udalosti: 'task',
-            stav: 'todo',
-            priorita: 'medium',
-            vytvoril_id: user.id,
-            upravil_id: user.id,
-            tenant_id: meeting.tenant_id
-          })
-          .select('id, nazev, vlastnik_id, oddeleni')
-          .single()
-
-        if (!insertError && inserted) {
-          createdTasks.push(inserted)
-        }
-      }
-    }
-
-    revalidatePath('/planovani')
-    return { 
-      success: true, 
-      data: {
-        summary: result.summaryMarkdown,
-        createdTasks: createdTasks
-      }
-    }
-  } catch (e: any) {
-    console.error('Error in generateMeetingOutputViaAI:', e)
-    return { success: false, error: e.message || 'Neočekávaná chyba při zpracování AI' }
-  }
-}
-

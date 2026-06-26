@@ -455,12 +455,12 @@ export function UkolFormDialog({
 
           {/* Lokalita */}
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ukol-lokalita">Lokalita (Místo konání / Odkaz na schůzku)</Label>
+            <Label htmlFor="ukol-lokalita">Lokalita (Místo konání / Odkaz)</Label>
             <Input
               id="ukol-lokalita"
               value={form.lokalita}
               onChange={e => handleChange('lokalita', e.target.value)}
-              placeholder={form.typ_udalosti === 'meeting' ? "např. Zasedačka 1, Google Meet, Teams..." : "Místo konání..."}
+              placeholder="Místo konání..."
             />
           </div>
 
