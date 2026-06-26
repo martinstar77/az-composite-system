@@ -67,6 +67,14 @@ export interface Zakaznik {
   aktualizovano_at: string
   vytvoril_id: string | null
   upravil_id: string | null
+  // CRM fields
+  pocet_zamestnancu: number | null
+  odhadovany_obrat: string | null
+  je_dluznik: boolean
+  mesicni_fakturace: number | null
+  pouzivane_technologie: string | null
+  pozadovane_technologie: string | null
+  portfolio_prunik: Record<string, 'ano' | 'zajem' | 'zamereni' | null> | null
   // Join fields
   vytvoril?: { jmeno: string } | null
   upravil?: { jmeno: string } | null

@@ -24,7 +24,8 @@ import {
   ClipboardCopy,
   FileSignature,
   ClipboardCheck,
-  Check
+  Check,
+  Target
 } from "lucide-react"
 
 import { Button } from "@/shared/components/ui/button"
@@ -48,8 +49,10 @@ import { Badge } from "@/shared/components/ui/badge"
 import { Separator } from "@/shared/components/ui/separator"
 import { RichTextEditor } from "@/modules/notes/components/RichTextEditor"
 import { UdalostPlanovani, AgendaTopic, ODDELENI_CONFIG } from "../types"
-import { upsertUdalost, generateMeetingOutputViaAI, getTasksByMeeting } from "../actions/udalosti"
+import { upsertUdalost, generateMeetingOutputViaAI, getTasksByMeeting, schvalitUdalostVystupy } from "../actions/udalosti"
 import { UdalostFormDialog } from "./UdalostFormDialog"
+import MeetingPripravaTab from "./MeetingPripravaTab"
+import MeetingPortfolioPrunikTab from "./MeetingPortfolioPrunikTab"
 
 interface MeetingWorkspaceProps {
   meeting: UdalostPlanovani
@@ -61,7 +64,7 @@ interface MeetingWorkspaceProps {
 export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: MeetingWorkspaceProps) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [activeTab, setActiveTab] = useState<"prep" | "agenda" | "notes" | "outputs" | "email">("prep")
+  const [activeTab, setActiveTab] = useState<"prep" | "prunik" | "agenda" | "notes" | "outputs" | "email">("prep")
   const [notesSubTab, setNotesSubTab] = useState<"write" | "dictate" | "transcript">("write")
 
   const isSchuzka = meeting.typ === 'schuzka'
@@ -80,6 +83,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
   const [emailNavrh, setEmailNavrh] = useState(meeting.email_navrh || "")
   const [createdTasks, setCreatedTasks] = useState<any[]>([])
   const [newTopicName, setNewTopicName] = useState("")
+  const [meetingStav, setMeetingStav] = useState(meeting.stav)
   
   // Timer States
   const [isMeetingActive, setIsMeetingActive] = useState(false)
@@ -111,13 +115,27 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
       setTopicSeconds(0)
       setNotesSubTab("write")
       setAudioBlob(null)
+      setMeetingStav(meeting.stav)
       
-      // Load action tasks created from this meeting
-      getTasksByMeeting(meeting.id).then(res => {
-        if (res.success && res.data) {
-          setCreatedTasks(res.data)
+      if (meeting.stav === 'completed') {
+        // Load action tasks created from this meeting
+        getTasksByMeeting(meeting.id).then(res => {
+          if (res.success && res.data) {
+            setCreatedTasks(res.data)
+          }
+        })
+      } else {
+        // Try parsing draft tasks from meeting.popis
+        let parsedDraftTasks: any[] = []
+        try {
+          if (meeting.popis && meeting.popis.startsWith('[')) {
+            parsedDraftTasks = JSON.parse(meeting.popis)
+          }
+        } catch (e) {
+          console.error("Chyba při parsování draft úkolů:", e)
         }
-      })
+        setCreatedTasks(parsedDraftTasks)
+      }
     }
   }, [open, meeting])
 
@@ -257,11 +275,13 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
           setCreatedTasks(result.data.createdTasks || [])
           setAudioBlob(null)
           
-          toast.success("Hlasový přepis a AI analýza úspěšně dokončena!", {
-            description: `Založeno ${result.data.createdTasks.length} akčních úkolů v DB.`
+          toast.success("Hlasový přepis dokončen!", {
+            description: `Nový přepis byl zaznamenán a připojen do záložky Surový přepis.`,
+            duration: 5000
           })
           
-          setActiveTab("outputs")
+          setActiveTab("notes")
+          setNotesSubTab("transcript")
           onSuccess?.()
         } else {
           toast.error("Chyba při zpracování nahrávky", { description: result.error })
@@ -389,7 +409,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
         
         const count = result.data.createdTasks.length
         toast.success("AI zpracování schůzky dokončeno!", {
-          description: `Zápis byl zformátován a v DB bylo založeno ${count} akčních úkolů.`,
+          description: `Zápis a ${count} úkolů byly navrženy a připraveny ke schválení.`,
           duration: 6000
         })
         onSuccess?.()
@@ -430,7 +450,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
           setCreatedTasks(result.data.createdTasks || [])
           
           toast.success("AI analýza úspěšně přepočítána!", {
-            description: `Úkoly a zápis byly aktualizovány. Založeno ${result.data.createdTasks.length} úkolů v DB.`
+            description: `Navržený zápis a ${result.data.createdTasks.length} úkolů jsou připraveny ke schválení.`
           })
           setActiveTab("outputs")
           onSuccess?.()
@@ -442,6 +462,46 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
         toast.error("Nebylo možné provést analýzu z textu", { description: err.message })
       }
     })
+  }
+
+  // Approval of AI outputs and creating tasks/notes in DB
+  const handleApproveOutputs = () => {
+    toast.info("Schvaluji zápis a zakládám úkoly v systému...", {
+      description: "Tato operace chvíli potrvá."
+    })
+
+    startTransition(async () => {
+      try {
+        const result = await schvalitUdalostVystupy(meeting.id, zapis, emailNavrh, createdTasks)
+        if (result.success) {
+          toast.success("Výstupy schůzky byly úspěšně schváleny a uloženy!", {
+            description: "Zápis byl publikován do Poznámek a úkoly byly vytvořeny."
+          })
+          
+          setMeetingStav('completed')
+          
+          // Re-load actual tasks from DB
+          const resTasks = await getTasksByMeeting(meeting.id)
+          if (resTasks.success && resTasks.data) {
+            setCreatedTasks(resTasks.data)
+          }
+
+          // Trigger refresh of parent views
+          onSuccess?.()
+        } else {
+          toast.error("Chyba při schvalování výstupů", { description: result.error })
+        }
+      } catch (err: any) {
+        console.error("Approve outputs error:", err)
+        toast.error("Chyba při schvalování", { description: err.message })
+      }
+    })
+  }
+
+  const handleRemoveDraftTask = (index: number) => {
+    const updated = [...createdTasks]
+    updated.splice(index, 1)
+    setCreatedTasks(updated)
   }
 
   // Copy Follow-up Email to Clipboard
@@ -460,7 +520,14 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
   const activeTopic = agenda.find(t => t.id === activeTopicId)
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(isOpen, details: any) => {
+      if (!isOpen) {
+        if (details?.reason === "outsidePress" || details?.reason === "focusOut") {
+          return
+        }
+      }
+      setOpen(isOpen)
+    }}>
       <DialogTrigger render={trigger} />
       <DialogContent className="max-w-none sm:max-w-none w-[98vw] h-[96vh] flex flex-col p-0 overflow-hidden bg-zinc-950 border-zinc-800 text-white">
         
@@ -572,6 +639,18 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                 </button>
               )}
 
+              {isSchuzka && (
+                <button
+                  onClick={() => setActiveTab("prunik")}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === "prunik" ? brandTabActiveStyle : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
+                  }`}
+                >
+                  <Target className="h-4 w-4" />
+                  Průnik portfolia
+                </button>
+              )}
+
               <button
                 onClick={() => setActiveTab("agenda")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
@@ -640,29 +719,32 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
             
             {/* PRIPRAVA TAB */}
             {activeTab === "prep" && (
-              <div className="flex-1 flex flex-col p-6 overflow-hidden">
-                <div className="flex items-center justify-between mb-4 shrink-0">
-                  <div>
-                    <h3 className="text-base font-bold text-white">Příprava na schůzku</h3>
-                    <p className="text-xs text-zinc-400">
-                      Zapište si cíle schůzky, otázky na klienta a předběžné poznámky ještě před zahájením.
-                    </p>
-                  </div>
-                  <Button
-                    onClick={handleSaveMeeting}
-                    disabled={isPending}
-                    className="bg-zinc-850 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 h-9 px-4 gap-1.5 text-xs font-semibold"
-                  >
-                    <Save className="h-4 w-4" /> Uložit přípravu
-                  </Button>
+              <div className="flex-1 flex flex-col p-6 overflow-y-auto">
+                <div className="mb-4 shrink-0">
+                  <h3 className="text-base font-bold text-white">Příprava na schůzku</h3>
+                  <p className="text-xs text-zinc-400">
+                    Cíl schůzky, informace o zákazníkovi a portfolio technologií.
+                  </p>
                 </div>
+                <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-5 text-zinc-100">
+                  <MeetingPripravaTab meeting={meeting} zakaznik={(meeting.zakaznik as any) ?? null} />
+                </div>
+              </div>
+            )}
 
-                <div className="flex-1 border border-zinc-800 bg-zinc-900/20 rounded-xl overflow-hidden flex flex-col">
-                  <RichTextEditor
-                    value={priprava}
-                    onChange={setPriprava}
-                    placeholder="Sem napište podklady pro přípravu..."
-                    className="border-none min-h-full"
+            {/* PRUNIK PORTFOLIA TAB */}
+            {activeTab === "prunik" && (
+              <div className="flex-1 flex flex-col p-6 overflow-y-auto">
+                <div className="mb-4 shrink-0">
+                  <h3 className="text-base font-bold text-white">Průnik portfolia</h3>
+                  <p className="text-xs text-zinc-400">
+                    Označte produktové kategorie — co zákazník odebírá, o co má zájem a co cílíme.
+                  </p>
+                </div>
+                <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-5 text-zinc-100">
+                  <MeetingPortfolioPrunikTab
+                    zakaznikId={meeting.zakaznik_id}
+                    initialPrunik={(meeting.zakaznik?.portfolio_prunik as Record<string, any>) ?? null}
                   />
                 </div>
               </div>
@@ -1048,68 +1130,116 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
 
             {/* VYSTUPY A AI TAB */}
             {activeTab === "outputs" && (
-              <div className="flex-1 flex overflow-hidden p-6 gap-6">
-                
-                {/* Left side: Beautiful Markdown AI Output */}
-                <div className="flex-1 flex flex-col border border-zinc-800 bg-zinc-900/20 rounded-xl p-4 overflow-hidden">
-                  <div className="flex justify-between items-center mb-3 shrink-0">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className={`h-4 w-4 ${brandColorClass} fill-current`} />
-                      <span className="text-xs font-bold text-white">
-                        {isSchuzka ? 'Strukturovaný zápis ze schůzky' : 'Strukturovaný zápis z meetingu'}
-                      </span>
+              <div className="flex-1 flex flex-col p-6 overflow-hidden gap-4">
+                {meetingStav !== 'completed' ? (
+                  <div className="flex items-center justify-between p-3.5 bg-yellow-500/10 border border-yellow-500/20 rounded-xl shrink-0">
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl">⚠️</span>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-semibold text-yellow-400">Návrh čeká na schválení</span>
+                        <span className="text-xs text-zinc-400">Zkontrolujte zápis, e-mail a úkoly. Můžete smazat nevyhovující úkoly a pak kliknout na tlačítko vpravo.</span>
+                      </div>
                     </div>
-                    <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/5 h-5 text-[9px]">
-                      Zápis od AI
-                    </Badge>
+                    <Button
+                      onClick={handleApproveOutputs}
+                      disabled={isPending}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-9 px-4 gap-1.5 text-xs rounded-lg shadow-lg shadow-emerald-600/15 shrink-0"
+                    >
+                      <Check className="h-4 w-4" /> Schválit zápis a založit úkoly
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl shrink-0">
+                    <span className="text-xl">✓</span>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-emerald-400">Výstupy schůzky byly schváleny</span>
+                      <span className="text-xs text-zinc-400">Zápis byl uložen do Knowledge Base a úkoly byly úspěšně založeny v ERP.</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex-1 flex overflow-hidden gap-6">
+                  {/* Left side: Beautiful Markdown AI Output */}
+                  <div className="flex-1 flex flex-col border border-zinc-800 bg-zinc-900/20 rounded-xl p-4 overflow-hidden">
+                    <div className="flex justify-between items-center mb-3 shrink-0">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className={`h-4 w-4 ${brandColorClass} fill-current`} />
+                        <span className="text-xs font-bold text-white">
+                          {isSchuzka ? 'Strukturovaný zápis ze schůzky' : 'Strukturovaný zápis z meetingu'}
+                        </span>
+                      </div>
+                      <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/5 h-5 text-[9px]">
+                        Zápis od AI
+                      </Badge>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto prose prose-sm dark:prose-invert max-w-none bg-zinc-950/20 border border-zinc-850 p-4 rounded-lg select-text">
+                      {zapis ? (
+                        <div className="text-sm leading-relaxed text-zinc-300 whitespace-pre-wrap">
+                          {zapis}
+                        </div>
+                      ) : (
+                        <p className="text-zinc-500 text-xs italic">Zatím žádný zápis schůzky. Přejděte na záložku Poznámky a nahrajte nebo zapište průběh.</p>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto prose prose-sm dark:prose-invert max-w-none bg-zinc-950/20 border border-zinc-850 p-4 rounded-lg select-text">
-                    {zapis ? (
-                      <div className="text-sm leading-relaxed text-zinc-300 whitespace-pre-wrap">
-                        {zapis}
-                      </div>
-                    ) : (
-                      <p className="text-zinc-500 text-xs italic">Zatím žádný zápis schůzky. Přejděte na záložku Poznámky a nahrajte nebo zapište průběh.</p>
-                    )}
+                  {/* Right side: List of action tasks */}
+                  <div className="w-[450px] flex flex-col border border-zinc-800 bg-zinc-900/20 rounded-xl p-4 overflow-hidden shrink-0">
+                    <div className="flex items-center justify-between mb-3 shrink-0">
+                      <span className="text-xs font-bold text-white">
+                        {meetingStav !== 'completed' ? 'Navržené akční kroky (Draft)' : 'Vazební akční kroky (ERP Úkoly)'}
+                      </span>
+                      <Badge variant="outline" className="border-zinc-800 text-zinc-400 bg-zinc-900 h-5 text-[9px]">
+                        {meetingStav !== 'completed' ? 'Draft úkoly' : 'Aktivní úkoly'}
+                      </Badge>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto bg-zinc-950/20 border border-zinc-850 p-3 rounded-lg">
+                      {createdTasks.length === 0 ? (
+                        <div className="text-zinc-500 text-xs italic text-center py-6">
+                          {meetingStav !== 'completed' 
+                            ? 'Zde se zobrazí úkoly navržené AI, které budete moci upravit a schválit.'
+                            : 'Žádné úkoly pro tuto schůzku.'}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {createdTasks.map((t, idx) => {
+                            const ownerName = t.vlastnik?.jmeno || userProfiles.find(u => u.id === t.vlastnik_id)?.jmeno || "Nepřiřazeno"
+                            return (
+                              <div key={t.id || idx} className="p-3 bg-zinc-900 border border-zinc-850 rounded-lg flex items-center justify-between gap-3">
+                                <div className="space-y-0.5 min-w-0">
+                                  <p className="text-xs font-semibold text-zinc-300 truncate">{t.nazev}</p>
+                                  <p className="text-[10px] text-zinc-500">
+                                    Vlastník: {ownerName} 
+                                    {t.datum_splatnosti && ` · Termín: ${new Date(t.datum_splatnosti).toLocaleDateString('cs-CZ')}`}
+                                    {t.oddeleni && ` · Oddělení: ${ODDELENI_CONFIG[t.oddeleni]?.label || t.oddeleni}`}
+                                  </p>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] px-1.5 py-0 capitalize">
+                                    {t.stav || 'todo'}
+                                  </Badge>
+                                  {meetingStav !== 'completed' && (
+                                    <Button
+                                      onClick={() => handleRemoveDraftTask(idx)}
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-zinc-500 hover:text-red-400"
+                                      title="Odstranit z návrhu"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-
-                {/* Right side: List of action tasks */}
-                <div className="w-[450px] flex flex-col border border-zinc-800 bg-zinc-900/20 rounded-xl p-4 overflow-hidden shrink-0">
-                  <div className="flex items-center justify-between mb-3 shrink-0">
-                    <span className="text-xs font-bold text-white">Vazební akční kroky (ERP Úkoly)</span>
-                    <Badge variant="outline" className="border-zinc-800 text-zinc-400 bg-zinc-900 h-5 text-[9px]">
-                      Přiřazené úkoly
-                    </Badge>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto bg-zinc-950/20 border border-zinc-850 p-3 rounded-lg">
-                    {createdTasks.length === 0 ? (
-                      <div className="text-zinc-500 text-xs italic text-center py-6">
-                        Zde se automaticky zobrazí úkoly, které Gemini zanalyzuje a založí do DB na základě vašeho zápisu ze schůzky.
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {createdTasks.map((t) => (
-                          <div key={t.id} className="p-3 bg-zinc-900 border border-zinc-850 rounded-lg flex items-center justify-between">
-                            <div className="space-y-0.5">
-                              <p className="text-xs font-semibold text-zinc-300">{t.nazev}</p>
-                              <p className="text-[10px] text-zinc-500">
-                                Vlastník: {t.vlastnik?.jmeno || "Nepřiřazeno"} 
-                                {t.datum_splatnosti && ` · Termín: ${new Date(t.datum_splatnosti).toLocaleDateString('cs-CZ')}`}
-                              </p>
-                            </div>
-                            <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] px-1.5 py-0 capitalize">
-                              {t.stav}
-                            </Badge>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
               </div>
             )}
 

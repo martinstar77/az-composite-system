@@ -240,3 +240,66 @@ export async function getCustomerLookups(): Promise<{ countries: string[] }> {
   return { countries }
 }
 
+/**
+ * Aktualizuje CRM data zákazníka (obrat, počet zaměstnanců, technologie atd.).
+ */
+export async function updateZakaznikCrmData(
+  id: string,
+  data: {
+    pocet_zamestnancu?: number | null
+    odhadovany_obrat?: string | null
+    je_dluznik?: boolean
+    pouzivane_technologie?: string | null
+    pozadovane_technologie?: string | null
+  }
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { error } = await supabase
+    .from('zakaznici')
+    .update({
+      ...data,
+      upravil_id: user?.id,
+      aktualizovano_at: new Date().toISOString()
+    })
+    .eq('id', id)
+
+  if (error) {
+    console.error('[updateZakaznikCrmData]', error)
+    return { success: false, error: 'Chyba při aktualizaci CRM dat: ' + error.message }
+  }
+
+  revalidatePath('/zakaznici')
+  return { success: true }
+}
+
+/**
+ * Aktualizuje průnik portfolia zákazníka (JSONB sloupec portfolio_prunik).
+ */
+export async function updateZakaznikPortfolioPrunik(
+  id: string,
+  portfolio_prunik: Record<string, 'ano' | 'zajem' | 'zamereni' | null>
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { error } = await supabase
+    .from('zakaznici')
+    .update({
+      portfolio_prunik,
+      upravil_id: user?.id,
+      aktualizovano_at: new Date().toISOString()
+    })
+    .eq('id', id)
+
+  if (error) {
+    console.error('[updateZakaznikPortfolioPrunik]', error)
+    return { success: false, error: 'Chyba při ukládání průniku portfolia: ' + error.message }
+  }
+
+  revalidatePath('/zakaznici')
+  return { success: true }
+}
+
+

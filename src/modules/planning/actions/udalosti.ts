@@ -38,6 +38,7 @@ const udalostSchema = z.object({
   email_navrh: z.string().optional().nullable(),
   zakaznik_id: z.string().uuid().optional().nullable(),
   dodavatel_id: z.string().uuid().optional().nullable(),
+  cil_schuzky: z.string().optional().nullable(),
 })
 
 const UDALOST_SELECT = `
@@ -56,7 +57,18 @@ const UDALOST_SELECT = `
   ),
   zakaznik:zakaznik_id (
     id,
-    nazev_spolecnosti
+    nazev_spolecnosti,
+    ico,
+    dic,
+    adresa,
+    telefon,
+    pocet_zamestnancu,
+    odhadovany_obrat,
+    je_dluznik,
+    mesicni_fakturace,
+    pouzivane_technologie,
+    pozadovane_technologie,
+    portfolio_prunik
   ),
   dodavatel:dodavatel_id (
     id,
@@ -166,6 +178,7 @@ export async function upsertUdalost(
       email_navrh: validated.email_navrh ?? null,
       zakaznik_id: validated.zakaznik_id ?? null,
       dodavatel_id: validated.dodavatel_id ?? null,
+      cil_schuzky: validated.cil_schuzky ?? null,
       upravil_id: user.id,
       tenant_id: tenantId,
       aktualizovano_at: new Date().toISOString()
@@ -242,8 +255,55 @@ export async function deleteUdalost(
 }
 
 // ============================================================
-// generateMeetingOutputViaAI
+// updateCilSchuzky — auto-save cíle schůzky
 // ============================================================
+export async function updateCilSchuzky(
+  meetingId: string,
+  cil_schuzky: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Nepřihlášený uživatel' }
+
+    const { error } = await supabase
+      .from('udalosti_planovani')
+      .update({ cil_schuzky, upravil_id: user.id, aktualizovano_at: new Date().toISOString() })
+      .eq('id', meetingId)
+
+    if (error) throw error
+    revalidatePath('/planovani/schuzky')
+    return { success: true }
+  } catch (e: any) {
+    return { success: false, error: e.message }
+  }
+}
+
+// ============================================================
+// updateZapisSchuzky — auto-save textového záznamu ze schůzky
+// ============================================================
+export async function updateZapisSchuzky(
+  meetingId: string,
+  zapis: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Nepřihlášený uživatel' }
+
+    const { error } = await supabase
+      .from('udalosti_planovani')
+      .update({ zapis, upravil_id: user.id, aktualizovano_at: new Date().toISOString() })
+      .eq('id', meetingId)
+
+    if (error) throw error
+    revalidatePath('/planovani/schuzky')
+    return { success: true }
+  } catch (e: any) {
+    return { success: false, error: e.message }
+  }
+}
+
 // ============================================================
 // generateMeetingOutputViaAI
 // ============================================================
@@ -302,9 +362,15 @@ ${customTranscript}
 ---`
     } else if (audioBase64) {
       sourceInputDesc = `
-K tomuto requestu je přiložen zvukový záznam (audio) s diktováním poznámek ze schůzky.
+K tomuto requestu je přiložen zvukový záznam (audio) s diktováním nových poznámek ze schůzky.
 Poslechni si nahrávku a ulož její doslovný a přesný přepis (v českém jazyce) do klíče "transcript".
-Pokud v nahrávce zazní specifické pojmy, napiš je správně gramaticky.`
+Pokud v nahrávce zazní specifické pojmy, napiš je správně gramaticky.
+
+Zde je dosavadní surový přepis schůzky (předchozí diktování/poznámky):
+---
+${meeting.surovy_prepis || 'Bez předchozího přepisu.'}
+---
+DŮLEŽITÉ: Jako podklad pro generování "summaryMarkdown", "tasks" a "followUpEmail" použij jak dosavadní surový přepis schůzky, tak novou nahrávku. Ale v klíči "transcript" vrať POUZE přepis té nové nahrávky (předchozí přepis k němu připojíme programově v aplikaci).`
     } else {
       sourceInputDesc = `
 Použij tyto stávající poznámky/zápis jako hlavní zdroj pro analýzu a ulož je do klíče "transcript":
@@ -315,7 +381,7 @@ ${meeting.zapis || meeting.surovy_prepis || 'Bez zápisu.'}
 
     const promptText = `
 Jsi asistent řízení projektů pro společnost AZ-Composites.
-Máme schůzku s názvem "${meeting.nazev}" konanou dne ${dateFormatted} (typ: ${meeting.typ === 'schuzka' ? 'externí schůzka se zákazníkem/dodavatelem' : 'interní meeting'}).
+Máme schůzku s názvem "${meeting.nazev}" konanou dne ${dateFormatted} (typ: ${meeting.typ === 'schuzka' ? 'externí schůzka se zákazníkem/dodavateli' : 'interní meeting'}).
 
 Zde je předem připravený plán a cíle schůzky (příprava):
 ---
@@ -391,24 +457,100 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
 
     const result = JSON.parse(textOutput.trim())
 
-    const finalTranscript = result.transcript || customTranscript || meeting.surovy_prepis || meeting.zapis || ''
+    // Sloučení nového přepisu se stávajícím pokud se jedná o audio nahrávku
+    let finalTranscript = ''
+    if (audioBase64) {
+      const newTranscript = (result.transcript || '').trim()
+      if (meeting.surovy_prepis) {
+        finalTranscript = `${meeting.surovy_prepis}\n\n${newTranscript}`.trim()
+      } else {
+        finalTranscript = newTranscript
+      }
+    } else if (customTranscript) {
+      finalTranscript = customTranscript
+    } else {
+      finalTranscript = meeting.surovy_prepis || ''
+    }
+
     const finalSummary = result.summaryMarkdown || ''
     const finalEmail = result.followUpEmail || ''
+    const serializedTasks = Array.isArray(result.tasks) ? JSON.stringify(result.tasks) : '[]'
 
-    // 4. Uložení zápisu, přepisu a e-mailu zpět do schůzky
+    // 4. Uložení zápisu, sloučeného přepisu, e-mailu a DRAFT úkolů do schůzky
+    // Stav schůzky zůstává beze změny (neschváleno)
     await supabase
       .from('udalosti_planovani')
       .update({
         zapis: finalSummary,
         surovy_prepis: finalTranscript,
         email_navrh: finalEmail,
-        stav: 'completed',
+        popis: serializedTasks, // Zde ukládáme navržené úkoly jako draft
         upravil_id: user.id,
         aktualizovano_at: new Date().toISOString()
       })
       .eq('id', meetingId)
 
-    // 5. Uložení/synchronizace zápisu do modulu Poznámky (Knowledge Base)
+    revalidatePath('/planovani')
+    revalidatePath('/planovani/kalendar')
+    revalidatePath('/planovani/schuzky')
+    
+    return { 
+      success: true, 
+      data: {
+        summary: finalSummary,
+        transcript: finalTranscript,
+        email_navrh: finalEmail,
+        createdTasks: result.tasks || []
+      }
+    }
+  } catch (e: any) {
+    console.error('Error in generateMeetingOutputViaAI:', e)
+    return { success: false, error: e.message || 'Neočekávaná chyba při zpracování AI' }
+  }
+}
+
+// ============================================================
+// schvalitUdalostVystupy
+// ============================================================
+export async function schvalitUdalostVystupy(
+  meetingId: string,
+  finalZapis: string,
+  finalEmail: string,
+  tasks: any[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Nepřihlášený uživatel' }
+
+    // 1. Načteme schůzku pro získání cizích klíčů
+    const { data: meeting, error: meetingError } = await supabase
+      .from('udalosti_planovani')
+      .select('*')
+      .eq('id', meetingId)
+      .single()
+
+    if (meetingError || !meeting) {
+      return { success: false, error: 'Nepodařilo se načíst schůzku.' }
+    }
+
+    // 2. Uložíme schválený zápis a přepneme stav schůzky na 'completed'
+    // Vyčistíme draft úkolů z pole popis
+    const { error: updateError } = await supabase
+      .from('udalosti_planovani')
+      .update({
+        zapis: finalZapis,
+        email_navrh: finalEmail,
+        stav: 'completed',
+        popis: null, // Vyčistíme drafty z popisu
+        upravil_id: user.id,
+        aktualizovano_at: new Date().toISOString()
+      })
+      .eq('id', meetingId)
+
+    if (updateError) throw updateError
+
+    // 3. Uložení/synchronizace zápisu do modulu Poznámky (Knowledge Base)
     let { data: folder } = await supabase
       .from('slozky_poznamek')
       .select('id')
@@ -435,6 +577,7 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
       }
     }
 
+    const dateFormatted = new Date(meeting.datum_zahajeni).toLocaleDateString('cs-CZ')
     const noteTitle = `Zápis: ${meeting.nazev} (${dateFormatted})`
     let { data: existingNote } = await supabase
       .from('poznamky')
@@ -446,8 +589,8 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
 
     const notePayload = {
       nazev: noteTitle,
-      obsah: `<div class="prose max-w-none">${finalSummary}</div>`,
-      obsah_txt: finalSummary,
+      obsah: `<div class="prose max-w-none">${finalZapis}</div>`,
+      obsah_txt: finalZapis,
       slozka_id: folderId,
       is_shared: true,
       upravil_id: user.id,
@@ -468,17 +611,16 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
         })
     }
 
-    // 6. Automatické založení vygenerovaných úkolů v DB (ukoly_planovani)
-    const createdTasks = []
-    if (Array.isArray(result.tasks) && result.tasks.length > 0) {
-      // Smazat staré úkoly z tohoto meetingu, abychom při regeneraci neměli duplicity
-      await supabase
-        .from('ukoly_planovani')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('parent_meeting_id', meetingId)
+    // 4. Uložení úkolů do ukoly_planovani
+    // Smazat případné dříve vytvořené úkoly pro tuto schůzku
+    await supabase
+      .from('ukoly_planovani')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('parent_meeting_id', meetingId)
 
-      for (const t of result.tasks) {
-        const { data: inserted, error: insertError } = await supabase
+    if (Array.isArray(tasks) && tasks.length > 0) {
+      for (const t of tasks) {
+        await supabase
           .from('ukoly_planovani')
           .insert({
             milnik_id: meeting.milnik_id,
@@ -495,12 +637,6 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
             upravil_id: user.id,
             tenant_id: meeting.tenant_id
           })
-          .select('id, nazev, vlastnik_id, oddeleni')
-          .single()
-
-        if (!insertError && inserted) {
-          createdTasks.push(inserted)
-        }
       }
     }
 
@@ -508,19 +644,11 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
     revalidatePath('/planovani/kalendar')
     revalidatePath('/planovani/schuzky')
     revalidatePath('/poznamky')
-    
-    return { 
-      success: true, 
-      data: {
-        summary: finalSummary,
-        transcript: finalTranscript,
-        email_navrh: finalEmail,
-        createdTasks: createdTasks
-      }
-    }
+
+    return { success: true }
   } catch (e: any) {
-    console.error('Error in generateMeetingOutputViaAI:', e)
-    return { success: false, error: e.message || 'Neočekávaná chyba při zpracování AI' }
+    console.error('Error in schvalitUdalostVystupy:', e)
+    return { success: false, error: e.message || 'Neočekávaná chyba při schvalování' }
   }
 }
 
