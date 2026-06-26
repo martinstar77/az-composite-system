@@ -531,11 +531,11 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
           <div className="flex flex-col gap-1.5 max-h-[150px] overflow-y-auto pr-0.5">
             {udalosti.map(event => {
               const isSchuzka = event.typ === 'schuzka'
-              const colorClass = isSchuzka ? 'text-indigo-400' : 'text-purple-400'
-              const hoverColorClass = isSchuzka ? 'hover:text-indigo-300' : 'hover:text-purple-300'
+              const colorClass = isSchuzka ? 'text-amber-500 dark:text-amber-400' : 'text-orange-500 dark:text-orange-400'
+              const hoverColorClass = isSchuzka ? 'hover:text-amber-400' : 'hover:text-orange-400'
               const bgBorderClass = isSchuzka 
-                ? 'bg-indigo-500/5 hover:bg-indigo-500/10 border-indigo-500/20' 
-                : 'bg-purple-500/5 hover:bg-purple-500/10 border-purple-500/20'
+                ? 'bg-amber-500/10 border-amber-500/25 hover:bg-amber-500/20' 
+                : 'bg-orange-500/10 border-orange-500/25 hover:bg-orange-500/20'
 
               return (
                 <div key={event.id} className={`p-2 border rounded-lg flex items-center justify-between transition-colors ${bgBorderClass}`}>

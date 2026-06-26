@@ -56,12 +56,12 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
   const [activeTab, setActiveTab] = useState<"agenda" | "notes" | "outputs">("agenda")
 
   const isSchuzka = meeting.typ === 'schuzka'
-  const brandColorClass = isSchuzka ? 'text-indigo-400' : 'text-purple-400'
-  const brandBadgeClass = isSchuzka ? 'border-indigo-500/30 text-indigo-400 bg-indigo-500/5' : 'border-purple-500/30 text-purple-400 bg-purple-500/5'
-  const brandBtnClass = isSchuzka ? 'border-indigo-500/30 hover:bg-indigo-500/10 text-indigo-400' : 'border-purple-500/30 hover:bg-purple-500/10 text-purple-400'
-  const brandTabActiveStyle = isSchuzka ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-  const brandItemActiveStyle = isSchuzka ? 'bg-indigo-500/10 border-indigo-500/40 text-white font-semibold' : 'bg-purple-500/10 border-purple-500/40 text-white font-semibold'
-  const brandTextHoverClass = isSchuzka ? 'hover:text-indigo-400' : 'hover:text-purple-400'
+  const brandColorClass = isSchuzka ? 'text-amber-400' : 'text-orange-400'
+  const brandBadgeClass = isSchuzka ? 'border-amber-500/30 text-amber-400 bg-amber-500/5' : 'border-orange-500/30 text-orange-400 bg-orange-500/5'
+  const brandBtnClass = isSchuzka ? 'border-amber-500/30 hover:bg-amber-500/10 text-amber-400' : 'border-orange-500/30 hover:bg-orange-500/10 text-orange-400'
+  const brandTabActiveStyle = isSchuzka ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'
+  const brandItemActiveStyle = isSchuzka ? 'bg-amber-500/10 border-amber-500/40 text-white font-semibold' : 'bg-orange-500/10 border-orange-500/40 text-white font-semibold'
+  const brandTextHoverClass = isSchuzka ? 'hover:text-amber-400' : 'hover:text-orange-400'
 
   // Workspace Local States
   const [agenda, setAgenda] = useState<AgendaTopic[]>(meeting.agenda || [])
@@ -349,8 +349,8 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
               <Button
                 onClick={handleGenerateAI}
                 disabled={isPending || !zapis.trim()}
-                className={`w-full h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white gap-2 font-bold shadow-lg ${
-                  isSchuzka ? 'shadow-indigo-500/10' : 'shadow-purple-500/10'
+                className={`w-full h-11 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white gap-2 font-bold shadow-lg ${
+                  isSchuzka ? 'shadow-amber-500/15' : 'shadow-orange-500/15'
                 }`}
               >
                 <Sparkles className="h-4 w-4 fill-current animate-pulse text-yellow-300" />
