@@ -18,7 +18,13 @@ import {
   ListTodo, 
   FileText, 
   BookOpen,
-  Settings
+  Settings,
+  Mic,
+  Mail,
+  ClipboardCopy,
+  FileSignature,
+  ClipboardCheck,
+  Check
 } from "lucide-react"
 
 import { Button } from "@/shared/components/ui/button"
@@ -55,7 +61,8 @@ interface MeetingWorkspaceProps {
 export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: MeetingWorkspaceProps) {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
-  const [activeTab, setActiveTab] = useState<"agenda" | "notes" | "outputs">("agenda")
+  const [activeTab, setActiveTab] = useState<"prep" | "agenda" | "notes" | "outputs" | "email">("prep")
+  const [notesSubTab, setNotesSubTab] = useState<"write" | "dictate" | "transcript">("write")
 
   const isSchuzka = meeting.typ === 'schuzka'
   const brandColorClass = isSchuzka ? 'text-yellow-400 font-semibold' : 'text-orange-400 font-semibold'
@@ -68,6 +75,9 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
   // Workspace Local States
   const [agenda, setAgenda] = useState<AgendaTopic[]>(meeting.agenda || [])
   const [zapis, setZapis] = useState(meeting.zapis || "")
+  const [priprava, setPriprava] = useState(meeting.priprava || "")
+  const [surovyPrepis, setSurovyPrepis] = useState(meeting.surovy_prepis || "")
+  const [emailNavrh, setEmailNavrh] = useState(meeting.email_navrh || "")
   const [createdTasks, setCreatedTasks] = useState<any[]>([])
   const [newTopicName, setNewTopicName] = useState("")
   
@@ -79,15 +89,28 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
   
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
+  // Audio Recorder States
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingSeconds, setRecordingSeconds] = useState(0)
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   // Sync state with meeting prop when opened
   useEffect(() => {
     if (open) {
       setAgenda(meeting.agenda || [])
       setZapis(meeting.zapis || "")
+      setPriprava(meeting.priprava || "")
+      setSurovyPrepis(meeting.surovy_prepis || "")
+      setEmailNavrh(meeting.email_navrh || "")
       setIsMeetingActive(false)
       setMeetingSeconds(0)
       setActiveTopicId(null)
       setTopicSeconds(0)
+      setNotesSubTab("write")
+      setAudioBlob(null)
       
       // Load action tasks created from this meeting
       getTasksByMeeting(meeting.id).then(res => {
@@ -115,10 +138,139 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
     }
   }, [isMeetingActive, activeTopicId])
 
+  // Cleanup recording timers on unmount
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current)
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop()
+      }
+    }
+  }, [])
+
   const formatTimer = (totalSecs: number) => {
     const mins = Math.floor(totalSecs / 60)
     const secs = totalSecs % 60
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+  }
+
+  // Audio Recording Handlers
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      audioChunksRef.current = []
+      
+      let mimeType = "audio/webm;codecs=opus"
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = "audio/ogg;codecs=opus"
+        if (!MediaRecorder.isTypeSupported(mimeType)) {
+          mimeType = "audio/webm"
+          if (!MediaRecorder.isTypeSupported(mimeType)) {
+            mimeType = "audio/mp4" // iOS fallback
+            if (!MediaRecorder.isTypeSupported(mimeType)) {
+              mimeType = ""
+            }
+          }
+        }
+      }
+
+      const options = mimeType ? { mimeType } : undefined
+      const recorder = new MediaRecorder(stream, options)
+      mediaRecorderRef.current = recorder
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
+        }
+      }
+
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: recorder.mimeType || "audio/webm" })
+        setAudioBlob(audioBlob)
+        // Clean up tracks
+        stream.getTracks().forEach(track => track.stop())
+      }
+
+      recorder.start(1000)
+      setIsRecording(true)
+      setRecordingSeconds(0)
+      
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds(s => s + 1)
+      }, 1000)
+    } catch (err) {
+      console.error("Failed to start recording:", err)
+      toast.error("Nelze přistoupit k mikrofonu. Povolte prosím oprávnění.")
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+      setIsRecording(false)
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current)
+      }
+    }
+  }
+
+  const blobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const base64String = (reader.result as string).split(',')[1]
+        resolve(base64String)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
+  }
+
+  const handleUploadAudio = async () => {
+    if (!audioBlob) return
+
+    toast.info("Odesílám hlasovou nahrávku do Gemini k přepisu a analýze...", {
+      description: "Může to trvat několik desítek sekund podle délky nahrávky."
+    })
+
+    startTransition(async () => {
+      try {
+        const base64 = await blobToBase64(audioBlob)
+        const mimeType = audioBlob.type
+
+        // Save current states first
+        await upsertUdalost({
+          ...meeting,
+          agenda,
+          zapis,
+          priprava,
+          surovy_prepis: surovyPrepis,
+          email_navrh: emailNavrh
+        }, meeting.id)
+
+        const result = await generateMeetingOutputViaAI(meeting.id, base64, mimeType)
+        
+        if (result.success && result.data) {
+          setSurovyPrepis(result.data.transcript || "")
+          setZapis(result.data.summary || "")
+          setEmailNavrh(result.data.email_navrh || "")
+          setCreatedTasks(result.data.createdTasks || [])
+          setAudioBlob(null)
+          
+          toast.success("Hlasový přepis a AI analýza úspěšně dokončena!", {
+            description: `Založeno ${result.data.createdTasks.length} akčních úkolů v DB.`
+          })
+          
+          setActiveTab("outputs")
+          onSuccess?.()
+        } else {
+          toast.error("Chyba při zpracování nahrávky", { description: result.error })
+        }
+      } catch (err: any) {
+        console.error("Audio upload error:", err)
+        toast.error("Nebylo možné odeslat nahrávku", { description: err.message })
+      }
+    })
   }
 
   // Agenda Management Handlers
@@ -168,6 +320,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
   const handleStartMeeting = () => {
     setIsMeetingActive(true)
     setActiveTab("notes")
+    setNotesSubTab("write")
     // Find first planned topic
     const firstPlanned = agenda.find(t => t.stav === "planned")
     if (firstPlanned) {
@@ -188,7 +341,10 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
       const result = await upsertUdalost({
         ...meeting,
         agenda,
-        zapis
+        zapis,
+        priprava,
+        surovy_prepis: surovyPrepis,
+        email_navrh: emailNavrh
       }, meeting.id)
 
       if (result.success) {
@@ -202,8 +358,9 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
 
   // AI MAGIC: Generate Meeting notes and Action items
   const handleGenerateAI = () => {
-    if (!zapis.trim()) {
-      toast.error("Zápis ze schůzky je prázdný. Nejprve napište poznámky.")
+    const sourceText = zapis.trim() || surovyPrepis.trim()
+    if (!sourceText) {
+      toast.error("Poznámky ze schůzky nebo surový přepis jsou prázdné. Nejprve napište poznámky nebo nadiktujte audio.")
       return
     }
 
@@ -213,12 +370,21 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
 
     startTransition(async () => {
       // Save local state first
-      await upsertUdalost({ ...meeting, agenda, zapis }, meeting.id)
+      await upsertUdalost({
+        ...meeting,
+        agenda,
+        zapis,
+        priprava,
+        surovy_prepis: surovyPrepis,
+        email_navrh: emailNavrh
+      }, meeting.id)
       
-      const result = await generateMeetingOutputViaAI(meeting.id)
+      const result = await generateMeetingOutputViaAI(meeting.id, undefined, undefined, surovyPrepis || zapis)
       if (result.success && result.data) {
-        setZapis(result.data.summary)
-        setCreatedTasks(result.data.createdTasks)
+        setZapis(result.data.summary || "")
+        setSurovyPrepis(result.data.transcript || "")
+        setEmailNavrh(result.data.email_navrh || "")
+        setCreatedTasks(result.data.createdTasks || [])
         setActiveTab("outputs")
         
         const count = result.data.createdTasks.length
@@ -231,6 +397,64 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
         toast.error("Chyba při AI zpracování", { description: result.error })
       }
     })
+  }
+
+  // Recalculate AI Output from manual edit of surovy_prepis
+  const handleGenerateFromTranscript = async () => {
+    if (!surovyPrepis.trim()) {
+      toast.error("Surový přepis je prázdný.")
+      return
+    }
+
+    toast.info("Přepočítávám analýzu, úkoly a e-mail na základě upraveného textu...", {
+      description: "Gemini generuje nový zápis, úkoly a e-mail."
+    })
+
+    startTransition(async () => {
+      try {
+        // Save current states first
+        await upsertUdalost({
+          ...meeting,
+          agenda,
+          zapis,
+          priprava,
+          surovy_prepis: surovyPrepis,
+          email_navrh: emailNavrh
+        }, meeting.id)
+
+        const result = await generateMeetingOutputViaAI(meeting.id, undefined, undefined, surovyPrepis)
+        
+        if (result.success && result.data) {
+          setZapis(result.data.summary || "")
+          setEmailNavrh(result.data.email_navrh || "")
+          setCreatedTasks(result.data.createdTasks || [])
+          
+          toast.success("AI analýza úspěšně přepočítána!", {
+            description: `Úkoly a zápis byly aktualizovány. Založeno ${result.data.createdTasks.length} úkolů v DB.`
+          })
+          setActiveTab("outputs")
+          onSuccess?.()
+        } else {
+          toast.error("Chyba při přepočtu", { description: result.error })
+        }
+      } catch (err: any) {
+        console.error("Transcript analysis error:", err)
+        toast.error("Nebylo možné provést analýzu z textu", { description: err.message })
+      }
+    })
+  }
+
+  // Copy Follow-up Email to Clipboard
+  const handleCopyEmail = () => {
+    navigator.clipboard.writeText(emailNavrh)
+    toast.success("E-mail byl zkopírován do schránky")
+  }
+
+  // Mailto Link opening
+  const handleMailTo = () => {
+    const subject = `Zápis ze schůzky: ${meeting.nazev}`
+    const body = emailNavrh
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank')
   }
 
   const activeTopic = agenda.find(t => t.id === activeTopicId)
@@ -251,6 +475,16 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
               <Badge variant="outline" className={brandBadgeClass}>
                 {isSchuzka ? 'Externí schůzka' : 'Interní meeting'}
               </Badge>
+              {meeting.zakaznik && (
+                <Badge variant="secondary" className="bg-zinc-800 text-zinc-300 text-xs border border-zinc-700">
+                  🤝 Zákazník: {meeting.zakaznik.nazev_spolecnosti}
+                </Badge>
+              )}
+              {meeting.dodavatel && (
+                <Badge variant="secondary" className="bg-zinc-800 text-zinc-300 text-xs border border-zinc-700">
+                  👥 Dodavatel: {meeting.dodavatel.nazev_spolecnosti}
+                </Badge>
+              )}
             </div>
             <p className="text-xs text-zinc-400">
               Datum: {meeting.datum_zahajeni ? new Date(meeting.datum_zahajeni).toLocaleDateString('cs-CZ') : "Nespecifikováno"}
@@ -325,6 +559,19 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
           <div className="w-56 bg-zinc-950 border-r border-zinc-800 flex flex-col justify-between p-3 shrink-0">
             <div className="space-y-1.5">
               <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest pl-2">Sekce</span>
+              
+              {isSchuzka && (
+                <button
+                  onClick={() => setActiveTab("prep")}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === "prep" ? brandTabActiveStyle : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
+                  }`}
+                >
+                  <ClipboardCheck className="h-4 w-4" />
+                  Příprava schůzky
+                </button>
+              )}
+
               <button
                 onClick={() => setActiveTab("agenda")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
@@ -357,15 +604,27 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                 }`}
               >
                 <BookOpen className="h-4 w-4" />
-                Výstupy & AI
+                AI Výstupy & Zápis
               </button>
+
+              {isSchuzka && (
+                <button
+                  onClick={() => setActiveTab("email")}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    activeTab === "email" ? brandTabActiveStyle : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
+                  }`}
+                >
+                  <Mail className="h-4 w-4" />
+                  Návrh E-mailu
+                </button>
+              )}
             </div>
 
             {/* AI Generator Button in Sidebar Footer */}
             <div className="pt-4 border-t border-zinc-900">
               <Button
                 onClick={handleGenerateAI}
-                disabled={isPending || !zapis.trim()}
+                disabled={isPending || (!zapis.trim() && !surovyPrepis.trim())}
                 className={`w-full h-11 bg-gradient-to-r from-orange-600 to-yellow-500 hover:from-orange-500 hover:to-yellow-400 text-white gap-2 font-bold shadow-lg ${
                   isSchuzka ? 'shadow-yellow-500/20' : 'shadow-orange-500/20'
                 }`}
@@ -379,6 +638,36 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
           {/* Central Workspace Canvas */}
           <div className="flex-1 bg-zinc-950 flex flex-col overflow-hidden">
             
+            {/* PRIPRAVA TAB */}
+            {activeTab === "prep" && (
+              <div className="flex-1 flex flex-col p-6 overflow-hidden">
+                <div className="flex items-center justify-between mb-4 shrink-0">
+                  <div>
+                    <h3 className="text-base font-bold text-white">Příprava na schůzku</h3>
+                    <p className="text-xs text-zinc-400">
+                      Zapište si cíle schůzky, otázky na klienta a předběžné poznámky ještě před zahájením.
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleSaveMeeting}
+                    disabled={isPending}
+                    className="bg-zinc-850 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 h-9 px-4 gap-1.5 text-xs font-semibold"
+                  >
+                    <Save className="h-4 w-4" /> Uložit přípravu
+                  </Button>
+                </div>
+
+                <div className="flex-1 border border-zinc-800 bg-zinc-900/20 rounded-xl overflow-hidden flex flex-col">
+                  <RichTextEditor
+                    value={priprava}
+                    onChange={setPriprava}
+                    placeholder="Sem napište podklady pro přípravu..."
+                    className="border-none min-h-full"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* TEMA A AGENDA TAB */}
             {activeTab === "agenda" && (
               <div className="flex-1 flex flex-col p-6 overflow-hidden">
@@ -537,7 +826,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                     <h4 className="text-xs text-zinc-400 font-medium">Klikněte na téma pro spuštění jeho časomíry.</h4>
                   </div>
                   
-                  <div className="flex-1 overflow-y-auto">
+                  <div className="flex-1 overflow-y-auto mb-4">
                     <div className="space-y-2 pr-2">
                       {agenda.map((topic) => {
                         const isActive = activeTopicId === topic.id
@@ -594,21 +883,164 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                   </div>
                 </div>
 
-                {/* Rich Text Notes Editor */}
+                {/* Notes & Recording Sub-tab area */}
                 <div className="flex-1 flex flex-col p-4 overflow-hidden">
-                  <div className="flex justify-between items-center mb-2 shrink-0">
-                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Surový zápis schůzky</span>
-                    <span className="text-[10px] text-zinc-600">Tip: Zapište klíčové body, na konci Gemini vygeneruje čistý zápis.</span>
+                  
+                  {/* Notes Sub-tabs Selection */}
+                  {isSchuzka && (
+                    <div className="flex items-center justify-between mb-3 shrink-0">
+                      <div className="flex gap-1.5 bg-zinc-900 border border-zinc-800 p-1 rounded-lg">
+                        <button
+                          onClick={() => setNotesSubTab("write")}
+                          className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                            notesSubTab === "write" 
+                              ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                              : "text-zinc-400 hover:text-zinc-200"
+                          }`}
+                        >
+                          <FileText className="h-3.5 w-3.5" /> Psát poznámky
+                        </button>
+                        <button
+                          onClick={() => setNotesSubTab("dictate")}
+                          className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                            notesSubTab === "dictate" 
+                              ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                              : "text-zinc-400 hover:text-zinc-200"
+                          }`}
+                        >
+                          <Mic className="h-3.5 w-3.5" /> Diktovat hlasem
+                        </button>
+                        <button
+                          onClick={() => setNotesSubTab("transcript")}
+                          className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
+                            notesSubTab === "transcript" 
+                              ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                              : "text-zinc-400 hover:text-zinc-200"
+                          }`}
+                        >
+                          <FileSignature className="h-3.5 w-3.5" /> Surový přepis
+                          {surovyPrepis && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          )}
+                        </button>
+                      </div>
+                      <span className="text-[10px] text-zinc-500 hidden md:inline">
+                        {notesSubTab === "write" && "Tip: Zapište klíčové body, na konci Gemini vygeneruje čistý zápis."}
+                        {notesSubTab === "dictate" && "Tip: Nahrávejte hlasem v autě ihned po schůzce pro okamžitou analýzu."}
+                        {notesSubTab === "transcript" && "Tip: Zde můžete opravit přepis před finálním přepočítáním AI."}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Notes Sub-tab Content Panels */}
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    {(!isSchuzka || notesSubTab === "write") && (
+                      <div className="flex-1 border border-zinc-800 bg-zinc-900/20 rounded-xl overflow-hidden flex flex-col">
+                        <RichTextEditor
+                          value={zapis}
+                          onChange={setZapis}
+                          placeholder="Sem zapište vše, co zaznělo, schválené body, úkoly, dohody a nápady..."
+                          className="border-none min-h-full"
+                        />
+                      </div>
+                    )}
+
+                    {notesSubTab === "dictate" && (
+                      <div className="flex-1 border border-zinc-800 bg-zinc-900/10 rounded-xl p-6 flex flex-col items-center justify-center text-center gap-6 overflow-y-auto">
+                        <div className="max-w-md space-y-2">
+                          <h4 className="text-sm font-bold text-white">Nahrávání hlasových poznámek</h4>
+                          <p className="text-xs text-zinc-400 leading-relaxed">
+                            Po schůzce stačí spustit nahrávání na telefonu nebo počítači a nadiktovat vše důležité. Po dokončení odešlete nahrávku k analýze – Gemini z ní připraví zápis, akční úkoly i návrh e-mailu.
+                          </p>
+                        </div>
+
+                        {/* Recorder Widget */}
+                        <div className="flex flex-col items-center gap-4">
+                          {isRecording ? (
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="h-20 w-20 rounded-full bg-red-500/20 border-2 border-red-500 flex items-center justify-center animate-pulse">
+                                <button
+                                  onClick={stopRecording}
+                                  className="h-8 w-8 rounded-md bg-red-500 flex items-center justify-center text-white"
+                                  title="Zastavit nahrávání"
+                                >
+                                  <StopIcon className="h-4.5 w-4.5 fill-current" />
+                                </button>
+                              </div>
+                              <span className="font-mono text-sm font-bold text-red-500 animate-pulse">
+                                Nahrávám: {formatTimer(recordingSeconds)}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center gap-3">
+                              <button
+                                onClick={startRecording}
+                                className={`h-20 w-20 rounded-full border flex items-center justify-center transition-all ${
+                                  isSchuzka
+                                    ? "bg-yellow-500/10 border-2 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20"
+                                    : "bg-orange-500/10 border-2 border-orange-500/30 text-orange-400 hover:bg-orange-500/20"
+                                }`}
+                                title="Spustit nahrávání"
+                              >
+                                <Mic className="h-8 w-8" />
+                              </button>
+                              <span className="text-xs text-zinc-400 font-semibold">
+                                Klikněte pro spuštění nahrávání
+                              </span>
+                            </div>
+                          )}
+
+                          {audioBlob && !isRecording && (
+                            <div className="flex flex-col items-center gap-3 mt-4">
+                              <div className="p-3.5 bg-zinc-900 border border-zinc-800 rounded-xl w-72 flex flex-col gap-2 items-center">
+                                <p className="text-[10px] text-zinc-400 font-semibold">Náhled nahrávky před odesláním:</p>
+                                <audio src={URL.createObjectURL(audioBlob)} controls className="w-full h-8 bg-zinc-950 rounded" />
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={handleUploadAudio}
+                                  disabled={isPending}
+                                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold h-9 px-4 gap-1.5 text-xs rounded-lg shadow-lg shadow-emerald-600/15"
+                                >
+                                  <Sparkles className="h-3.5 w-3.5 fill-current" /> Odeslat k analýze
+                                </Button>
+                                <Button
+                                  onClick={() => setAudioBlob(null)}
+                                  variant="outline"
+                                  className="border-zinc-800 text-zinc-400 hover:text-zinc-200 h-9 text-xs"
+                                >
+                                  Smazat
+                                </Button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {notesSubTab === "transcript" && (
+                      <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+                        <div className="flex-1 border border-zinc-800 bg-zinc-900/20 rounded-xl p-4 flex flex-col">
+                          <textarea
+                            value={surovyPrepis}
+                            onChange={e => setSurovyPrepis(e.target.value)}
+                            placeholder="Zde se po dokončení nahrávání zobrazí surový přepis schůzky od Gemini. Můžete ho upravit a zpětně přepočítat výstupy."
+                            className="w-full flex-1 bg-transparent border-none resize-none text-sm text-zinc-300 focus:outline-none placeholder-zinc-700 leading-relaxed overflow-y-auto font-mono"
+                          />
+                        </div>
+                        <div className="flex justify-end shrink-0">
+                          <Button
+                            onClick={handleGenerateFromTranscript}
+                            disabled={isPending || !surovyPrepis.trim()}
+                            className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold h-10 px-4 gap-1.5 text-xs rounded-lg shadow-lg shadow-emerald-500/10"
+                          >
+                            <Sparkles className="h-3.5 w-3.5 fill-current" /> Přepočítat AI analýzu z textu
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="flex-1 border border-zinc-800 bg-zinc-900/20 rounded-xl overflow-hidden flex flex-col">
-                    <RichTextEditor
-                      value={zapis}
-                      onChange={setZapis}
-                      placeholder="Sem zapište vše, co zaznělo, schválené body, úkoly, dohody a nápady..."
-                      className="border-none min-h-full"
-                    />
-                  </div>
                 </div>
 
               </div>
@@ -632,13 +1064,13 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                     </Badge>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto prose prose-sm dark:prose-invert max-w-none bg-zinc-950/20 border border-zinc-850 p-4 rounded-lg select-text select-none">
+                  <div className="flex-1 overflow-y-auto prose prose-sm dark:prose-invert max-w-none bg-zinc-950/20 border border-zinc-850 p-4 rounded-lg select-text">
                     {zapis ? (
                       <div className="text-sm leading-relaxed text-zinc-300 whitespace-pre-wrap">
                         {zapis}
                       </div>
                     ) : (
-                      <p className="text-zinc-500 text-xs italic">Zatím žádný zápis schůzky. Přejděte na záložku Poznámky.</p>
+                      <p className="text-zinc-500 text-xs italic">Zatím žádný zápis schůzky. Přejděte na záložku Poznámky a nahrajte nebo zapište průběh.</p>
                     )}
                   </div>
                 </div>
@@ -678,6 +1110,49 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                   </div>
                 </div>
 
+              </div>
+            )}
+
+            {/* EMAIL NAVRH TAB */}
+            {activeTab === "email" && (
+              <div className="flex-1 flex flex-col p-6 overflow-hidden">
+                <div className="flex items-center justify-between mb-4 shrink-0">
+                  <div>
+                    <h3 className="text-base font-bold text-white">Návrh follow-up e-mailu</h3>
+                    <p className="text-xs text-zinc-400">
+                      AI vygenerovaný e-mail, který můžete odeslat zákazníkovi/dodavateli jako shrnutí schůzky.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={handleCopyEmail}
+                      disabled={!emailNavrh}
+                      className="bg-zinc-850 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 h-9 px-3 gap-1.5 text-xs font-semibold"
+                    >
+                      <ClipboardCopy className="h-4 w-4" /> Kopírovat e-mail
+                    </Button>
+                    <Button
+                      onClick={handleMailTo}
+                      disabled={!emailNavrh}
+                      className={`h-9 px-3 gap-1.5 text-xs font-semibold text-white ${
+                        isSchuzka 
+                          ? 'bg-yellow-600 hover:bg-yellow-500 shadow-lg shadow-yellow-600/20' 
+                          : 'bg-orange-600 hover:bg-orange-500 shadow-lg shadow-orange-600/20'
+                      }`}
+                    >
+                      <Mail className="h-4 w-4" /> Odeslat (mailto)
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex-1 border border-zinc-800 bg-zinc-900/20 rounded-xl p-4 flex flex-col">
+                  <textarea
+                    value={emailNavrh}
+                    onChange={e => setEmailNavrh(e.target.value)}
+                    placeholder="E-mail bude automaticky vygenerován po dokončení AI analýzy schůzky."
+                    className="w-full flex-1 bg-transparent border-none resize-none text-sm text-zinc-300 focus:outline-none placeholder-zinc-700 leading-relaxed font-sans overflow-y-auto"
+                  />
+                </div>
               </div>
             )}
 

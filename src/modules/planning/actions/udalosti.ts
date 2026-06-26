@@ -33,6 +33,11 @@ const udalostSchema = z.object({
   zapis: z.string().optional().nullable(),
   stav: z.enum(['scheduled', 'active', 'completed', 'cancelled']).default('scheduled'),
   typ: z.enum(['meeting', 'schuzka']).default('meeting'),
+  priprava: z.string().optional().nullable(),
+  surovy_prepis: z.string().optional().nullable(),
+  email_navrh: z.string().optional().nullable(),
+  zakaznik_id: z.string().uuid().optional().nullable(),
+  dodavatel_id: z.string().uuid().optional().nullable(),
 })
 
 const UDALOST_SELECT = `
@@ -40,6 +45,22 @@ const UDALOST_SELECT = `
   organizator:organizator_id (
     id,
     jmeno
+  ),
+  vytvoril:vytvoril_id (
+    id,
+    jmeno
+  ),
+  upravil:upravil_id (
+    id,
+    jmeno
+  ),
+  zakaznik:zakaznik_id (
+    id,
+    nazev_spolecnosti
+  ),
+  dodavatel:dodavatel_id (
+    id,
+    nazev_spolecnosti
   ),
   milnik:milnik_id (
     id,
@@ -140,6 +161,11 @@ export async function upsertUdalost(
       zapis: validated.zapis ?? null,
       stav: validated.stav,
       typ: validated.typ,
+      priprava: validated.priprava ?? null,
+      surovy_prepis: validated.surovy_prepis ?? null,
+      email_navrh: validated.email_navrh ?? null,
+      zakaznik_id: validated.zakaznik_id ?? null,
+      dodavatel_id: validated.dodavatel_id ?? null,
       upravil_id: user.id,
       tenant_id: tenantId,
       aktualizovano_at: new Date().toISOString()
@@ -218,9 +244,24 @@ export async function deleteUdalost(
 // ============================================================
 // generateMeetingOutputViaAI
 // ============================================================
+// ============================================================
+// generateMeetingOutputViaAI
+// ============================================================
 export async function generateMeetingOutputViaAI(
-  meetingId: string
-): Promise<{ success: boolean; data?: { summary: string; createdTasks: any[] }; error?: string }> {
+  meetingId: string,
+  audioBase64?: string,
+  audioMimeType?: string,
+  customTranscript?: string
+): Promise<{ 
+  success: boolean; 
+  data?: { 
+    summary: string; 
+    transcript: string; 
+    email_navrh: string; 
+    createdTasks: any[] 
+  }; 
+  error?: string 
+}> {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -251,41 +292,75 @@ export async function generateMeetingOutputViaAI(
 
     // 2. Příprava promptu pro Gemini
     const dateFormatted = new Date(meeting.datum_zahajeni).toLocaleDateString('cs-CZ')
+    
+    let sourceInputDesc = ''
+    if (customTranscript) {
+      sourceInputDesc = `
+Uživatel ručně upravil surový přepis schůzky. Použij tento text jako hlavní zdroj pro zápis a ulož ho beze změn (nebo jen s opravou překlepů) do klíče "transcript":
+---
+${customTranscript}
+---`
+    } else if (audioBase64) {
+      sourceInputDesc = `
+K tomuto requestu je přiložen zvukový záznam (audio) s diktováním poznámek ze schůzky.
+Poslechni si nahrávku a ulož její doslovný a přesný přepis (v českém jazyce) do klíče "transcript".
+Pokud v nahrávce zazní specifické pojmy, napiš je správně gramaticky.`
+    } else {
+      sourceInputDesc = `
+Použij tyto stávající poznámky/zápis jako hlavní zdroj pro analýzu a ulož je do klíče "transcript":
+---
+${meeting.zapis || meeting.surovy_prepis || 'Bez zápisu.'}
+---`
+    }
+
     const promptText = `
 Jsi asistent řízení projektů pro společnost AZ-Composites.
-Máme schůzku s názvem "${meeting.nazev}" konanou dne ${dateFormatted}.
+Máme schůzku s názvem "${meeting.nazev}" konanou dne ${dateFormatted} (typ: ${meeting.typ === 'schuzka' ? 'externí schůzka se zákazníkem/dodavatelem' : 'interní meeting'}).
+
+Zde je předem připravený plán a cíle schůzky (příprava):
+---
+${meeting.priprava || 'Bez přípravy.'}
+---
 
 Zde je seznam témat schůzky (agenda):
 ${JSON.stringify(meeting.agenda, null, 2)}
 
-Zde jsou surové poznámky pořízené v průběhu schůzky (zápis):
----
-${meeting.zapis || 'Bez zápisu.'}
----
+${sourceInputDesc}
 
-Úkoly pro spárování uživatelů:
+Úkoly pro spárování vlastníků (vlastnik_id):
 ${userListText}
 
-Zpracuj tyto poznámky a vygeneruj JSON výstup podle následující specifikace.
-Vrátíš objekt s klíči:
-1. "summaryMarkdown": krásně strukturovaný zápis v Markdownu. Měl by obsahovat:
-   - Stručný souhrn (Executive Summary)
+Zpracuj tyto vstupní údaje a vygeneruj JSON výstup podle následující specifikace.
+Vrátíš objekt s těmito klíči:
+1. "transcript": Doslovný přepis audia (pokud bylo přiloženo audio), nebo nezměněný text (pokud byl předán textový přepis z customTranscript).
+2. "summaryMarkdown": Krásně strukturovaný zápis v češtině (Markdown). Měl by obsahovat:
+   - Stručný souhrn schůzky (Executive Summary)
    - Seznam klíčových rozhodnutí (Key Decisions)
    - Stručné shrnutí jednotlivých témat, která se projednala
-2. "tasks": pole nově vytvořených úkolů (akčních kroků). Pro každý úkol urči:
+3. "tasks": Pole nově navržených úkolů (akčních kroků). Pro každý úkol urči:
    - "nazev": krátký výstižný název úkolu
    - "popis": detailní vysvětlení, co se má udělat
-   - "vlastnik_id": UUID vlastníka ze seznamu výše (pokud dokážeš jednoznačně ztotožnit např. "Martin", "Filip", "Jarda" s ID z tabulky). Pokud nevíš, nech null.
+   - "vlastnik_id": UUID vlastníka ze seznamu výše (pokud dokážeš jednoznačně ztotožnit např. "Martin", "Filip" s ID z tabulky). Pokud nevíš, nech null.
    - "datum_splatnosti": termín splnění ve formátu YYYY-MM-DD. Pokud byl termín vyjádřen relativně vůči datu schůzky (např. "do pátku", "do týdne"), spočítej přesné datum vůči datu schůzky ${meeting.datum_zahajeni}. Pokud termín chybí, nech null.
    - "oddeleni": jedno z: management, sales, purchasing, logistics, backbone, finance, rd, marketing, backoffice, legal. Vyber podle zaměření úkolu.
+4. "followUpEmail": Návrh profesionálního, slušného a výstižného follow-up e-mailu pro klienta/dodavatele v českém jazyce. Měl by shrnout hlavní body schůzky a další postup. Pokud jde o interní meeting, napiš sem stručné shrnutí pro interní oběžník, jinak pro externí schůzku naformátuj e-mail s předmětem a tělem.
 
 Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" ani nepoužívej json tagy. Pouze čistý JSON objekt.
 `
 
     // 3. Volání Gemini API
-    const url = 'https://genergenerativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey
-    // Wait, fix the URL typo: 'https://genergenerativelanguage.googleapis.com' to 'https://generativelanguage.googleapis.com'
-    const correctUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + apiKey
+    const correctUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=' + apiKey
+
+    const parts: any[] = []
+    if (audioBase64 && audioMimeType) {
+      parts.push({
+        inlineData: {
+          mimeType: audioMimeType,
+          data: audioBase64
+        }
+      })
+    }
+    parts.push({ text: promptText })
 
     const response = await fetch(
       correctUrl,
@@ -295,9 +370,7 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          contents: [{
-            parts: [{ text: promptText }]
-          }],
+          contents: [{ parts }],
           generationConfig: {
             responseMimeType: 'application/json',
           }
@@ -318,18 +391,24 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
 
     const result = JSON.parse(textOutput.trim())
 
-    // 4. Uložení zápisu zformátovaného AI zpět do schůzky
+    const finalTranscript = result.transcript || customTranscript || meeting.surovy_prepis || meeting.zapis || ''
+    const finalSummary = result.summaryMarkdown || ''
+    const finalEmail = result.followUpEmail || ''
+
+    // 4. Uložení zápisu, přepisu a e-mailu zpět do schůzky
     await supabase
       .from('udalosti_planovani')
       .update({
-        zapis: result.summaryMarkdown,
+        zapis: finalSummary,
+        surovy_prepis: finalTranscript,
+        email_navrh: finalEmail,
         stav: 'completed',
-        upravil_id: user.id
+        upravil_id: user.id,
+        aktualizovano_at: new Date().toISOString()
       })
       .eq('id', meetingId)
 
     // 5. Uložení/synchronizace zápisu do modulu Poznámky (Knowledge Base)
-    // 5a. Najdeme nebo vytvoříme systémovou složku "Zápisy z meetingů"
     let { data: folder } = await supabase
       .from('slozky_poznamek')
       .select('id')
@@ -356,8 +435,6 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
       }
     }
 
-    // 5b. Vytvoříme nebo aktualizujeme stávající poznámku v této složce
-    // Hledáme poznámku se stejným názvem v této složce, abychom ji případně přepsali (např. při opakované AI analýze)
     const noteTitle = `Zápis: ${meeting.nazev} (${dateFormatted})`
     let { data: existingNote } = await supabase
       .from('poznamky')
@@ -369,8 +446,8 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
 
     const notePayload = {
       nazev: noteTitle,
-      obsah: `<div class="prose max-w-none">${result.summaryMarkdown}</div>`,
-      obsah_txt: result.summaryMarkdown,
+      obsah: `<div class="prose max-w-none">${finalSummary}</div>`,
+      obsah_txt: finalSummary,
       slozka_id: folderId,
       is_shared: true,
       upravil_id: user.id,
@@ -394,6 +471,12 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
     // 6. Automatické založení vygenerovaných úkolů v DB (ukoly_planovani)
     const createdTasks = []
     if (Array.isArray(result.tasks) && result.tasks.length > 0) {
+      // Smazat staré úkoly z tohoto meetingu, abychom při regeneraci neměli duplicity
+      await supabase
+        .from('ukoly_planovani')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('parent_meeting_id', meetingId)
+
       for (const t of result.tasks) {
         const { data: inserted, error: insertError } = await supabase
           .from('ukoly_planovani')
@@ -423,11 +506,15 @@ Odpověz POUZE validním JSON objektem. Nezačínej textem jako "zde je json" an
 
     revalidatePath('/planovani')
     revalidatePath('/planovani/kalendar')
+    revalidatePath('/planovani/schuzky')
     revalidatePath('/poznamky')
+    
     return { 
       success: true, 
       data: {
-        summary: result.summaryMarkdown,
+        summary: finalSummary,
+        transcript: finalTranscript,
+        email_navrh: finalEmail,
         createdTasks: createdTasks
       }
     }
@@ -501,6 +588,14 @@ export async function getUdalostiGlobal(filters?: {
           id,
           jmeno
         ),
+        zakaznik:zakaznik_id (
+          id,
+          nazev_spolecnosti
+        ),
+        dodavatel:dodavatel_id (
+          id,
+          nazev_spolecnosti
+        ),
         milnik:milnik_id (
           id,
           nazev,
@@ -539,5 +634,43 @@ export async function getUdalostiGlobal(filters?: {
     return { success: false, error: e.message }
   }
 }
+
+// ============================================================
+// getCrmEntities
+// ============================================================
+export async function getCrmEntities(): Promise<{
+  success: boolean
+  data?: {
+    zakaznici: { id: string; nazev_spolecnosti: string }[]
+    dodavatele: { id: string; nazev_spolecnosti: string }[]
+  }
+  error?: string
+}> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Nepřihlášený uživatel' }
+
+    // Paralelní načtení zákazníků a dodavatelů
+    const [zakazniciRes, dodavateleRes] = await Promise.all([
+      supabase.from('zakaznici').select('id, nazev_spolecnosti').is('deleted_at', null).order('nazev_spolecnosti'),
+      supabase.from('dodavatele').select('id, nazev_spolecnosti').is('deleted_at', null).order('nazev_spolecnosti')
+    ])
+
+    if (zakazniciRes.error) throw zakazniciRes.error
+    if (dodavateleRes.error) throw dodavateleRes.error
+
+    return {
+      success: true,
+      data: {
+        zakaznici: zakazniciRes.data ?? [],
+        dodavatele: dodavateleRes.data ?? []
+      }
+    }
+  } catch (e: any) {
+    return { success: false, error: e.message }
+  }
+}
+
 
 

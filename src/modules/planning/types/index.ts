@@ -212,10 +212,17 @@ export interface UdalostPlanovani {
   aktualizovano_at: string
   vytvoril_id: string | null
   upravil_id: string | null
+  priprava: string | null
+  surovy_prepis: string | null
+  email_navrh: string | null
+  zakaznik_id: string | null
+  dodavatel_id: string | null
   // Joined
   organizator?: UzivatelMinRef | null
   vytvoril?: UzivatelMinRef | null
   upravil?: UzivatelMinRef | null
+  zakaznik?: { id: string; nazev_spolecnosti: string } | null
+  dodavatel?: { id: string; nazev_spolecnosti: string } | null
   milnik?: (Pick<Milnik, 'id' | 'nazev' | 'barva' | 'projekt_id'> & {
     projekt?: {
       id: string
@@ -238,6 +245,11 @@ export interface UdalostPlanovaniPayload {
   zapis?: string | null
   stav?: StavUdalosti
   typ?: 'meeting' | 'schuzka'
+  priprava?: string | null
+  surovy_prepis?: string | null
+  email_navrh?: string | null
+  zakaznik_id?: string | null
+  dodavatel_id?: string | null
 }
 
 // --- UI Konstanty pro úkoly ---

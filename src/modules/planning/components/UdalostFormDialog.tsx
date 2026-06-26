@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/shared/components/ui/select'
-import { upsertUdalost, deleteUdalost } from '../actions/udalosti'
+import { upsertUdalost, deleteUdalost, getCrmEntities } from '../actions/udalosti'
 import { getAllMilnikyActive } from '../actions/milniky'
 import { UdalostPlanovani, StavUdalosti } from '../types'
 
@@ -57,9 +57,14 @@ export function UdalostFormDialog({
   const [selectedMilnikId, setSelectedMilnikId] = useState(milnikId ?? udalost?.milnik_id ?? '')
   const [activeMilniky, setActiveMilniky] = useState<{ id: string; nazev: string; projekt_nazev?: string }[]>([])
 
+  const [crmEntities, setCrmEntities] = useState<{
+    zakaznici: { id: string; nazev_spolecnosti: string }[]
+    dodavatele: { id: string; nazev_spolecnosti: string }[]
+  }>({ zakaznici: [], dodavatele: [] })
+
   const isEdit = !!udalost
 
-  // Load active milestones
+  // Load active milestones and CRM entities
   useEffect(() => {
     if (open) {
       getAllMilnikyActive().then(res => {
@@ -78,6 +83,11 @@ export function UdalostFormDialog({
             }
           }
           setActiveMilniky(list)
+        }
+      })
+      getCrmEntities().then(res => {
+        if (res.success && res.data) {
+          setCrmEntities(res.data)
         }
       })
     }
@@ -104,6 +114,8 @@ export function UdalostFormDialog({
     datum_ukonceni: formatDateTimeLocal(udalost?.datum_ukonceni || undefined) || '',
     lokalita: udalost?.lokalita ?? '',
     organizator_id: udalost?.organizator_id ?? '',
+    zakaznik_id: udalost?.zakaznik_id ?? '',
+    dodavatel_id: udalost?.dodavatel_id ?? '',
   })
 
   const [selectedUcastnici, setSelectedUcastnici] = useState<string[]>(udalost?.ucastnici_ids ?? [])
@@ -120,6 +132,8 @@ export function UdalostFormDialog({
         datum_ukonceni: formatDateTimeLocal(udalost?.datum_ukonceni || undefined) || '',
         lokalita: udalost?.lokalita ?? '',
         organizator_id: udalost?.organizator_id ?? '',
+        zakaznik_id: udalost?.zakaznik_id ?? '',
+        dodavatel_id: udalost?.dodavatel_id ?? '',
       })
       setSelectedUcastnici(udalost?.ucastnici_ids ?? [])
       setSelectedMilnikId(udalost?.milnik_id ?? milnikId ?? '')
@@ -159,6 +173,11 @@ export function UdalostFormDialog({
           zapis: udalost?.zapis ?? null,
           stav: form.stav,
           typ: form.typ,
+          priprava: udalost?.priprava ?? null,
+          surovy_prepis: udalost?.surovy_prepis ?? null,
+          email_navrh: udalost?.email_navrh ?? null,
+          zakaznik_id: form.typ === 'schuzka' ? (form.zakaznik_id || null) : null,
+          dodavatel_id: form.typ === 'schuzka' ? (form.dodavatel_id || null) : null,
         },
         udalost?.id
       )
@@ -176,6 +195,8 @@ export function UdalostFormDialog({
             datum_ukonceni: '',
             lokalita: '',
             organizator_id: '',
+            zakaznik_id: '',
+            dodavatel_id: '',
           })
           setSelectedUcastnici([])
         }
@@ -243,7 +264,12 @@ export function UdalostFormDialog({
           {/* Typ události */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="udalost-typ">Typ schůzky *</Label>
-            <Select value={form.typ} onValueChange={val => handleChange('typ', val ?? 'meeting')}>
+            <Select value={form.typ} onValueChange={val => {
+              handleChange('typ', val ?? 'meeting')
+              if (val !== 'schuzka') {
+                setForm(prev => ({ ...prev, zakaznik_id: '', dodavatel_id: '' }))
+              }
+            }}>
               <SelectTrigger id="udalost-typ">
                 <SelectValue />
               </SelectTrigger>
@@ -253,6 +279,59 @@ export function UdalostFormDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* CRM Propojení */}
+          {form.typ === 'schuzka' && (
+            <div className="grid grid-cols-2 gap-3 border p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/30 border-border">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="udalost-zakaznik">Zákazník</Label>
+                <Select 
+                  value={form.zakaznik_id || ''} 
+                  onValueChange={val => {
+                    setForm(prev => ({ 
+                      ...prev, 
+                      zakaznik_id: val || '', 
+                      dodavatel_id: '' 
+                    }))
+                  }}
+                >
+                  <SelectTrigger id="udalost-zakaznik">
+                    <SelectValue placeholder="Vyberte zákazníka..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">-- Nevybráno --</SelectItem>
+                    {crmEntities.zakaznici.map(z => (
+                      <SelectItem key={z.id} value={z.id}>{z.nazev_spolecnosti}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="udalost-dodavatel">Dodavatel</Label>
+                <Select 
+                  value={form.dodavatel_id || ''} 
+                  onValueChange={val => {
+                    setForm(prev => ({ 
+                      ...prev, 
+                      dodavatel_id: val || '', 
+                      zakaznik_id: '' 
+                    }))
+                  }}
+                >
+                  <SelectTrigger id="udalost-dodavatel">
+                    <SelectValue placeholder="Vyberte dodavatele..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">-- Nevybráno --</SelectItem>
+                    {crmEntities.dodavatele.map(d => (
+                      <SelectItem key={d.id} value={d.id}>{d.nazev_spolecnosti}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
 
           {/* Milník */}
           <div className="flex flex-col gap-1.5">

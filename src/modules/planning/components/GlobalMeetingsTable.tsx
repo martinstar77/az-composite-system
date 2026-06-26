@@ -25,6 +25,7 @@ import { UdalostFormDialog } from './UdalostFormDialog'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { Badge } from '@/shared/components/ui/badge'
+import { getCrmEntities } from '../actions/udalosti'
 import Link from 'next/link'
 
 interface GlobalMeetingsTableProps {
@@ -53,14 +54,27 @@ export function GlobalMeetingsTable({
   const [selectedStav, setSelectedStav] = useState<StavUdalosti | 'all'>('all')
   const [selectedProjekt, setSelectedProjekt] = useState<string | 'all'>('all')
   const [selectedOrganizer, setSelectedOrganizer] = useState<string | 'all'>('all')
+  const [selectedCustomer, setSelectedCustomer] = useState<string | 'all'>('all')
+  const [selectedSupplier, setSelectedSupplier] = useState<string | 'all'>('all')
+
+  const [crmEntities, setCrmEntities] = useState<{
+    zakaznici: { id: string; nazev_spolecnosti: string }[]
+    dodavatele: { id: string; nazev_spolecnosti: string }[]
+  }>({ zakaznici: [], dodavatele: [] })
 
   React.useEffect(() => {
     setMeetings(initialMeetings)
   }, [initialMeetings])
 
+  React.useEffect(() => {
+    getCrmEntities().then(res => {
+      if (res.success && res.data) {
+        setCrmEntities(res.data)
+      }
+    })
+  }, [])
+
   const refreshMeetings = React.useCallback(async () => {
-    // In Next.js Server Components, parent will re-fetch and update props.
-    // Sync state:
     setMeetings(initialMeetings)
   }, [initialMeetings])
 
@@ -88,9 +102,15 @@ export function GlobalMeetingsTable({
       // 5. Organizer Filter
       if (selectedOrganizer !== 'all' && m.organizator_id !== selectedOrganizer) return false
 
+      // 6. Customer Filter
+      if (selectedCustomer !== 'all' && m.zakaznik_id !== selectedCustomer) return false
+
+      // 7. Supplier Filter
+      if (selectedSupplier !== 'all' && m.dodavatel_id !== selectedSupplier) return false
+
       return true
     })
-  }, [meetings, search, selectedTyp, selectedStav, selectedProjekt, selectedOrganizer])
+  }, [meetings, search, selectedTyp, selectedStav, selectedProjekt, selectedOrganizer, selectedCustomer, selectedSupplier])
 
   // Reset Filters
   function handleResetFilters() {
@@ -99,6 +119,8 @@ export function GlobalMeetingsTable({
     setSelectedStav('all')
     setSelectedProjekt('all')
     setSelectedOrganizer('all')
+    setSelectedCustomer('all')
+    setSelectedSupplier('all')
   }
 
   // Format Date and Time
@@ -133,7 +155,7 @@ export function GlobalMeetingsTable({
             )}
           </div>
 
-          {(search || selectedTyp !== 'all' || selectedStav !== 'all' || selectedProjekt !== 'all' || selectedOrganizer !== 'all') && (
+          {(search || selectedTyp !== 'all' || selectedStav !== 'all' || selectedProjekt !== 'all' || selectedOrganizer !== 'all' || selectedCustomer !== 'all' || selectedSupplier !== 'all') && (
             <Button 
               variant="ghost" 
               size="sm" 
@@ -145,7 +167,7 @@ export function GlobalMeetingsTable({
           )}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {/* Typ události */}
           <div className="flex flex-col gap-1.5">
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Typ události</span>
@@ -201,6 +223,36 @@ export function GlobalMeetingsTable({
               <option value="all">Všichni organizátoři</option>
               {users.map(u => (
                 <option key={u.id} value={u.id}>{u.jmeno}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Zákazník */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Zákazník</span>
+            <select
+              value={selectedCustomer}
+              onChange={e => setSelectedCustomer(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="all">Všichni zákazníci</option>
+              {crmEntities.zakaznici.map(z => (
+                <option key={z.id} value={z.id}>{z.nazev_spolecnosti}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dodavatel */}
+          <div className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Dodavatel</span>
+            <select
+              value={selectedSupplier}
+              onChange={e => setSelectedSupplier(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              <option value="all">Všichni dodavatelé</option>
+              {crmEntities.dodavatele.map(d => (
+                <option key={d.id} value={d.id}>{d.nazev_spolecnosti}</option>
               ))}
             </select>
           </div>
@@ -275,20 +327,34 @@ export function GlobalMeetingsTable({
 
                     {/* Název & Projekt */}
                     <td className="p-3">
-                      <div className="flex flex-col gap-0.5">
-                        <MeetingWorkspace
-                          meeting={meeting}
-                          userProfiles={users}
-                          onSuccess={refreshMeetings}
-                          trigger={
-                            <button 
-                              type="button" 
-                              className="text-left font-bold text-foreground hover:underline hover:text-primary transition-colors cursor-pointer text-xs"
-                            >
-                              {meeting.nazev}
-                            </button>
-                          }
-                        />
+                      <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-0.5">
+                          <MeetingWorkspace
+                            meeting={meeting}
+                            userProfiles={users}
+                            onSuccess={refreshMeetings}
+                            trigger={
+                              <button 
+                                type="button" 
+                                className="text-left font-bold text-foreground hover:underline hover:text-primary transition-colors cursor-pointer text-xs"
+                              >
+                                {meeting.nazev}
+                              </button>
+                            }
+                          />
+                          {meeting.zakaznik && (
+                            <div className="flex items-center gap-1 text-[10px] text-yellow-600 dark:text-yellow-400 font-bold" title="Propojený zákazník">
+                              <span>🤝</span>
+                              <span>{meeting.zakaznik.nazev_spolecnosti}</span>
+                            </div>
+                          )}
+                          {meeting.dodavatel && (
+                            <div className="flex items-center gap-1 text-[10px] text-orange-600 dark:text-orange-400 font-bold" title="Propojený dodavatel">
+                              <span>👥</span>
+                              <span>{meeting.dodavatel.nazev_spolecnosti}</span>
+                            </div>
+                          )}
+                        </div>
                         {meeting.milnik ? (
                           <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                             <span 
