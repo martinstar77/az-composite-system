@@ -55,6 +55,14 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
   const [isPending, startTransition] = useTransition()
   const [activeTab, setActiveTab] = useState<"agenda" | "notes" | "outputs">("agenda")
 
+  const isSchuzka = meeting.typ === 'schuzka'
+  const brandColorClass = isSchuzka ? 'text-indigo-400' : 'text-purple-400'
+  const brandBadgeClass = isSchuzka ? 'border-indigo-500/30 text-indigo-400 bg-indigo-500/5' : 'border-purple-500/30 text-purple-400 bg-purple-500/5'
+  const brandBtnClass = isSchuzka ? 'border-indigo-500/30 hover:bg-indigo-500/10 text-indigo-400' : 'border-purple-500/30 hover:bg-purple-500/10 text-purple-400'
+  const brandTabActiveStyle = isSchuzka ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+  const brandItemActiveStyle = isSchuzka ? 'bg-indigo-500/10 border-indigo-500/40 text-white font-semibold' : 'bg-purple-500/10 border-purple-500/40 text-white font-semibold'
+  const brandTextHoverClass = isSchuzka ? 'hover:text-indigo-400' : 'hover:text-purple-400'
+
   // Workspace Local States
   const [agenda, setAgenda] = useState<AgendaTopic[]>(meeting.agenda || [])
   const [zapis, setZapis] = useState(meeting.zapis || "")
@@ -234,12 +242,12 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
         <div className="px-6 py-4 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between shrink-0">
           <div className="flex flex-col gap-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-xl">👥</span>
+              <span className="text-xl">{isSchuzka ? '🤝' : '👥'}</span>
               <DialogTitle className="text-lg font-bold text-white truncate max-w-lg md:max-w-2xl">
                 {meeting.nazev}
               </DialogTitle>
-              <Badge variant="outline" className="border-purple-500/30 text-purple-400 bg-purple-500/5">
-                Schůzka
+              <Badge variant="outline" className={brandBadgeClass}>
+                {isSchuzka ? 'Externí schůzka' : 'Interní meeting'}
               </Badge>
             </div>
             <p className="text-xs text-zinc-400">
@@ -254,7 +262,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
               <div className="flex items-center gap-3 bg-red-950/20 border border-red-500/20 px-3 py-1.5 rounded-lg">
                 <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse shrink-0" />
                 <span className="font-mono text-sm font-semibold text-red-400">
-                  Schůzka: {formatTimer(meetingSeconds)}
+                  {isSchuzka ? 'Schůzka' : 'Meeting'}: {formatTimer(meetingSeconds)}
                 </span>
                 {activeTopic && (
                   <span className="text-xs text-zinc-500 font-mono hidden md:inline">
@@ -267,7 +275,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                   size="sm" 
                   className="h-8 gap-1 font-semibold text-xs"
                 >
-                  <StopIcon className="h-3.5 w-3.5 fill-current" /> Ukončit schůzku
+                  <StopIcon className="h-3.5 w-3.5 fill-current" /> {isSchuzka ? 'Ukončit schůzku' : 'Ukončit meeting'}
                 </Button>
               </div>
             ) : (
@@ -275,9 +283,9 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                 onClick={handleStartMeeting} 
                 variant="outline" 
                 size="sm" 
-                className="h-9 gap-1.5 font-semibold text-xs border-purple-500/30 hover:bg-purple-500/10 text-purple-400"
+                className={`h-9 gap-1.5 font-semibold text-xs ${brandBtnClass}`}
               >
-                <Play className="h-3.5 w-3.5 fill-current" /> Spustit meeting
+                <Play className="h-3.5 w-3.5 fill-current" /> {isSchuzka ? 'Spustit schůzku' : 'Spustit meeting'}
               </Button>
             )}
 
@@ -303,7 +311,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
               <button
                 onClick={() => setActiveTab("agenda")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                  activeTab === "agenda" ? "bg-purple-500/10 text-purple-400 border border-purple-500/20" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
+                  activeTab === "agenda" ? brandTabActiveStyle : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
                 }`}
               >
                 <ListTodo className="h-4 w-4" />
@@ -318,7 +326,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
               <button
                 onClick={() => setActiveTab("notes")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                  activeTab === "notes" ? "bg-purple-500/10 text-purple-400 border border-purple-500/20" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
+                  activeTab === "notes" ? brandTabActiveStyle : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
                 }`}
               >
                 <FileText className="h-4 w-4" />
@@ -328,7 +336,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
               <button
                 onClick={() => setActiveTab("outputs")}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                  activeTab === "outputs" ? "bg-purple-500/10 text-purple-400 border border-purple-500/20" : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
+                  activeTab === "outputs" ? brandTabActiveStyle : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50"
                 }`}
               >
                 <BookOpen className="h-4 w-4" />
@@ -341,7 +349,9 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
               <Button
                 onClick={handleGenerateAI}
                 disabled={isPending || !zapis.trim()}
-                className="w-full h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white gap-2 font-bold shadow-lg shadow-purple-500/10"
+                className={`w-full h-11 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white gap-2 font-bold shadow-lg ${
+                  isSchuzka ? 'shadow-indigo-500/10' : 'shadow-purple-500/10'
+                }`}
               >
                 <Sparkles className="h-4 w-4 fill-current animate-pulse text-yellow-300" />
                 <span>AI Analýza & Zápis</span>
@@ -357,13 +367,19 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
               <div className="flex-1 flex flex-col p-6 overflow-hidden">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-base font-bold text-white">Program a témata schůzky</h3>
-                    <p className="text-xs text-zinc-400">Připravte si body schůzky, které chcete postupně probrat.</p>
+                    <h3 className="text-base font-bold text-white">
+                      {isSchuzka ? 'Program a témata schůzky' : 'Program a témata meetingu'}
+                    </h3>
+                    <p className="text-xs text-zinc-400">
+                      {isSchuzka 
+                        ? 'Připravte si body schůzky, které chcete postupně probrat.' 
+                        : 'Připravte si body meetingu, které chcete postupně probrat.'}
+                    </p>
                   </div>
                   
                   {/* Celkový čas agendy */}
                   <div className="flex items-center gap-1.5 text-zinc-400 text-xs bg-zinc-900 px-3 py-1.5 rounded-lg border border-zinc-850">
-                    <Clock className="h-4 w-4 text-purple-400" />
+                    <Clock className={`h-4 w-4 ${brandColorClass}`} />
                     Celkový plánovaný čas: <strong className="text-white font-mono">{agenda.reduce((acc, t) => acc + t.doba_minut, 0)} min</strong>
                   </div>
                 </div>
@@ -375,7 +391,9 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                     value={newTopicName}
                     onChange={e => setNewTopicName(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && handleAddTopic()}
-                    className="bg-zinc-900 border-zinc-800 h-10 text-sm text-white focus:border-purple-500"
+                    className={`bg-zinc-900 border-zinc-800 h-10 text-sm text-white focus:outline-none focus:ring-1 focus:ring-ring ${
+                      isSchuzka ? 'focus:border-indigo-500 focus-visible:ring-indigo-500/20' : 'focus:border-purple-500 focus-visible:ring-purple-500/20'
+                    }`}
                   />
                   <Button 
                     onClick={handleAddTopic}
@@ -390,8 +408,14 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                   {agenda.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-center text-zinc-500 gap-3">
                       <ListTodo className="h-10 w-10 text-zinc-700" />
-                      <p className="text-sm font-semibold">Tato schůzka zatím nemá žádná témata.</p>
-                      <p className="text-xs text-zinc-600 max-w-sm">Zadejte první téma výše k naplánování agendy schůzky.</p>
+                      <p className="text-sm font-semibold">
+                        {isSchuzka ? 'Tato schůzka zatím nemá žádná témata.' : 'Tento meeting zatím nemá žádná témata.'}
+                      </p>
+                      <p className="text-xs text-zinc-600 max-w-sm">
+                        {isSchuzka 
+                          ? 'Zadejte první téma výše k naplánování agendy schůzky.' 
+                          : 'Zadejte první téma výše k naplánování agendy meetingu.'}
+                      </p>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -409,7 +433,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <button
                                 onClick={() => handleToggleTopicDiscussed(topic.id, topic.stav)}
-                                className="text-zinc-500 hover:text-purple-400 transition-colors shrink-0"
+                                className={`text-zinc-500 transition-colors shrink-0 ${brandTextHoverClass}`}
                               >
                                 {isDiscussed ? (
                                   <CheckCircle2 className="h-5 w-5 text-emerald-500 fill-emerald-500/10" />
@@ -513,7 +537,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                             }}
                             className={`p-2.5 rounded-lg border text-left cursor-pointer transition-colors flex items-center justify-between gap-2 ${
                               isActive
-                                ? "bg-purple-500/10 border-purple-500/40 text-white font-semibold"
+                                ? brandItemActiveStyle
                                 : isDiscussed
                                 ? "bg-zinc-900/30 border-zinc-850/50 text-zinc-500 opacity-60"
                                 : "bg-zinc-900/60 border-zinc-850 text-zinc-300 hover:border-zinc-800"
@@ -537,7 +561,7 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                                   e.stopPropagation()
                                   handleToggleTopicDiscussed(topic.id, topic.stav)
                                 }}
-                                className="text-zinc-500 hover:text-purple-400 transition-colors"
+                                className={`text-zinc-500 transition-colors ${brandTextHoverClass}`}
                               >
                                 {isDiscussed ? (
                                   <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500 shrink-0" />
@@ -581,8 +605,10 @@ export function MeetingWorkspace({ meeting, userProfiles, onSuccess, trigger }: 
                 <div className="flex-1 flex flex-col border border-zinc-800 bg-zinc-900/20 rounded-xl p-4 overflow-hidden">
                   <div className="flex justify-between items-center mb-3 shrink-0">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-purple-400 fill-purple-400" />
-                      <span className="text-xs font-bold text-white">Strukturovaný zápis z meetingu</span>
+                      <Sparkles className={`h-4 w-4 ${brandColorClass} fill-current`} />
+                      <span className="text-xs font-bold text-white">
+                        {isSchuzka ? 'Strukturovaný zápis ze schůzky' : 'Strukturovaný zápis z meetingu'}
+                      </span>
                     </div>
                     <Badge variant="outline" className="border-emerald-500/30 text-emerald-400 bg-emerald-500/5 h-5 text-[9px]">
                       Zápis od AI

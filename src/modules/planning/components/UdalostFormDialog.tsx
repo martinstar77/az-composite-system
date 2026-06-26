@@ -35,6 +35,7 @@ interface UdalostFormDialogProps {
   onSuccess?: () => void
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  defaultTyp?: 'meeting' | 'schuzka'
 }
 
 export function UdalostFormDialog({
@@ -45,6 +46,7 @@ export function UdalostFormDialog({
   onSuccess,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
+  defaultTyp,
 }: UdalostFormDialogProps) {
   const [localOpen, setLocalOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
@@ -97,6 +99,7 @@ export function UdalostFormDialog({
     nazev: udalost?.nazev ?? '',
     popis: udalost?.popis ?? '',
     stav: (udalost?.stav ?? 'scheduled') as StavUdalosti,
+    typ: (udalost?.typ ?? defaultTyp ?? 'meeting') as 'meeting' | 'schuzka',
     datum_zahajeni: formatDateTimeLocal(udalost?.datum_zahajeni) || formatDateTimeLocal(new Date().toISOString()),
     datum_ukonceni: formatDateTimeLocal(udalost?.datum_ukonceni || undefined) || '',
     lokalita: udalost?.lokalita ?? '',
@@ -112,6 +115,7 @@ export function UdalostFormDialog({
         nazev: udalost?.nazev ?? '',
         popis: udalost?.popis ?? '',
         stav: (udalost?.stav ?? 'scheduled') as StavUdalosti,
+        typ: (udalost?.typ ?? defaultTyp ?? 'meeting') as 'meeting' | 'schuzka',
         datum_zahajeni: formatDateTimeLocal(udalost?.datum_zahajeni) || formatDateTimeLocal(new Date().toISOString()),
         datum_ukonceni: formatDateTimeLocal(udalost?.datum_ukonceni || undefined) || '',
         lokalita: udalost?.lokalita ?? '',
@@ -120,7 +124,7 @@ export function UdalostFormDialog({
       setSelectedUcastnici(udalost?.ucastnici_ids ?? [])
       setSelectedMilnikId(udalost?.milnik_id ?? milnikId ?? '')
     }
-  }, [open, udalost, milnikId])
+  }, [open, udalost, milnikId, defaultTyp])
 
   function handleChange(field: string, value: string) {
     setForm(prev => ({ ...prev, [field]: value }))
@@ -154,6 +158,7 @@ export function UdalostFormDialog({
           agenda: udalost?.agenda ?? [],
           zapis: udalost?.zapis ?? null,
           stav: form.stav,
+          typ: form.typ,
         },
         udalost?.id
       )
@@ -166,6 +171,7 @@ export function UdalostFormDialog({
             nazev: '',
             popis: '',
             stav: 'scheduled',
+            typ: defaultTyp ?? 'meeting',
             datum_zahajeni: formatDateTimeLocal(new Date().toISOString()),
             datum_ukonceni: '',
             lokalita: '',
@@ -232,6 +238,20 @@ export function UdalostFormDialog({
               placeholder="Stručný popis nebo hlavní body k projednání..."
               rows={2}
             />
+          </div>
+
+          {/* Typ události */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="udalost-typ">Typ schůzky *</Label>
+            <Select value={form.typ} onValueChange={val => handleChange('typ', val ?? 'meeting')}>
+              <SelectTrigger id="udalost-typ">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="meeting">👥 Interní meeting</SelectItem>
+                <SelectItem value="schuzka">🤝 Schůzka (externí — zákazník / dodavatel)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Milník */}

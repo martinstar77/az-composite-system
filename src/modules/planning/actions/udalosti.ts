@@ -32,6 +32,7 @@ const udalostSchema = z.object({
   })).default([]),
   zapis: z.string().optional().nullable(),
   stav: z.enum(['scheduled', 'active', 'completed', 'cancelled']).default('scheduled'),
+  typ: z.enum(['meeting', 'schuzka']).default('meeting'),
 })
 
 const UDALOST_SELECT = `
@@ -138,6 +139,7 @@ export async function upsertUdalost(
       agenda: validated.agenda,
       zapis: validated.zapis ?? null,
       stav: validated.stav,
+      typ: validated.typ,
       upravil_id: user.id,
       tenant_id: tenantId,
       aktualizovano_at: new Date().toISOString()

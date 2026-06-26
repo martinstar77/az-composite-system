@@ -529,29 +529,38 @@ export function MilnikCard({ milnik, isDragging, dragHandleProps }: MilnikCardPr
           <span className="text-[11px] text-muted-foreground/50 italic py-0.5">Bez plánovaných schůzek</span>
         ) : (
           <div className="flex flex-col gap-1.5 max-h-[150px] overflow-y-auto pr-0.5">
-            {udalosti.map(event => (
-              <div key={event.id} className="p-2 bg-purple-500/5 hover:bg-purple-500/10 border border-purple-500/20 rounded-lg flex items-center justify-between transition-colors">
-                <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-xs font-semibold truncate text-purple-400">
-                    👥 {event.nazev}
-                  </span>
-                  <span className="text-[9px] text-zinc-500 font-mono">
-                    {new Date(event.datum_zahajeni).toLocaleDateString('cs-CZ')} {new Date(event.datum_zahajeni).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+            {udalosti.map(event => {
+              const isSchuzka = event.typ === 'schuzka'
+              const colorClass = isSchuzka ? 'text-indigo-400' : 'text-purple-400'
+              const hoverColorClass = isSchuzka ? 'hover:text-indigo-300' : 'hover:text-purple-300'
+              const bgBorderClass = isSchuzka 
+                ? 'bg-indigo-500/5 hover:bg-indigo-500/10 border-indigo-500/20' 
+                : 'bg-purple-500/5 hover:bg-purple-500/10 border-purple-500/20'
+
+              return (
+                <div key={event.id} className={`p-2 border rounded-lg flex items-center justify-between transition-colors ${bgBorderClass}`}>
+                  <div className="flex flex-col gap-0.5 min-w-0">
+                    <span className={`text-xs font-semibold truncate ${colorClass}`}>
+                      {isSchuzka ? '🤝' : '👥'} {event.nazev}
+                    </span>
+                    <span className="text-[9px] text-zinc-500 font-mono">
+                      {new Date(event.datum_zahajeni).toLocaleDateString('cs-CZ')} {new Date(event.datum_zahajeni).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  
+                  <MeetingWorkspace
+                    meeting={event}
+                    userProfiles={userProfiles}
+                    onSuccess={loadUdalosti}
+                    trigger={
+                      <Button variant="ghost" size="icon-sm" className={`h-7 w-7 ${colorClass} ${hoverColorClass}`}>
+                        <Clock className="h-4 w-4" />
+                      </Button>
+                    }
+                  />
                 </div>
-                
-                <MeetingWorkspace
-                  meeting={event}
-                  userProfiles={userProfiles}
-                  onSuccess={loadUdalosti}
-                  trigger={
-                    <Button variant="ghost" size="icon-sm" className="h-7 w-7 text-purple-400 hover:text-purple-300">
-                      <Clock className="h-4 w-4" />
-                    </Button>
-                  }
-                />
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

@@ -205,6 +205,7 @@ export interface UdalostPlanovani {
   agenda: AgendaTopic[]
   zapis: string | null
   stav: StavUdalosti
+  typ: 'meeting' | 'schuzka'
   tenant_id: string | null
   deleted_at: string | null
   vytvoreno_at: string
@@ -228,6 +229,7 @@ export interface UdalostPlanovaniPayload {
   agenda?: AgendaTopic[]
   zapis?: string | null
   stav?: StavUdalosti
+  typ?: 'meeting' | 'schuzka'
 }
 
 // --- UI Konstanty pro úkoly ---

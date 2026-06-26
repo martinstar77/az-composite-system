@@ -89,7 +89,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
   // Filters
   const [selectedOddeleni, setSelectedOddeleni] = useState<OddeleniType | 'all'>('all')
   const [selectedOwner, setSelectedOwner] = useState<string | 'all'>('all')
-  const [selectedTyp, setSelectedTyp] = useState<TypUdalostiType | 'meeting' | 'all'>('all')
+  const [selectedTyp, setSelectedTyp] = useState<TypUdalostiType | 'meeting' | 'schuzka' | 'all'>('all')
   const [selectedPriorita, setSelectedPriorita] = useState<PrioritaUkolu | 'all'>('all')
   const [selectedProjekt, setSelectedProjekt] = useState<string | 'all'>('all')
   const [showFilters, setShowFilters] = useState(false)
@@ -270,7 +270,11 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
       if (u.milnik?.projekt_id !== selectedProjekt) return false
     }
     // Typ filter
-    if (selectedTyp !== 'all' && selectedTyp !== 'meeting') return false
+    if (selectedTyp !== 'all') {
+      if (selectedTyp === 'meeting' && u.typ !== 'meeting') return false
+      if (selectedTyp === 'schuzka' && u.typ !== 'schuzka') return false
+      if (selectedTyp !== 'meeting' && selectedTyp !== 'schuzka') return false
+    }
     // Since meetings don't have department, owner, or priority check them if filters are active
     if (selectedOddeleni !== 'all') return false
     if (selectedOwner !== 'all' && u.organizator_id !== selectedOwner) return false
@@ -433,28 +437,35 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                   ))}
 
                   {/* Meetings & Events */}
-                  {dayUdalosti.map(event => (
-                    <div
-                      key={event.id}
-                      onClick={(e) => e.stopPropagation()}
-                      className="event-item w-full"
-                    >
-                      <MeetingWorkspace
-                        meeting={event}
-                        userProfiles={userProfiles}
-                        onSuccess={loadData}
-                        trigger={
-                          <button
-                            type="button"
-                            className="text-left w-full text-[9px] bg-purple-500/10 dark:bg-purple-950/40 border border-purple-500/20 dark:border-purple-800/40 text-purple-400 rounded px-1.5 py-0.5 truncate flex items-center gap-1 cursor-pointer transition-all hover:bg-purple-500/20 font-medium"
-                            title={`Schůzka: ${event.nazev}${event.lokalita ? ' (📍 ' + event.lokalita + ')' : ''}`}
-                          >
-                            👥 {event.nazev}
-                          </button>
-                        }
-                      />
-                    </div>
-                  ))}
+                  {dayUdalosti.map(event => {
+                    const isSchuzka = event.typ === 'schuzka'
+                    return (
+                      <div
+                        key={event.id}
+                        onClick={(e) => e.stopPropagation()}
+                        className="event-item w-full"
+                      >
+                        <MeetingWorkspace
+                          meeting={event}
+                          userProfiles={userProfiles}
+                          onSuccess={loadData}
+                          trigger={
+                            <button
+                              type="button"
+                              className={`text-left w-full text-[9px] border rounded px-1.5 py-0.5 truncate flex items-center gap-1 cursor-pointer transition-all font-medium ${
+                                isSchuzka
+                                  ? 'bg-indigo-500/10 dark:bg-indigo-950/40 border-indigo-500/20 dark:border-indigo-800/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20'
+                                  : 'bg-purple-500/10 dark:bg-purple-950/40 border-purple-500/20 dark:border-purple-800/40 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20'
+                              }`}
+                              title={`${isSchuzka ? 'Schůzka (ext.)' : 'Meeting (int.)'}: ${event.nazev}${event.lokalita ? ' (📍 ' + event.lokalita + ')' : ''}`}
+                            >
+                              {isSchuzka ? '🤝' : '👥'} {event.nazev}
+                            </button>
+                          }
+                        />
+                      </div>
+                    )
+                  })}
                   
                   {/* Tasks */}
                   {dayUkoly.map(u => {
@@ -487,6 +498,13 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                   {dayMilniky.length > 0 && (
                     <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
                   )}
+                  {dayUdalosti.map(e => (
+                    <span 
+                      key={e.id}
+                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${e.typ === 'schuzka' ? 'bg-indigo-500' : 'bg-purple-500'}`}
+                      title={e.nazev}
+                    />
+                  ))}
                   {dayUkoly.map(u => {
                     const eventColor = u.barva
                     const style = eventColor 
@@ -531,29 +549,44 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
             return (
               <div className="flex flex-col gap-2">
                 {/* Meetings & Events */}
-                {selectedUdalosti.map(event => (
-                  <MeetingWorkspace
-                    key={event.id}
-                    meeting={event}
-                    userProfiles={userProfiles}
-                    onSuccess={loadData}
-                    trigger={
-                      <button
-                        type="button"
-                        className="text-left w-full flex flex-col gap-1 p-2 rounded-lg border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 text-purple-400 cursor-pointer transition-colors"
-                      >
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-xs">👥 {event.nazev}</span>
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold border border-purple-500/30 bg-purple-500/10 text-purple-400">Schůzka</span>
-                        </div>
-                        <span className="text-[10px] opacity-80">
-                          Organizátor: {userProfiles.find(p => p.id === event.organizator_id)?.jmeno || "Nepřiřazeno"}
-                          {event.lokalita && ` • 📍 ${event.lokalita}`}
-                        </span>
-                      </button>
-                    }
-                  />
-                ))}
+                {selectedUdalosti.map(event => {
+                  const isSchuzka = event.typ === 'schuzka'
+                  return (
+                    <MeetingWorkspace
+                      key={event.id}
+                      meeting={event}
+                      userProfiles={userProfiles}
+                      onSuccess={loadData}
+                      trigger={
+                        <button
+                          type="button"
+                          className={`text-left w-full flex flex-col gap-1 p-2 rounded-lg border cursor-pointer transition-colors ${
+                            isSchuzka
+                              ? 'border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                              : 'border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                          }`}
+                        >
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-xs">
+                              {isSchuzka ? '🤝' : '👥'} {event.nazev}
+                            </span>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold border ${
+                              isSchuzka
+                                ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                                : 'border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                            }`}>
+                              {isSchuzka ? 'Schůzka (ext.)' : 'Meeting (int.)'}
+                            </span>
+                          </div>
+                          <span className="text-[10px] opacity-80">
+                            Organizátor: {userProfiles.find(p => p.id === event.organizator_id)?.jmeno || "Nepřiřazeno"}
+                            {event.lokalita && ` • 📍 ${event.lokalita}`}
+                          </span>
+                        </button>
+                      }
+                    />
+                  )
+                })}
                 {selectedMilniky.map(m => (
                   <div key={m.id} className="text-xs bg-red-50 dark:bg-red-950/50 text-red-700 dark:text-red-200 rounded-lg p-2 font-bold border border-red-200 dark:border-red-900/50">
                     🎯 Deadline milníku: <span className="font-semibold">{m.nazev}</span>
@@ -630,23 +663,32 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                 ))}
                 
                 {/* Meetings & Events */}
-                {dayUdalosti.map(event => (
-                  <MeetingWorkspace
-                    key={event.id}
-                    meeting={event}
-                    userProfiles={userProfiles}
-                    onSuccess={loadData}
-                    trigger={
-                      <button
-                        type="button"
-                        className="text-left w-full p-2 rounded-lg border border-purple-500/20 bg-purple-500/5 text-purple-400 text-[11px] leading-normal flex flex-col gap-1 cursor-pointer transition-all hover:bg-purple-500/10 mb-2"
-                      >
-                        <span className="font-bold">👥 {event.nazev}</span>
-                        {event.lokalita && <span className="text-[9px] opacity-80 flex items-center gap-0.5">📍 {event.lokalita}</span>}
-                      </button>
-                    }
-                  />
-                ))}
+                {dayUdalosti.map(event => {
+                  const isSchuzka = event.typ === 'schuzka'
+                  return (
+                    <MeetingWorkspace
+                      key={event.id}
+                      meeting={event}
+                      userProfiles={userProfiles}
+                      onSuccess={loadData}
+                      trigger={
+                        <button
+                          type="button"
+                          className={`text-left w-full p-2 rounded-lg border text-[11px] leading-normal flex flex-col gap-1 cursor-pointer transition-all mb-2 ${
+                            isSchuzka
+                              ? 'border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                              : 'border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                          }`}
+                        >
+                          <span className="font-bold">
+                            {isSchuzka ? '🤝' : '👥'} {event.nazev}
+                          </span>
+                          {event.lokalita && <span className="text-[9px] opacity-80 flex items-center gap-0.5">📍 {event.lokalita}</span>}
+                        </button>
+                      }
+                    />
+                  )
+                })}
 
                 {/* Tasks */}
                 {dayUkoly.length === 0 && dayMilniky.length === 0 && dayUdalosti.length === 0 ? (
@@ -708,30 +750,45 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
         <div className="flex flex-col gap-2">
           {dayUdalosti.length > 0 && (
             <div className="flex flex-col gap-2 mb-4">
-              <h4 className="text-xs font-bold text-purple-600 dark:text-purple-400">Schůzky a meetingy</h4>
-              {dayUdalosti.map(event => (
-                <MeetingWorkspace
-                  key={event.id}
-                  meeting={event}
-                  userProfiles={userProfiles}
-                  onSuccess={loadData}
-                  trigger={
-                    <button
-                      type="button"
-                      className="text-left w-full p-3 rounded-lg border border-purple-500/20 bg-purple-500/5 cursor-pointer hover:bg-purple-500/10 transition-colors flex justify-between items-center gap-4"
-                    >
-                      <div className="flex flex-col gap-1 min-w-0">
-                        <span className="text-xs font-bold leading-normal truncate text-purple-400">👥 {event.nazev}</span>
-                        <span className="text-[10px] opacity-80 text-purple-300">
-                          Organizátor: {userProfiles.find(p => p.id === event.organizator_id)?.jmeno || "Nepřiřazeno"}
-                          {event.lokalita && ` • 📍 ${event.lokalita}`}
+              <h4 className="text-xs font-bold text-zinc-500 dark:text-zinc-400">Schůzky a meetingy</h4>
+              {dayUdalosti.map(event => {
+                const isSchuzka = event.typ === 'schuzka'
+                return (
+                  <MeetingWorkspace
+                    key={event.id}
+                    meeting={event}
+                    userProfiles={userProfiles}
+                    onSuccess={loadData}
+                    trigger={
+                      <button
+                        type="button"
+                        className={`text-left w-full p-3 rounded-lg border cursor-pointer transition-colors flex justify-between items-center gap-4 ${
+                          isSchuzka
+                            ? 'border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10'
+                            : 'border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10'
+                        }`}
+                      >
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className={`text-xs font-bold leading-normal truncate ${isSchuzka ? 'text-indigo-600 dark:text-indigo-400' : 'text-purple-600 dark:text-purple-400'}`}>
+                            {isSchuzka ? '🤝' : '👥'} {event.nazev}
+                          </span>
+                          <span className={`text-[10px] opacity-80 ${isSchuzka ? 'text-indigo-600/80 dark:text-indigo-400/80' : 'text-purple-600/80 dark:text-purple-400/80'}`}>
+                            Organizátor: {userProfiles.find(p => p.id === event.organizator_id)?.jmeno || "Nepřiřazeno"}
+                            {event.lokalita && ` • 📍 ${event.lokalita}`}
+                          </span>
+                        </div>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                          isSchuzka
+                            ? 'border-indigo-500/30 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400'
+                            : 'border-purple-500/30 bg-purple-500/10 text-purple-600 dark:text-purple-400'
+                        }`}>
+                          {isSchuzka ? 'Schůzka (ext.)' : 'Meeting (int.)'}
                         </span>
-                      </div>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border border-purple-500/30 bg-purple-500/10 text-purple-400">Schůzka</span>
-                    </button>
-                  }
-                />
-              ))}
+                      </button>
+                    }
+                  />
+                )
+              })}
             </div>
           )}
 
@@ -819,9 +876,21 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
               milnikId={ukoly.length > 0 ? ukoly[0].milnik_id : (milnikyDeadlines.length > 0 ? milnikyDeadlines[0].id : '')}
               userProfiles={userProfiles}
               onSuccess={loadData}
+              defaultTyp="meeting"
               trigger={
                 <Button size="sm" variant="ghost" className="h-7 text-xs px-2 sm:px-2.5 font-semibold text-purple-500 hover:text-purple-600 hover:bg-purple-500/10 gap-1 shrink-0">
-                  <span>👥 Schůzka</span>
+                  <span>👥 Meeting</span>
+                </Button>
+              }
+            />
+            <UdalostFormDialog
+              milnikId={ukoly.length > 0 ? ukoly[0].milnik_id : (milnikyDeadlines.length > 0 ? milnikyDeadlines[0].id : '')}
+              userProfiles={userProfiles}
+              onSuccess={loadData}
+              defaultTyp="schuzka"
+              trigger={
+                <Button size="sm" variant="ghost" className="h-7 text-xs px-2 sm:px-2.5 font-semibold text-indigo-500 hover:text-indigo-600 hover:bg-indigo-500/10 gap-1 shrink-0">
+                  <span>🤝 Schůzka</span>
                 </Button>
               }
             />
@@ -956,7 +1025,8 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
                 <option value="all">Všechny typy</option>
-                <option value="meeting">👥 Schůzka / Meeting</option>
+                <option value="meeting">👥 Interní meeting</option>
+                <option value="schuzka">🤝 Externí schůzka</option>
                 {Object.entries(TYP_UDALOSTI_CONFIG).map(([key, cfg]) => (
                   <option key={key} value={key}>{cfg.icon} {cfg.label}</option>
                 ))}
