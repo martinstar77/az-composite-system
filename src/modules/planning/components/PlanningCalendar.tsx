@@ -439,13 +439,14 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                       userProfiles={userProfiles}
                       onSuccess={loadData}
                       trigger={
-                        <div
-                          className="event-item text-[9px] bg-purple-500/10 dark:bg-purple-950/40 border border-purple-500/20 dark:border-purple-800/40 text-purple-400 rounded px-1.5 py-0.5 truncate flex items-center gap-1 cursor-pointer transition-all hover:bg-purple-500/20 font-medium"
+                        <button
+                          type="button"
+                          className="event-item text-left w-full text-[9px] bg-purple-500/10 dark:bg-purple-950/40 border border-purple-500/20 dark:border-purple-800/40 text-purple-400 rounded px-1.5 py-0.5 truncate flex items-center gap-1 cursor-pointer transition-all hover:bg-purple-500/20 font-medium"
                           title={`Schůzka: ${event.nazev}${event.lokalita ? ' (📍 ' + event.lokalita + ')' : ''}`}
                           onClick={(e) => e.stopPropagation()}
                         >
                           👥 {event.nazev}
-                        </div>
+                        </button>
                       }
                     />
                   ))}
@@ -532,7 +533,10 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                     userProfiles={userProfiles}
                     onSuccess={loadData}
                     trigger={
-                      <div className="flex flex-col gap-1 p-2 rounded-lg border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 text-purple-400 cursor-pointer transition-colors">
+                      <button
+                        type="button"
+                        className="text-left w-full flex flex-col gap-1 p-2 rounded-lg border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 text-purple-400 cursor-pointer transition-colors"
+                      >
                         <div className="flex justify-between items-center">
                           <span className="font-bold text-xs">👥 {event.nazev}</span>
                           <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold border border-purple-500/30 bg-purple-500/10 text-purple-400">Schůzka</span>
@@ -541,7 +545,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                           Organizátor: {userProfiles.find(p => p.id === event.organizator_id)?.jmeno || "Nepřiřazeno"}
                           {event.lokalita && ` • 📍 ${event.lokalita}`}
                         </span>
-                      </div>
+                      </button>
                     }
                   />
                 ))}
@@ -628,10 +632,13 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                     userProfiles={userProfiles}
                     onSuccess={loadData}
                     trigger={
-                      <div className="p-2 rounded-lg border border-purple-500/20 bg-purple-500/5 text-purple-400 text-[11px] leading-normal flex flex-col gap-1 cursor-pointer transition-all hover:bg-purple-500/10 mb-2">
+                      <button
+                        type="button"
+                        className="text-left w-full p-2 rounded-lg border border-purple-500/20 bg-purple-500/5 text-purple-400 text-[11px] leading-normal flex flex-col gap-1 cursor-pointer transition-all hover:bg-purple-500/10 mb-2"
+                      >
                         <span className="font-bold">👥 {event.nazev}</span>
                         {event.lokalita && <span className="text-[9px] opacity-80 flex items-center gap-0.5">📍 {event.lokalita}</span>}
-                      </div>
+                      </button>
                     }
                   />
                 ))}
@@ -704,7 +711,10 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                   userProfiles={userProfiles}
                   onSuccess={loadData}
                   trigger={
-                    <div className="p-3 rounded-lg border border-purple-500/20 bg-purple-500/5 cursor-pointer hover:bg-purple-500/10 transition-colors flex justify-between items-center gap-4">
+                    <button
+                      type="button"
+                      className="text-left w-full p-3 rounded-lg border border-purple-500/20 bg-purple-500/5 cursor-pointer hover:bg-purple-500/10 transition-colors flex justify-between items-center gap-4"
+                    >
                       <div className="flex flex-col gap-1 min-w-0">
                         <span className="text-xs font-bold leading-normal truncate text-purple-400">👥 {event.nazev}</span>
                         <span className="text-[10px] opacity-80 text-purple-300">
@@ -713,7 +723,7 @@ export function PlanningCalendar({ projektId }: PlanningCalendarProps) {
                         </span>
                       </div>
                       <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold border border-purple-500/30 bg-purple-500/10 text-purple-400">Schůzka</span>
-                    </div>
+                    </button>
                   }
                 />
               ))}
