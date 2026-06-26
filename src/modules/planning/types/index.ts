@@ -214,7 +214,15 @@ export interface UdalostPlanovani {
   upravil_id: string | null
   // Joined
   organizator?: UzivatelMinRef | null
-  milnik?: Pick<Milnik, 'id' | 'nazev' | 'barva' | 'projekt_id'> | null
+  vytvoril?: UzivatelMinRef | null
+  upravil?: UzivatelMinRef | null
+  milnik?: (Pick<Milnik, 'id' | 'nazev' | 'barva' | 'projekt_id'> & {
+    projekt?: {
+      id: string
+      nazev: string
+      barva: string
+    } | null
+  }) | null
 }
 
 export interface UdalostPlanovaniPayload {

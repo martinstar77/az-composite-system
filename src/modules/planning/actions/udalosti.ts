@@ -471,3 +471,73 @@ export async function getTasksByMeeting(
   }
 }
 
+// ============================================================
+// getUdalostiGlobal
+// ============================================================
+export async function getUdalostiGlobal(filters?: {
+  typ?: 'meeting' | 'schuzka'
+  stav?: string
+  organizator_id?: string
+  milnik_id?: string
+}): Promise<{ success: boolean; data?: UdalostPlanovani[]; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Nepřihlášený uživatel' }
+
+    let query = supabase
+      .from('udalosti_planovani')
+      .select(`
+        *,
+        organizator:organizator_id (
+          id,
+          jmeno
+        ),
+        vytvoril:vytvoril_id (
+          id,
+          jmeno
+        ),
+        upravil:upravil_id (
+          id,
+          jmeno
+        ),
+        milnik:milnik_id (
+          id,
+          nazev,
+          barva,
+          projekt_id,
+          projekt:projekt_id (
+            id,
+            nazev,
+            barva
+          )
+        )
+      `)
+      .is('deleted_at', null)
+
+    if (filters?.typ) {
+      query = query.eq('typ', filters.typ)
+    }
+
+    if (filters?.stav) {
+      query = query.eq('stav', filters.stav)
+    }
+
+    if (filters?.organizator_id) {
+      query = query.eq('organizator_id', filters.organizator_id)
+    }
+
+    if (filters?.milnik_id) {
+      query = query.eq('milnik_id', filters.milnik_id)
+    }
+
+    const { data, error } = await query.order('datum_zahajeni', { ascending: false })
+
+    if (error) throw error
+    return { success: true, data: data as UdalostPlanovani[] }
+  } catch (e: any) {
+    return { success: false, error: e.message }
+  }
+}
+
+

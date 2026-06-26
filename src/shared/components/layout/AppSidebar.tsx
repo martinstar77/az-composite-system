@@ -27,6 +27,7 @@ const navItems = [
       { title: "Dashboard", url: "/", icon: LayoutDashboard },
       { title: "Moje úkoly", url: "/planovani/ukoly", icon: CheckSquare },
       { title: "Kalendář", url: "/planovani/kalendar", icon: Calendar },
+      { title: "Schůzky & Meetingy", url: "/planovani/schuzky", icon: Users },
       { title: "Projekty & Plány", url: "/planovani", icon: CalendarRange },
       { title: "Struktura firmy", url: "/planovani/struktura", icon: Building },
       { title: "Poznámky", url: "/poznamky", icon: Notebook },
@@ -91,7 +92,13 @@ export function AppSidebar() {
                   const isActive = pathname === item.url || (
                     item.url !== "/" &&
                     pathname.startsWith(item.url) &&
-                    (item.url !== "/faktury" || !pathname.startsWith("/faktury/nakup"))
+                    (item.url !== "/faktury" || !pathname.startsWith("/faktury/nakup")) &&
+                    (item.url !== "/planovani" || (
+                      !pathname.startsWith("/planovani/ukoly") &&
+                      !pathname.startsWith("/planovani/kalendar") &&
+                      !pathname.startsWith("/planovani/schuzky") &&
+                      !pathname.startsWith("/planovani/struktura")
+                    ))
                   )
                   return (
                     <SidebarMenuItem key={item.title}>
