@@ -753,13 +753,12 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             const stateCode = stateCodeMap[polWaxState] || 'LIQ'
             const cleanQty = polWaxQty.trim().toUpperCase().replace(/[^0-9]/g, '')
 
-            generatedSku = `POL-WAX-${nameCode}-${stateCode}-${polPasteCont}-${cleanQty}ML`
+            generatedSku = `POL-WAX-${nameCode}-${stateCode}-${cleanQty}ML`
             generatedSpecs = {
               podkategorie: 'pasty',
               typ: 'vosk',
               nazev_vosku: polWaxName,
               skupenstvi: polWaxState,
-              obal: polPasteCont,
               mnozstvi: `${cleanQty} ml`
             }
           } else {
@@ -1280,7 +1279,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               typ: 'vosk',
               nazev_vosku: polWaxName,
               skupenstvi: polWaxState,
-              obal: polPasteCont,
               mnozstvi: `${polWaxQty} ml`
             }
           }
@@ -1902,10 +1900,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                   {renderSelect("Skupenství", polWaxState, setPolWaxState, [
                     {val:"tekuty_vosk", label:"Tekutý vosk"},
                     {val:"pasta", label:"Pasta"}
-                  ])}
-                  {renderSelect("Nádoba", polPasteCont, setPolPasteCont, [
-                    {val:"BOT", label:"Láhev (Bottle)"},
-                    {val:"CAN", label:"Plechovka (Tin / Can)"}
                   ])}
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Množství (ml)</Label>

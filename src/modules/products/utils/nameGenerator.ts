@@ -519,7 +519,7 @@ export function generateProductName(
         const waxName = waxNameMap[specs.nazev_vosku] || specs.nazev_vosku || ""
         const stateStr = stateMap[specs.skupenstvi] || specs.skupenstvi || ""
         const qtyStr = specs.mnozstvi || ""
-        return [`Vosk ${waxName} ${stateStr}`.trim(), contStr, qtyStr].filter(Boolean).join(", ")
+        return [`Vosk ${waxName} ${stateStr}`.trim(), qtyStr].filter(Boolean).join(", ")
       }
 
       const typeMap: Record<string, string> = {
