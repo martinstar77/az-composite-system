@@ -269,7 +269,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   // Polish/Abrasives (Overhauled)
   const [polSub, setPolSub] = useState(specs.podkategorie || "pasty")
   const [polPasteType, setPolPasteType] = useState(specs.typ || "rex")
-  const [polPasteWax, setPolPasteWax] = useState(specs.vosk || "none")
+  const [polPasteColor, setPolPasteColor] = useState(specs.barva || "white")
   const [polPasteCont, setPolPasteCont] = useState(specs.obal || "BOT")
   const [polPasteWeight, setPolPasteWeight] = useState<string>(() => {
     if (specs.hmotnost) {
@@ -739,20 +739,19 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             perla15: 'PER15',
             top_finish_3: 'TF3'
           }
-          const waxCodeMap: Record<string, string> = {
-            TF3: 'TF3',
-            UV_shield: 'UV',
-            none: 'NA'
+          const colorCodeMap: Record<string, string> = {
+            white: 'WHT',
+            black: 'BLK'
           }
           const typeCode = typeCodeMap[polPasteType] || 'REX'
-          const waxCode = waxCodeMap[polPasteWax] || 'NA'
+          const colorCode = colorCodeMap[polPasteColor] || 'WHT'
           const cleanWeight = polPasteWeight.trim().toUpperCase().replace(/[^0-9]/g, '')
           
-          generatedSku = `POL-${typeCode}-${waxCode}-${polPasteCont}-${cleanWeight}KG`
+          generatedSku = `POL-${typeCode}-${colorCode}-${polPasteCont}-${cleanWeight}KG`
           generatedSpecs = {
             podkategorie: 'pasty',
             typ: polPasteType,
-            vosk: polPasteWax,
+            barva: polPasteColor,
             obal: polPasteCont,
             hmotnost: `${cleanWeight} kg`
           }
@@ -1176,7 +1175,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         setValue("nazev", generatedName, { shouldValidate: true })
       }
     }
-  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, chemObjemNakup, clnSub, clnBrand, clnPack, clnType, clnQty, clnPmpType, clnPmpQty, coreMat, coreDens, coreThick, coreFinish, coreSirkaCm, coreDelkaCm, polSub, polPasteType, polPasteWax, polPasteCont, polPasteWeight, polDiscType, polDiscCode, polDiscDia, polAccType, polAccProp, polAccDia, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conStPocetRoli, conFtSirka, conFtTemp, conFtDelka, conFtPocetRoli, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, chemSub, chemAdhProp, chemBaseType, chemSealerProp, chemVol, setValue, lookups.fiberCodes])
+  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, chemObjemNakup, clnSub, clnBrand, clnPack, clnType, clnQty, clnPmpType, clnPmpQty, coreMat, coreDens, coreThick, coreFinish, coreSirkaCm, coreDelkaCm, polSub, polPasteType, polPasteColor, polPasteCont, polPasteWeight, polDiscType, polDiscCode, polDiscDia, polAccType, polAccProp, polAccDia, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conStPocetRoli, conFtSirka, conFtTemp, conFtDelka, conFtPocetRoli, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, chemSub, chemAdhProp, chemBaseType, chemSealerProp, chemVol, setValue, lookups.fiberCodes])
 
   // Live SKU Duplicate Check (Debounced)
   useEffect(() => {
@@ -1841,16 +1840,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               {renderSelect("Typ pasty", polPasteType, setPolPasteType, [
                 {val:"rex", label:"Rex"},
                 {val:"perla15", label:"Perla 15"},
-                {val:"top_finish_3", label:"Top Finish 3 (top finish 3)"}
+                {val:"top_finish_3", label:"Top Finish 3"}
               ])}
-              {renderSelect("Vosk", polPasteWax, setPolPasteWax, [
-                {val:"none", label:"Bez vosku (none)"},
-                {val:"TF3", label:"TF3"},
-                {val:"UV_shield", label:"UV shield"}
+              {renderSelect("Barva", polPasteColor, setPolPasteColor, [
+                {val:"white", label:"Bílá (White)"},
+                {val:"black", label:"Černá (Black)"}
               ])}
               {renderSelect("Nádoba", polPasteCont, setPolPasteCont, [
                 {val:"BOT", label:"Láhev (Bottle)"},
-                {val:"CAN", label:"Kanystr (Canister)"}
+                {val:"CAN", label:"Plechovka (Tin / Can)"}
               ])}
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Hmotnost (kg)</Label>

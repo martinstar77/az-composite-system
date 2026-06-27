@@ -504,25 +504,23 @@ export function generateProductName(
       const typeMap: Record<string, string> = {
         rex: "Rex",
         perla15: "Perla 15",
-        top_finish_3: "top finish 3"
+        top_finish_3: "Top Finish 3"
       }
-      const waxMap: Record<string, string> = {
-        TF3: "TF3",
-        UV_shield: "UV shield",
-        none: "",
-        NA: ""
+      const colorMap: Record<string, string> = {
+        white: "bílá",
+        black: "černá"
       }
       const contMap: Record<string, string> = {
-        CAN: "kanystr",
+        CAN: "plechovka",
         BOT: "láhev"
       }
       const pasteType = typeMap[specs.typ] || specs.typ || ""
-      const waxStr = waxMap[specs.vosk] || ""
+      const colorStr = colorMap[specs.barva] || ""
       const contStr = contMap[specs.obal] || specs.obal || ""
       const weightStr = specs.hmotnost || ""
 
-      const typeAndWax = [pasteType, waxStr].filter(Boolean).join(" ")
-      return [`Lešticí pasta ${typeAndWax}`.trim(), contStr, weightStr].filter(Boolean).join(", ")
+      const typeAndColor = [pasteType, colorStr].filter(Boolean).join(" ")
+      return [`Lešticí pasta ${typeAndColor}`.trim(), contStr, weightStr].filter(Boolean).join(", ")
     } else if (sub === 'brusne_kotouce') {
       const discTypeMap: Record<string, string> = {
         vlneny: "vlněný",
