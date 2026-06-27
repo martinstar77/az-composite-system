@@ -20,10 +20,12 @@ import {
   STAV_MILNIKU_CONFIG
 } from '../types'
 import { UkolRow } from './UkolRow'
+import { UkolDetailPanel } from './UkolDetailPanel'
 import { UkolFormDialog } from './UkolFormDialog'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { Badge } from '@/shared/components/ui/badge'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/shared/components/ui/sheet'
 
 interface GlobalUkolyTableProps {
   initialUkoly: UkolPlanovani[]
@@ -42,12 +44,16 @@ export function GlobalUkolyTable({
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
   const [isPending, startTransition] = useTransition()
   
+  // Master-Detail State
+  const [selectedUkolId, setSelectedUkolId] = useState<string | null>(null)
+  const [isDesktop, setIsDesktop] = useState(false)
+  
   // Search and Filters State
   const [search, setSearch] = useState('')
   const [selectedOddeleni, setSelectedOddeleni] = useState<OddeleniType | 'all'>('all')
   const [selectedVlastnik, setSelectedVlastnik] = useState<string | 'all'>('all')
   const [selectedProjekt, setSelectedProjekt] = useState<string | 'all'>('all')
-  const [selectedStav, setSelectedStav] = useState<StavUkolu | 'all'>('all')
+  const [selectedStav, setSelectedStav] = useState<StavUkolu | 'all' | 'active'>('active')
 
   // Reload handler
   const refreshTasks = React.useCallback(async () => {
@@ -60,6 +66,15 @@ export function GlobalUkolyTable({
   React.useEffect(() => {
     setUkoly(initialUkoly)
   }, [initialUkoly])
+
+  // Track viewport size for Master-Detail responsive behavior
+  React.useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)')
+    setIsDesktop(media.matches)
+    const listener = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    media.addEventListener('change', listener)
+    return () => media.removeEventListener('change', listener)
+  }, [])
 
   // Filter Logic
   const filteredUkoly = useMemo(() => {
@@ -86,11 +101,65 @@ export function GlobalUkolyTable({
       if (selectedProjekt !== 'all' && u.milnik?.projekt_id !== selectedProjekt) return false
 
       // 5. Stav
-      if (selectedStav !== 'all' && u.stav !== selectedStav) return false
+      if (selectedStav !== 'all') {
+        if (selectedStav === 'active') {
+          if (u.stav === 'done') return false
+        } else if (u.stav !== selectedStav) {
+          return false
+        }
+      }
 
       return true
     })
   }, [ukoly, search, selectedOddeleni, selectedVlastnik, selectedProjekt, selectedStav, currentUserId])
+
+  const activeUkoly = useMemo(() => filteredUkoly.filter(u => u.stav !== 'done'), [filteredUkoly])
+  const doneUkoly = useMemo(() => filteredUkoly.filter(u => u.stav === 'done'), [filteredUkoly])
+
+  const activeGroups = useMemo(() => {
+    const groups: { [key: string]: { milnik: any; ukoly: UkolPlanovani[] } } = {}
+    activeUkoly.forEach(u => {
+      const milnikId = u.milnik_id || 'no-milestone'
+      if (!groups[milnikId]) {
+        groups[milnikId] = {
+          milnik: u.milnik || null,
+          ukoly: []
+        }
+      }
+      groups[milnikId].ukoly.push(u)
+    })
+    return Object.values(groups)
+  }, [activeUkoly])
+
+  const doneGroups = useMemo(() => {
+    const groups: { [key: string]: { milnik: any; ukoly: UkolPlanovani[] } } = {}
+    doneUkoly.forEach(u => {
+      const milnikId = u.milnik_id || 'no-milestone'
+      if (!groups[milnikId]) {
+        groups[milnikId] = {
+          milnik: u.milnik || null,
+          ukoly: []
+        }
+      }
+      groups[milnikId].ukoly.push(u)
+    })
+    return Object.values(groups)
+  }, [doneUkoly])
+
+  const selectedUkol = useMemo(() => {
+    return ukoly.find(u => u.id === selectedUkolId) || null
+  }, [ukoly, selectedUkolId])
+
+  // Auto-select first active task on desktop if none or invalid is selected
+  React.useEffect(() => {
+    if (isDesktop) {
+      if (filteredUkoly.length === 0) {
+        setSelectedUkolId(null)
+      } else if (!selectedUkolId || !filteredUkoly.some(u => u.id === selectedUkolId)) {
+        setSelectedUkolId(filteredUkoly[0].id)
+      }
+    }
+  }, [isDesktop, selectedUkolId, filteredUkoly])
 
   // Reset Filters
   function handleResetFilters() {
@@ -98,7 +167,7 @@ export function GlobalUkolyTable({
     setSelectedOddeleni('all')
     setSelectedVlastnik('all')
     setSelectedProjekt('all')
-    setSelectedStav('all')
+    setSelectedStav('active')
   }
 
   // Kanban Columns
@@ -158,7 +227,7 @@ export function GlobalUkolyTable({
             </div>
 
             {/* Reset button if any filter is active */}
-            {(search || selectedOddeleni !== 'all' || selectedVlastnik !== 'all' || selectedProjekt !== 'all' || selectedStav !== 'all') && (
+            {(search || selectedOddeleni !== 'all' || selectedVlastnik !== 'all' || selectedProjekt !== 'all' || selectedStav !== 'active') && (
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -227,6 +296,7 @@ export function GlobalUkolyTable({
               onChange={e => setSelectedStav(e.target.value as any)}
               className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             >
+              <option value="active">Aktivní (nedokončené)</option>
               <option value="all">Všechny stavy</option>
               {Object.entries(STAV_UKOLU_CONFIG).map(([key, cfg]) => (
                 <option key={key} value={key}>{cfg.label}</option>
@@ -252,23 +322,97 @@ export function GlobalUkolyTable({
         </div>
       )}
 
-      {/* A. SEZNAMOVÝ POHLED (Dense List of UkolRows) */}
+      {/* A. SEZNAMOVÝ POHLED (Dense List of UkolRows or Split Master-Detail) */}
       {viewMode === 'list' && filteredUkoly.length > 0 && (
-        <div className="flex flex-col gap-2 bg-card border rounded-xl p-3 shadow-sm">
-          {filteredUkoly.map(ukol => (
-            <div key={ukol.id} className="relative">
-              {/* Projekt a milník header pro kontext v globálním seznamu */}
-              <div className="flex items-center gap-1.5 px-3 pt-2 text-[9px] text-muted-foreground font-semibold uppercase tracking-wider select-none">
-                <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: ukol.milnik?.barva || '#8A0485' }} />
-                <span>{ukol.milnik?.nazev ?? 'Bez milníku'}</span>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Master List (Left Pane) */}
+          <div className="lg:col-span-5 flex flex-col gap-4">
+            {activeGroups.length > 0 && (
+              <div className="flex flex-col gap-4">
+                {doneUkoly.length > 0 && (
+                  <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
+                    Aktivní úkoly ({activeUkoly.length})
+                  </h3>
+                )}
+                
+                {activeGroups.map(group => (
+                  <div key={group.milnik?.id || 'no-milestone'} className="flex flex-col gap-1.5">
+                    {/* Milestone Header */}
+                    <div className="flex items-center gap-1.5 px-1.5 text-[9px] text-muted-foreground font-bold uppercase tracking-wider select-none">
+                      <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: group.milnik?.barva || '#8A0485' }} />
+                      <span>{group.milnik?.nazev ?? 'Bez milníku'}</span>
+                    </div>
+                    {/* Compact List Container */}
+                    <div className="flex flex-col border rounded-xl bg-card divide-y divide-border/40 overflow-hidden shadow-sm">
+                      {group.ukoly.map(ukol => (
+                        <UkolRow
+                          key={ukol.id}
+                          ukol={ukol}
+                          userProfiles={users}
+                          onSuccess={refreshTasks}
+                          isSelectable={true}
+                          isSelected={selectedUkolId === ukol.id}
+                          onSelect={() => setSelectedUkolId(ukol.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <UkolRow
-                ukol={ukol}
+            )}
+
+            {doneGroups.length > 0 && (
+              <div className="flex flex-col gap-4">
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
+                  Dokončené úkoly ({doneUkoly.length})
+                </h3>
+                
+                {doneGroups.map(group => (
+                  <div key={group.milnik?.id || 'no-milestone'} className="flex flex-col gap-1.5">
+                    {/* Milestone Header */}
+                    <div className="flex items-center gap-1.5 px-1.5 text-[9px] text-muted-foreground font-bold uppercase tracking-wider select-none">
+                      <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: group.milnik?.barva || '#8A0485' }} />
+                      <span>{group.milnik?.nazev ?? 'Bez milníku'}</span>
+                    </div>
+                    {/* Compact List Container */}
+                    <div className="flex flex-col border rounded-xl bg-card/45 divide-y divide-border/40 overflow-hidden shadow-sm opacity-80 transition-opacity hover:opacity-100">
+                      {group.ukoly.map(ukol => (
+                        <UkolRow
+                          key={ukol.id}
+                          ukol={ukol}
+                          userProfiles={users}
+                          onSuccess={refreshTasks}
+                          isSelectable={true}
+                          isSelected={selectedUkolId === ukol.id}
+                          onSelect={() => setSelectedUkolId(ukol.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Details Pane (Right Pane - Desktop only) */}
+          <div className="hidden lg:block lg:col-span-7 sticky top-6">
+            {selectedUkol ? (
+              <UkolDetailPanel
+                ukol={selectedUkol}
                 userProfiles={users}
                 onSuccess={refreshTasks}
+                onClose={() => setSelectedUkolId(null)}
               />
-            </div>
-          ))}
+            ) : (
+              <div className="flex flex-col items-center justify-center py-32 text-center rounded-2xl border border-dashed bg-card/40 min-h-[500px]">
+                <span className="text-3xl mb-3">📋</span>
+                <h3 className="text-base font-semibold">Žádný úkol není vybrán</h3>
+                <p className="text-sm text-muted-foreground max-w-xs mt-1">
+                  Vyberte úkol ze seznamu vlevo pro zobrazení podrobností, poznámek a checklistu.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -320,6 +464,25 @@ export function GlobalUkolyTable({
           })}
         </div>
       )}
+
+      {/* Mobile Drawer Sheet Details */}
+      <Sheet open={!!selectedUkolId && !isDesktop} onOpenChange={(open) => { if (!open) setSelectedUkolId(null) }}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col h-full bg-background">
+          <SheetHeader className="p-4 border-b">
+            <SheetTitle>Detail úkolu</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto p-4">
+            {selectedUkol && (
+              <UkolDetailPanel
+                ukol={selectedUkol}
+                userProfiles={users}
+                onSuccess={refreshTasks}
+                onClose={() => setSelectedUkolId(null)}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

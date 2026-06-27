@@ -21,7 +21,8 @@ import { createProduct, updateProduct, checkSkuExists } from "@/modules/products
 import { Product } from "../../types"
 import { generateProductName } from "../../utils/nameGenerator"
 import { resolvePackageDimensions } from "@/modules/finance/utils/packagingEngine"
-import { Package, ShoppingCart } from "lucide-react"
+import { calculateGrossWeight, resolvePackagingProfile } from "@/modules/products/utils/logisticsCalculator"
+import { Package, ShoppingCart, Sparkles, RotateCcw } from "lucide-react"
 
 const OBAL_TYPES: Record<string, string> = {
   role: "Role (Válec)",
@@ -120,6 +121,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const overrideSirka = watch("balik_sirka_cm_override")
   const overrideVyska = watch("balik_vyska_cm_override")
   const hmotnostBaliku = watch("hmotnost_baliku_kg")
+  const mnozstviVBaleni = watch("mnozstvi_v_baleni")
+
+  // Override tracking — true when the user has manually typed a value
+  const [isWeightOverridden, setIsWeightOverridden] = useState(
+    () => !!initialData?.hmotnost_baliku_kg
+  )
+  const [isProfileOverridden, setIsProfileOverridden] = useState(
+    () => !!initialData?.balici_profil_id
+  )
 
   const activeProfile = useMemo(() => {
     return (lookups as any).profiles?.find((p: any) => p.id === baliciProfilId) || null
@@ -140,6 +150,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
   // --- Omni-Generator State ---
   const specs = (initialData?.specifikace as any) || {}
+
   // Fabrics
   const [fabMat, setFabMat] = useState(specs.materiál || "CF")
   const [fabForm, setFabForm] = useState(specs.typ || "WF")
@@ -223,6 +234,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [chemTech, setChemTech] = useState(specs.technologie || "INF")
   const [chemCuringTime, setChemCuringTime] = useState(specs.cas_vytvrzeni || "")
   const [chemUse, setChemUse] = useState(specs.pouziti || "FOR")
+  // Resins – purchase volume (IBC / drum size)
+  const [chemObjemNakup, setChemObjemNakup] = useState<number>(specs.objem_nakup_l ? Number(specs.objem_nakup_l) : 200)
   // Adhesives (Lepidla)
   const [adhChem, setAdhChem] = useState(specs.chemie || "EP")
   const [adhOpenTime, setAdhOpenTime] = useState(specs.open_time_min ? String(specs.open_time_min) : "45")
@@ -250,6 +263,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [coreDens, setCoreDens] = useState(String(specs.hustota_kgm3 || "80"))
   const [coreThick, setCoreThick] = useState(specs.tloušťka || "10MM")
   const [coreFinish, setCoreFinish] = useState(specs.úprava || "PL")
+  // Cores – sheet dimensions (NEW: needed for auto-weight calculation)
+  const [coreSirkaCm, setCoreSirkaCm] = useState<number>(specs.sirka_cm ? Number(specs.sirka_cm) : 120)
+  const [coreDelkaCm, setCoreDelkaCm] = useState<number>(specs.delka_cm ? Number(specs.delka_cm) : 100)
   // Polish/Abrasives (Overhauled)
   const [polSub, setPolSub] = useState(specs.podkategorie || "pasty")
   const [polPasteType, setPolPasteType] = useState(specs.typ || "rex")
@@ -346,11 +362,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [conStTemp, setConStTemp] = useState(specs.teplotni_odolnost_c ? String(specs.teplotni_odolnost_c) : "150")
   const [conStSirka, setConStSirka] = useState(specs.sirka_mm ? String(specs.sirka_mm) : "12")
   const [conStDelka, setConStDelka] = useState(specs.delka_m ? String(specs.delka_m) : "15")
+  // ST – number of rolls per shipping package (NEW)
+  const [conStPocetRoli, setConStPocetRoli] = useState<number>(specs.pocet_roli_v_baleni ? Number(specs.pocet_roli_v_baleni) : 1)
 
   // FT – Flash Tape
   const [conFtSirka, setConFtSirka] = useState(specs.sirka_mm ? String(specs.sirka_mm) : "25")
   const [conFtTemp, setConFtTemp] = useState(specs.teplotni_odolnost || "HT")
   const [conFtDelka, setConFtDelka] = useState(specs.delka_m ? String(specs.delka_m) : "66")
+  // FT – number of rolls per shipping package (NEW)
+  const [conFtPocetRoli, setConFtPocetRoli] = useState<number>(specs.pocet_roli_v_baleni ? Number(specs.pocet_roli_v_baleni) : 1)
 
   // FM – Flow Mesh
   const [conFmTyp, setConFmTyp] = useState(specs.typ_vyroby || "EXT")
@@ -580,6 +600,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           typ: chemType,
           chemie: chemBase,
           pouziti: chemUse,
+          objem_nakup_l: chemObjemNakup,
           ...(isCuringType ? { cas_vytvrzeni: chemCuringTime } : { technologie: chemTech })
         }
         break;
@@ -698,7 +719,14 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       case 'cores_active':
         const prefix = kategorieId === 'cores_active' ? 'ACT' : 'COR'
         generatedSku = `${prefix}-${coreMat}-${coreDens}-${coreThick}-${coreFinish}`
-        generatedSpecs = { materiál: coreMat, hustota_kgm3: parseInt(coreDens) || 0, tloušťka: coreThick, úprava: coreFinish }
+        generatedSpecs = {
+          materiál: coreMat,
+          hustota_kgm3: parseInt(coreDens) || 0,
+          tloušťka: coreThick,
+          úprava: coreFinish,
+          sirka_cm: coreSirkaCm,
+          delka_cm: coreDelkaCm,
+        }
         break;
       case 'brouseni_a_lesteni': {
         setValue("zakladni_mj_id", "ks", { shouldValidate: true })
@@ -944,7 +972,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             const len = parseFloat(conStDelka) || 0
             setValue("zakladni_mj_id", "bm", { shouldValidate: true })
             setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
+            // Total lineal meters in the package = 1 roll length × number of rolls
+            setValue("mnozstvi_v_baleni", parseFloat((len * conStPocetRoli).toFixed(2)), { shouldValidate: true })
             
             const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
             generatedSku = `ST-${conStTemp}-${conStSirka}${lenSuffix}`
@@ -953,7 +982,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               teplotni_odolnost_c: parseInt(conStTemp) || 0,
               sirka_mm: parseInt(conStSirka) || 0,
               tloustka_mm: 3.5,
-              delka_m: len
+              delka_m: len,
+              pocet_roli_v_baleni: conStPocetRoli,
             }
             break
           }
@@ -961,7 +991,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             const len = parseFloat(conFtDelka) || 0
             setValue("zakladni_mj_id", "bm", { shouldValidate: true })
             setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
+            // Total lineal meters in the package = 1 roll length × number of rolls
+            setValue("mnozstvi_v_baleni", parseFloat((len * conFtPocetRoli).toFixed(2)), { shouldValidate: true })
             
             const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
             generatedSku = `FT-${conFtSirka}-${conFtTemp}${lenSuffix}`
@@ -969,7 +1000,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               podkategorie: "FT",
               sirka_mm: parseInt(conFtSirka) || 0,
               teplotni_odolnost: conFtTemp,
-              delka_m: len
+              delka_m: len,
+              pocet_roli_v_baleni: conFtPocetRoli,
             }
             break
           }
@@ -1144,7 +1176,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         setValue("nazev", generatedName, { shouldValidate: true })
       }
     }
-  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, clnSub, clnBrand, clnPack, clnType, clnQty, clnPmpType, clnPmpQty, coreMat, coreDens, coreThick, coreFinish, polSub, polPasteType, polPasteWax, polPasteCont, polPasteWeight, polDiscType, polDiscCode, polDiscDia, polAccType, polAccProp, polAccDia, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conFtSirka, conFtTemp, conFtDelka, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, chemSub, chemAdhProp, chemBaseType, chemSealerProp, chemVol, setValue, lookups.fiberCodes])
+  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, chemObjemNakup, clnSub, clnBrand, clnPack, clnType, clnQty, clnPmpType, clnPmpQty, coreMat, coreDens, coreThick, coreFinish, coreSirkaCm, coreDelkaCm, polSub, polPasteType, polPasteWax, polPasteCont, polPasteWeight, polDiscType, polDiscCode, polDiscDia, polAccType, polAccProp, polAccDia, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conStPocetRoli, conFtSirka, conFtTemp, conFtDelka, conFtPocetRoli, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, chemSub, chemAdhProp, chemBaseType, chemSealerProp, chemVol, setValue, lookups.fiberCodes])
 
   // Live SKU Duplicate Check (Debounced)
   useEffect(() => {
@@ -1158,6 +1190,121 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     }, 500)
     return () => clearTimeout(timer)
   }, [currentSku, initialData?.id])
+
+  // Auto-Weight: compute gross weight from specifikace and auto-fill the field
+  // when the user has not manually overridden it
+  const currentSpecs = useMemo(() => {
+    // Build a live spec snapshot from all generator states for the current category
+    // This mirrors what generatedSpecs produces in the SKU generator useEffect
+    switch (kategorieId) {
+      case 'vyztuzne_materialy':
+        return {
+          gramáž: parseInt(fabWeight) || 0,
+          sirka_cm: (parseFloat(fabWidth) || 0),
+          delka_m: parseFloat(fabLength) || 0,
+          typ_baleni: fabPackType,
+          pocet_kusu: parseInt(fabPieces) || 1,
+        }
+      case 'cores_standard':
+      case 'cores_active':
+        return {
+          hustota_kgm3: parseInt(coreDens) || 0,
+          tloušťka: coreThick,
+          sirka_cm: coreSirkaCm,
+          delka_cm: coreDelkaCm,
+        }
+      case 'pryskyrice':
+        return { chemie: chemBase, typ: chemType, objem_nakup_l: chemObjemNakup }
+      case 'lepidla':
+        return { chemie: adhChem, objem: adhVolume }
+      case 'consumables': {
+        const baseSpecs: Record<string, unknown> = { podkategorie: conSub }
+        if (['BF','RF','PP','PP-PTFE','BC','FM'].includes(conSub)) {
+          baseSpecs.gramaz_gm2 = parseInt(conBcGramaz || conPpGramaz || conFmGramaz || '0') || 0
+          baseSpecs.sirka_cm = parseFloat(conRollWidth) || 0
+          baseSpecs.delka_m = parseFloat(conRollLength) || 0
+        } else if (conSub === 'ST') {
+          baseSpecs.sirka_mm = parseInt(conStSirka) || 12
+          baseSpecs.tloustka_mm = 3.5
+          baseSpecs.delka_m = parseFloat(conStDelka) || 15
+          baseSpecs.pocet_roli_v_baleni = conStPocetRoli
+        } else if (conSub === 'FT') {
+          baseSpecs.sirka_mm = parseInt(conFtSirka) || 25
+          baseSpecs.delka_m = parseFloat(conFtDelka) || 66
+          baseSpecs.pocet_roli_v_baleni = conFtPocetRoli
+        } else if (conSub === 'FCH') {
+          baseSpecs.podtyp_fch = conFchSubtyp
+          baseSpecs.sirka_mm = parseInt(conFchSirka) || 15
+          baseSpecs.vnitrni_prumer_mm = parseInt(conFchPrumer) || 10
+          baseSpecs.delka_m = parseFloat(conFchDelka) || 100
+        } else if (conSub === 'K') {
+          baseSpecs.vnejsi_prumer_mm = parseInt(conKPrumer) || 20
+        } else if (conSub === 'KP') {
+          baseSpecs.prumer_mm = parseInt(conKpPrumer) || 12
+        }
+        return baseSpecs
+      }
+      case 'brouseni_a_lesteni':
+        return {
+          podkategorie: polSub,
+          hmotnost: polSub === 'pasty' ? `${polPasteWeight} kg` : undefined,
+          typ_kotouce: polDiscType,
+          prumer: parseInt(polDiscDia) || 160,
+        }
+      case 'naradi':
+        return {
+          podkategorie: toolSub,
+          prumer_mm: parseInt(toolBuPrumer) || 50,
+          material: toolQrMat,
+          objem_l: parseInt(toolCuVolume) || 0,
+        }
+      case 'spojovaci_material':
+        return { zavit_prumer: fasSize }
+      case 'spotrebni_chemie':
+        return { typ: clnType, mnozstvi: clnQty }
+      case 'chemie':
+        return { podkategorie: chemSub, objem: chemVol }
+      default:
+        return {}
+    }
+  }, [
+    kategorieId, fabWeight, fabWidth, fabLength, fabPackType, fabPieces,
+    coreDens, coreThick, coreSirkaCm, coreDelkaCm,
+    chemBase, chemType, chemObjemNakup,
+    adhChem, adhVolume,
+    conSub, conBcGramaz, conPpGramaz, conFmGramaz, conRollWidth, conRollLength,
+    conStSirka, conStDelka, conStPocetRoli,
+    conFtSirka, conFtDelka, conFtPocetRoli,
+    conFchSubtyp, conFchSirka, conFchPrumer, conFchDelka,
+    conKPrumer, conKpPrumer,
+    polSub, polPasteWeight, polDiscType, polDiscDia,
+    toolSub, toolBuPrumer, toolQrMat, toolCuVolume,
+    fasSize, clnType, clnQty, chemSub, chemVol
+  ])
+
+  const autoWeight = useMemo(() =>
+    calculateGrossWeight(kategorieId, currentSpecs, Number(mnozstviVBaleni) || 1),
+    [kategorieId, currentSpecs, mnozstviVBaleni]
+  )
+
+  const autoProfile = useMemo(() =>
+    resolvePackagingProfile(kategorieId, currentSpecs, (lookups as any).profiles || []),
+    [kategorieId, currentSpecs, lookups]
+  )
+
+  // Sync auto-weight into form field when not overridden
+  useEffect(() => {
+    if (!isWeightOverridden && autoWeight.weightKg !== null) {
+      setValue("hmotnost_baliku_kg", autoWeight.weightKg as any, { shouldDirty: false })
+    }
+  }, [autoWeight, isWeightOverridden, setValue])
+
+  // Sync auto-profile into form field when not overridden
+  useEffect(() => {
+    if (!isProfileOverridden && autoProfile?.id) {
+      setValue("balici_profil_id", autoProfile.id, { shouldDirty: false })
+    }
+  }, [autoProfile, isProfileOverridden, setValue])
 
   // handle category select & dynamic defaults
   const handleCategoryChange = (val: string | null) => {
@@ -1507,6 +1654,14 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             {val:"FOR", label:"FOR (Formy / Molds)"},
             {val:"DIL", label:"Díly (Parts)"}
           ])}
+          {renderSelect("Nákupní objem balení (L)", String(chemObjemNakup), (val) => setChemObjemNakup(Number(val)), [
+            {val: "5", label: "5 L (Kanystr)"},
+            {val: "20", label: "20 L (Kanystr)"},
+            {val: "100", label: "100 L (Malý sud)"},
+            {val: "200", label: "200 L (Velký sud)"},
+            {val: "400", label: "400 L (Střední IBC)"},
+            {val: "1000", label: "1000 L (IBC)"}
+          ])}
         </>
       )) : kategorieId === 'lepidla' ? renderGeneratorWrapper("Lepidla", (
         <>
@@ -1664,6 +1819,14 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           <div className="space-y-2"><Label className="text-xs text-muted-foreground">Hustota (kg/m3)</Label><Input type="number" value={coreDens} onChange={(e) => setCoreDens(e.target.value)} className="h-8 bg-background" /></div>
           <div className="space-y-2"><Label className="text-xs text-muted-foreground">Tloušťka (např. 10MM)</Label><Input value={coreThick} onChange={(e) => setCoreThick(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} className="h-8 bg-background" /></div>
           {renderSelect("Úprava", coreFinish, setCoreFinish, [{val:"PL", label:"PL (Plain)"}, {val:"GS", label:"GS (Grid Scored)"}, {val:"PERF", label:"PERF (Perforated)"}])}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Šířka desky (cm)</Label>
+            <Input type="number" value={coreSirkaCm} onChange={(e) => setCoreSirkaCm(Number(e.target.value))} className="h-8 bg-background" />
+          </div>
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Délka desky (cm)</Label>
+            <Input type="number" value={coreDelkaCm} onChange={(e) => setCoreDelkaCm(Number(e.target.value))} className="h-8 bg-background" />
+          </div>
         </>
       )) : kategorieId === 'brouseni_a_lesteni' ? renderGeneratorWrapper("Broušení a leštění", (
         <>
@@ -1992,6 +2155,10 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                 <Label className="text-xs text-muted-foreground">Délka (m)</Label>
                 <Input type="number" value={conStDelka} onChange={(e) => setConStDelka(e.target.value)} className="h-8 bg-background" />
               </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Počet rolí v balení</Label>
+                <Input type="number" value={conStPocetRoli} onChange={(e) => setConStPocetRoli(Number(e.target.value))} className="h-8 bg-background" min={1} />
+              </div>
             </>
           )}
 
@@ -2008,6 +2175,10 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Délka (m)</Label>
                 <Input type="number" value={conFtDelka} onChange={(e) => setConFtDelka(e.target.value)} className="h-8 bg-background" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Počet rolí v balení</Label>
+                <Input type="number" value={conFtPocetRoli} onChange={(e) => setConFtPocetRoli(Number(e.target.value))} className="h-8 bg-background" min={1} />
               </div>
             </>
           )}
@@ -2536,29 +2707,103 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           </Select>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="hmotnost_baliku_kg">Hmotnost (kg)</Label>
-          <Input id="hmotnost_baliku_kg" type="number" step="0.1" {...register("hmotnost_baliku_kg")} />
+          <div className="flex items-center justify-between">
+            <Label htmlFor="hmotnost_baliku_kg">Hmotnost balíku (kg)</Label>
+            <div className="flex items-center gap-1.5">
+              {isWeightOverridden ? (
+                <>
+                  <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-medium">Přepsáno ⚠️</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsWeightOverridden(false)
+                      if (autoWeight.weightKg !== null) setValue("hmotnost_baliku_kg", autoWeight.weightKg as any)
+                    }}
+                    className="text-[10px] text-zinc-400 hover:text-primary flex items-center gap-1"
+                    title={`Vrátit na ${autoWeight.weightKg} kg`}
+                  >
+                    <RotateCcw className="h-3 w-3" /> Reset
+                  </button>
+                </>
+              ) : (
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded font-medium flex items-center gap-1">
+                  <Sparkles className="h-2.5 w-2.5" /> Auto
+                </span>
+              )}
+            </div>
+          </div>
+          <Input
+            id="hmotnost_baliku_kg"
+            type="number"
+            step="0.01"
+            {...register("hmotnost_baliku_kg")}
+            onChange={(e) => {
+              register("hmotnost_baliku_kg").onChange(e)
+              setIsWeightOverridden(true)
+            }}
+          />
+          {autoWeight.weightKg !== null && (
+            <div className="text-[10px] text-zinc-500 space-y-0.5">
+              <p className="text-zinc-400">💡 {autoWeight.breakdown}</p>
+              <p className="flex items-center gap-1">
+                Přesnost:
+                <span className={`font-medium ${
+                  autoWeight.confidence === 'high' ? 'text-emerald-400' :
+                  autoWeight.confidence === 'medium' ? 'text-amber-400' : 'text-red-400'
+                }`}>
+                  {autoWeight.confidence === 'high' ? '●●● Vysoká' :
+                   autoWeight.confidence === 'medium' ? '●●○ Střední' : '●○○ Nízká'}
+                </span>
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
       {/* 8b. Balicí profil a rozměry zásilky (v2 Shipping Engine) */}
       <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-lg space-y-4">
-        <div className="flex items-center gap-2 border-b border-zinc-850 pb-2">
+        <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
           <Package className="h-4 w-4 text-primary" />
           <h4 className="text-sm font-bold text-zinc-200">Balicí profil a rozměry zásilky</h4>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Přiřazený Balicí profil</Label>
-            <Select 
+            <div className="flex items-center justify-between">
+              <Label>Přiřazený Balicí profil</Label>
+              <div className="flex items-center gap-1.5">
+                {isProfileOverridden ? (
+                  <>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-medium">Přepsáno ⚠️</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsProfileOverridden(false)
+                        if (autoProfile?.id) setValue("balici_profil_id", autoProfile.id)
+                      }}
+                      className="text-[10px] text-zinc-400 hover:text-primary flex items-center gap-1"
+                    >
+                      <RotateCcw className="h-3 w-3" /> Reset
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded font-medium flex items-center gap-1">
+                    <Sparkles className="h-2.5 w-2.5" /> Auto
+                  </span>
+                )}
+              </div>
+            </div>
+            <Select
               value={baliciProfilId || "none"}
-              onValueChange={(val) => setValue("balici_profil_id", val === "none" ? "" : val, { shouldDirty: true })}
+              onValueChange={(val) => {
+                setValue("balici_profil_id", val === "none" ? "" : val, { shouldDirty: true })
+                setIsProfileOverridden(true)
+              }}
             >
               <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-200">
                 <SelectValue placeholder="Vyberte profil..." />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-950 border-zinc-850 text-white">
+              <SelectContent className="bg-zinc-950 border-zinc-800 text-white">
                 <SelectItem value="none">Žádný profil (Legacy výpočet)</SelectItem>
                 {((lookups as any).profiles || []).map((p: any) => (
                   <SelectItem key={p.id} value={p.id}>{p.nazev} ({OBAL_TYPES[p.typ_obalu] || p.typ_obalu})</SelectItem>

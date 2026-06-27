@@ -30,9 +30,19 @@ interface UkolRowProps {
   ukol: UkolPlanovani
   onSuccess?: () => void
   userProfiles: { id: string; jmeno: string }[]
+  isSelectable?: boolean
+  isSelected?: boolean
+  onSelect?: () => void
 }
 
-export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
+export function UkolRow({ 
+  ukol, 
+  onSuccess, 
+  userProfiles,
+  isSelectable = false,
+  isSelected = false,
+  onSelect
+}: UkolRowProps) {
   const [isPending, startTransition] = useTransition()
   const [isExpanded, setIsExpanded] = useState(false)
   
@@ -124,14 +134,26 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
 
   return (
     <div 
-      onClick={() => setIsExpanded(!isExpanded)}
-      className={`group flex flex-col rounded-lg border bg-card/45 transition-all select-none cursor-pointer ${
+      onClick={() => {
+        if (isSelectable) {
+          onSelect?.()
+        } else {
+          setIsExpanded(!isExpanded)
+        }
+      }}
+      className={`group flex flex-col bg-card/45 transition-all select-none cursor-pointer ${
+        isSelectable ? '' : 'rounded-lg border'
+      } ${
         isBlocked ? 'border-red-500/30 bg-red-50/5' : 'border-border/60 hover:border-border'
-      } ${isCompleted ? 'opacity-70 bg-muted/10' : ''}`}
+      } ${isCompleted ? 'opacity-70 bg-muted/10' : ''} ${
+        isSelectable && isSelected ? 'bg-primary/5 ring-1 ring-primary z-10' : ''
+      }`}
       style={rowStyle}
     >
       {/* Compact Row Header */}
-      <div className="flex items-center justify-between gap-3 p-2.5 min-h-[48px] md:min-h-[44px]">
+      <div className={`flex items-center justify-between gap-3 p-2 ${
+        isSelectable ? 'py-1.5 px-2 md:py-1 px-2.5 min-h-[36px]' : 'min-h-[48px] md:min-h-[44px]'
+      }`}>
         {/* Left Side: Oddělení Dot + Status Checkbox */}
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {/* Department dot */}
@@ -154,15 +176,17 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
             className="text-muted-foreground hover:text-foreground shrink-0 focus:outline-none transition-colors"
           >
             {isCompleted ? (
-              <CheckSquare2 className="h-4.5 w-4.5 text-emerald-500 fill-emerald-500/10 animate-scale-up" />
+              <CheckSquare2 className={`${isSelectable ? 'h-4 w-4' : 'h-4.5 w-4.5'} text-emerald-500 fill-emerald-500/10 animate-scale-up`} />
             ) : (
-              <Square className="h-4.5 w-4.5" />
+              <Square className={isSelectable ? 'h-4 w-4' : 'h-4.5 w-4.5'} />
             )}
           </button>
 
           {/* Name & Metadata */}
           <div className="flex flex-col min-w-0 flex-1">
-            <span className={`text-xs font-semibold leading-normal truncate ${isCompleted ? 'line-through text-muted-foreground/80' : 'text-foreground'}`}>
+            <span className={`font-semibold leading-normal truncate ${
+              isSelectable ? 'text-[11px] md:text-xs' : 'text-xs'
+            } ${isCompleted ? 'line-through text-muted-foreground/80' : 'text-foreground'}`}>
               {ukol.nazev}
             </span>
             {ukol.cil_info && (
@@ -171,7 +195,9 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
                 <span className="truncate" title={ukol.cil_info.nazev}>{ukol.cil_info.nazev}</span>
               </div>
             )}
-            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground/80 mt-0.5">
+            <div className={`flex items-center gap-1.5 text-muted-foreground/80 mt-0.5 ${
+              isSelectable ? 'text-[9px]' : 'text-[10px]'
+            }`}>
               <span className={oddeleniCfg.color}>{oddeleniCfg.label}</span>
               <span>•</span>
               <span>{typCfg.icon} {typCfg.label}</span>
@@ -208,7 +234,10 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
         <div className="flex items-center gap-2 shrink-0">
           {/* Priority */}
           {ukol.priorita !== 'medium' && (
-            <Badge variant={ukol.priorita === 'critical' || ukol.priorita === 'high' ? 'destructive' : 'outline'} className="h-4.5 px-1.5 text-[9px] font-semibold">
+            <Badge 
+              variant={ukol.priorita === 'critical' || ukol.priorita === 'high' ? 'destructive' : 'outline'} 
+              className={`${isSelectable ? 'h-4 px-1 text-[8px]' : 'h-4.5 px-1.5 text-[9px]'} font-semibold`}
+            >
               {prioritaCfg.icon} {prioritaCfg.label}
             </Badge>
           )}
@@ -216,26 +245,28 @@ export function UkolRow({ ukol, onSuccess, userProfiles }: UkolRowProps) {
           {/* Owner Initials Avatar */}
           {initials ? (
             <div 
-              className="h-6 w-6 rounded-full bg-muted flex items-center justify-center text-[9px] font-bold border text-muted-foreground shrink-0"
+              className={`${isSelectable ? 'h-5 w-5 text-[8px]' : 'h-6 w-6 text-[9px]'} rounded-full bg-muted flex items-center justify-center font-bold border text-muted-foreground shrink-0`}
               title={ukol.vlastnik?.jmeno}
             >
               {initials}
             </div>
           ) : (
-            <div className="h-6 w-6 rounded-full bg-muted/40 border border-dashed flex items-center justify-center text-[10px] text-muted-foreground/50 shrink-0" title="Bez vlastníka">
+            <div className={`${isSelectable ? 'h-5 w-5 text-[9px]' : 'h-6 w-6 text-[10px]'} rounded-full bg-muted/40 border border-dashed flex items-center justify-center text-muted-foreground/50 shrink-0`} title="Bez vlastníka">
               👤
             </div>
           )}
 
           {/* Expand/Collapse Chevron */}
-          <div className="text-muted-foreground/60 group-hover:text-muted-foreground transition-colors shrink-0">
-            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </div>
+          {!isSelectable && (
+            <div className="text-muted-foreground/60 group-hover:text-muted-foreground transition-colors shrink-0">
+              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Expanded Accordion Body */}
-      {isExpanded && (
+      {!isSelectable && isExpanded && (
         <div 
           onClick={(e) => e.stopPropagation()}
           className="border-t border-border/40 bg-muted/15 p-3 flex flex-col gap-3"
