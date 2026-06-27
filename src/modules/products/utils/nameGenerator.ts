@@ -247,14 +247,7 @@ export function generateProductName(
           dimStr = specs.vnitrni_prumer_mm ? `vnitřní průměr ${specs.vnitrni_prumer_mm}mm` : ""
         }
 
-        let tempStr = ""
-        if (specs.teplotni_odolnost) {
-          const match = String(specs.teplotni_odolnost).match(/\d+/)
-          if (match) {
-            tempStr = `do ${match[0]}°C`
-          }
-        }
-        return ["Distribuční kanálek", subStr, dimStr, tempStr].filter(Boolean).join(" ")
+        return ["Distribuční kanálek", subStr, dimStr].filter(Boolean).join(" ")
       }
       case 'TUBE': {
         const matStr = specs.material || ""
