@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import Image from "next/image"
-import { Package, Truck, LayoutDashboard, Settings, DollarSign, Users, HelpCircle, FileText, Notebook, Receipt, Building, CalendarRange, CheckSquare, Calendar } from "lucide-react"
+import { Package, LayoutDashboard, DollarSign, Users, HelpCircle, FileText, Notebook, Receipt, Building, CalendarRange, CheckSquare, Calendar, UserCircle } from "lucide-react"
 
 import {
   Sidebar,
@@ -54,6 +54,7 @@ const navItems = [
   {
     title: "Správa",
     items: [
+      { title: "Můj profil", url: "/nastaveni/profil", icon: UserCircle },
       { title: "Údaje o firmě", url: "/nastaveni/firma", icon: Building },
       { title: "Uživatelé a Tým", url: "/nastaveni/uzivatele", icon: Users },
       { title: "Manuál & Nápověda", url: "/manual", icon: HelpCircle },

@@ -3,7 +3,15 @@
 import { createClient } from '@/shared/lib/supabase/server'
 import { createAdminClient } from '@/shared/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { z } from 'zod'
 import { UserProfile, Role } from '../types'
+
+export const passwordSchema = z.string()
+  .min(8, 'Heslo musí mít alespoň 8 znaků')
+  .refine(val => /[A-Z]/.test(val), 'Heslo musí obsahovat alespoň jedno velké písmeno')
+  .refine(val => /[a-z]/.test(val), 'Heslo musí obsahovat alespoň jedno malé písmeno')
+  .refine(val => /\d/.test(val), 'Heslo musí obsahovat alespoň jednu číslici')
+  .refine(val => /[!@#$%^&*(),.?":{}|<>]/.test(val), 'Heslo musí obsahovat alespoň jeden speciální znak')
 
 async function ensureAdmin() {
   const supabase = await createClient()
@@ -61,6 +69,12 @@ export async function updateUserRole(userId: string, newRoleId: string) {
 
 export async function createUserWithPassword(email: string, password: string, roleId: string, nickname: string) {
   await ensureAdmin()
+
+  const passwordParse = passwordSchema.safeParse(password)
+  if (!passwordParse.success) {
+    return { error: { message: passwordParse.error.issues[0].message } }
+  }
+
   const adminAuthClient = createAdminClient()
   
   // 1. Create the user directly with a password via Supabase Admin API
@@ -144,6 +158,12 @@ export async function deleteUser(userId: string) {
 
 export async function adminResetPassword(userId: string, newPassword: string) {
   await ensureAdmin()
+
+  const passwordParse = passwordSchema.safeParse(newPassword)
+  if (!passwordParse.success) {
+    return { error: { message: passwordParse.error.issues[0].message } }
+  }
+
   const adminAuthClient = createAdminClient()
   const { data, error } = await adminAuthClient.auth.admin.updateUserById(userId, {
     password: newPassword
@@ -171,4 +191,32 @@ export async function togglePermission(roleId: string, permissionId: string, ena
     .select()
     
   return { data, error }
+}
+
+export async function updateSelfPassword(password: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: 'Nepřihlášený uživatel' }
+    }
+
+    const passwordParse = passwordSchema.safeParse(password)
+    if (!passwordParse.success) {
+      return { success: false, error: passwordParse.error.issues[0].message }
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: password
+    })
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    return { success: true }
+  } catch (e) {
+    const errorMsg = e instanceof Error ? e.message : 'Neznámá chyba při změně hesla'
+    return { success: false, error: errorMsg }
+  }
 }
