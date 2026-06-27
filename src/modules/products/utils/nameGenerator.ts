@@ -536,13 +536,15 @@ export function generateProductName(
       const weightStr = specs.hmotnost || ""
 
       const typeAndColor = [pasteType, colorStr].filter(Boolean).join(" ")
-      return [`Lešticí pasta ${typeAndColor}`.trim(), contStr, weightStr].filter(Boolean).join(", ")
+      const prefix = (specs.typ === 'rex' || specs.typ === 'perla15') ? "Brusná pasta" : "Lešticí pasta"
+      return [`${prefix} ${typeAndColor}`.trim(), contStr, weightStr].filter(Boolean).join(", ")
     } else if (sub === 'brusne_kotouce') {
       const discTypeMap: Record<string, string> = {
         vlneny: "vlněný",
         pena: "pěnový"
       }
       const pasteNameMap: Record<string, string> = {
+        ST1: "Rex",
         ST1Y: "Rex",
         SL3: "Perla 15"
       }

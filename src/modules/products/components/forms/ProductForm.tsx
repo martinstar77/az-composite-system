@@ -1886,9 +1886,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           {polSub === 'pasty' && (
             <>
               {renderSelect("Typ pasty", polPasteType, setPolPasteType, [
-                {val:"rex", label:"Rex"},
-                {val:"perla15", label:"Perla 15"},
-                {val:"top_finish_3", label:"Top Finish 3"},
+                {val:"rex", label:"Rex (Brusná pasta)"},
+                {val:"perla15", label:"Perla 15 (Brusná pasta)"},
+                {val:"top_finish_3", label:"Top Finish 3 (Lešticí pasta)"},
                 {val:"vosk", label:"Vosk"}
               ])}
 
