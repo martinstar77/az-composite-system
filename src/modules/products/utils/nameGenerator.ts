@@ -501,6 +501,27 @@ export function generateProductName(
   if (categoryId === 'brouseni_a_lesteni') {
     const sub = specs.podkategorie
     if (sub === 'pasty') {
+      const contMap: Record<string, string> = {
+        CAN: "plechovka",
+        BOT: "láhev"
+      }
+      const contStr = contMap[specs.obal] || specs.obal || ""
+
+      if (specs.typ === 'vosk') {
+        const waxNameMap: Record<string, string> = {
+          uv_shield: "UV shield",
+          flash_touch: "Flash Touch"
+        }
+        const stateMap: Record<string, string> = {
+          tekuty_vosk: "tekutý vosk",
+          pasta: "pasta"
+        }
+        const waxName = waxNameMap[specs.nazev_vosku] || specs.nazev_vosku || ""
+        const stateStr = stateMap[specs.skupenstvi] || specs.skupenstvi || ""
+        const qtyStr = specs.mnozstvi || ""
+        return [`Vosk ${waxName} ${stateStr}`.trim(), contStr, qtyStr].filter(Boolean).join(", ")
+      }
+
       const typeMap: Record<string, string> = {
         rex: "Rex",
         perla15: "Perla 15",
@@ -510,13 +531,8 @@ export function generateProductName(
         white: "bílá",
         black: "černá"
       }
-      const contMap: Record<string, string> = {
-        CAN: "plechovka",
-        BOT: "láhev"
-      }
       const pasteType = typeMap[specs.typ] || specs.typ || ""
       const colorStr = colorMap[specs.barva] || ""
-      const contStr = contMap[specs.obal] || specs.obal || ""
       const weightStr = specs.hmotnost || ""
 
       const typeAndColor = [pasteType, colorStr].filter(Boolean).join(" ")

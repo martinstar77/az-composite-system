@@ -269,6 +269,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   // Polish/Abrasives (Overhauled)
   const [polSub, setPolSub] = useState(specs.podkategorie || "pasty")
   const [polPasteType, setPolPasteType] = useState(specs.typ || "rex")
+  const [polWaxName, setPolWaxName] = useState(specs.nazev_vosku || "uv_shield")
+  const [polWaxState, setPolWaxState] = useState(specs.skupenstvi || "tekuty_vosk")
+  const [polWaxQty, setPolWaxQty] = useState<string>(() => {
+    if (specs.mnozstvi && specs.typ === 'vosk') {
+      const match = String(specs.mnozstvi).match(/^(\d+)/)
+      return match ? match[1] : "500"
+    }
+    return "500"
+  })
   const [polPasteColor, setPolPasteColor] = useState(specs.barva || "white")
   const [polPasteCont, setPolPasteCont] = useState(specs.obal || "BOT")
   const [polPasteWeight, setPolPasteWeight] = useState<string>(() => {
@@ -731,26 +740,50 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
 
         if (polSub === 'pasty') {
-          const typeCodeMap: Record<string, string> = {
-            rex: 'REX',
-            perla15: 'PER15',
-            top_finish_3: 'TF3'
-          }
-          const colorCodeMap: Record<string, string> = {
-            white: 'WHT',
-            black: 'BLK'
-          }
-          const typeCode = typeCodeMap[polPasteType] || 'REX'
-          const colorCode = colorCodeMap[polPasteColor] || 'WHT'
-          const cleanWeight = polPasteWeight.trim().toUpperCase().replace(/[^0-9]/g, '')
-          
-          generatedSku = `POL-${typeCode}-${colorCode}-${polPasteCont}-${cleanWeight}KG`
-          generatedSpecs = {
-            podkategorie: 'pasty',
-            typ: polPasteType,
-            barva: polPasteColor,
-            obal: polPasteCont,
-            hmotnost: `${cleanWeight} kg`
+          if (polPasteType === 'vosk') {
+            const waxNameCodeMap: Record<string, string> = {
+              uv_shield: 'UV',
+              flash_touch: 'FT'
+            }
+            const stateCodeMap: Record<string, string> = {
+              tekuty_vosk: 'LIQ',
+              pasta: 'PST'
+            }
+            const nameCode = waxNameCodeMap[polWaxName] || 'UV'
+            const stateCode = stateCodeMap[polWaxState] || 'LIQ'
+            const cleanQty = polWaxQty.trim().toUpperCase().replace(/[^0-9]/g, '')
+
+            generatedSku = `POL-WAX-${nameCode}-${stateCode}-${polPasteCont}-${cleanQty}ML`
+            generatedSpecs = {
+              podkategorie: 'pasty',
+              typ: 'vosk',
+              nazev_vosku: polWaxName,
+              skupenstvi: polWaxState,
+              obal: polPasteCont,
+              mnozstvi: `${cleanQty} ml`
+            }
+          } else {
+            const typeCodeMap: Record<string, string> = {
+              rex: 'REX',
+              perla15: 'PER15',
+              top_finish_3: 'TF3'
+            }
+            const colorCodeMap: Record<string, string> = {
+              white: 'WHT',
+              black: 'BLK'
+            }
+            const typeCode = typeCodeMap[polPasteType] || 'REX'
+            const colorCode = colorCodeMap[polPasteColor] || 'WHT'
+            const cleanWeight = polPasteWeight.trim().toUpperCase().replace(/[^0-9]/g, '')
+            
+            generatedSku = `POL-${typeCode}-${colorCode}-${polPasteCont}-${cleanWeight}KG`
+            generatedSpecs = {
+              podkategorie: 'pasty',
+              typ: polPasteType,
+              barva: polPasteColor,
+              obal: polPasteCont,
+              hmotnost: `${cleanWeight} kg`
+            }
           }
         } else if (polSub === 'brusne_kotouce') {
           const typeCodeMap: Record<string, string> = {
@@ -1171,7 +1204,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         setValue("nazev", generatedName, { shouldValidate: true })
       }
     }
-  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, chemObjemNakup, clnSub, clnBrand, clnPack, clnType, clnQty, clnPmpType, clnPmpQty, coreMat, coreDens, coreThick, coreFinish, coreSirkaCm, coreDelkaCm, polSub, polPasteType, polPasteColor, polPasteCont, polPasteWeight, polDiscType, polDiscCode, polDiscDia, polAccType, polAccProp, polAccDia, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conStPocetRoli, conFtSirka, conFtTemp, conFtDelka, conFtPocetRoli, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, chemSub, chemAdhProp, chemBaseType, chemSealerProp, chemVol, setValue, lookups.fiberCodes])
+  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, chemObjemNakup, clnSub, clnBrand, clnPack, clnType, clnQty, clnPmpType, clnPmpQty, coreMat, coreDens, coreThick, coreFinish, coreSirkaCm, coreDelkaCm, polSub, polPasteType, polPasteColor, polPasteCont, polPasteWeight, polWaxName, polWaxState, polWaxQty, polDiscType, polDiscCode, polDiscDia, polAccType, polAccProp, polAccDia, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conStPocetRoli, conFtSirka, conFtTemp, conFtDelka, conFtPocetRoli, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, chemSub, chemAdhProp, chemBaseType, chemSealerProp, chemVol, setValue, lookups.fiberCodes])
 
   // Live SKU Duplicate Check (Debounced)
   useEffect(() => {
@@ -1239,13 +1272,33 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         }
         return baseSpecs
       }
-      case 'brouseni_a_lesteni':
+      case 'brouseni_a_lesteni': {
+        if (polSub === 'pasty') {
+          if (polPasteType === 'vosk') {
+            return {
+              podkategorie: 'pasty',
+              typ: 'vosk',
+              nazev_vosku: polWaxName,
+              skupenstvi: polWaxState,
+              obal: polPasteCont,
+              mnozstvi: `${polWaxQty} ml`
+            }
+          }
+          return {
+            podkategorie: 'pasty',
+            typ: polPasteType,
+            barva: polPasteColor,
+            obal: polPasteCont,
+            hmotnost: `${polPasteWeight} kg`
+          }
+        }
         return {
           podkategorie: polSub,
-          hmotnost: polSub === 'pasty' ? `${polPasteWeight} kg` : undefined,
           typ_kotouce: polDiscType,
+          kod_kotouce: polDiscCode,
           prumer: parseInt(polDiscDia) || 160,
         }
+      }
       case 'naradi':
         return {
           podkategorie: toolSub,
@@ -1836,26 +1889,57 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               {renderSelect("Typ pasty", polPasteType, setPolPasteType, [
                 {val:"rex", label:"Rex"},
                 {val:"perla15", label:"Perla 15"},
-                {val:"top_finish_3", label:"Top Finish 3"}
+                {val:"top_finish_3", label:"Top Finish 3"},
+                {val:"vosk", label:"Vosk"}
               ])}
-              {renderSelect("Barva", polPasteColor, setPolPasteColor, [
-                {val:"white", label:"Bílá (White)"},
-                {val:"black", label:"Černá (Black)"}
-              ])}
-              {renderSelect("Nádoba", polPasteCont, setPolPasteCont, [
-                {val:"BOT", label:"Láhev (Bottle)"},
-                {val:"CAN", label:"Plechovka (Tin / Can)"}
-              ])}
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Hmotnost (kg)</Label>
-                <Input 
-                  type="number" 
-                  value={polPasteWeight} 
-                  onChange={(e) => setPolPasteWeight(e.target.value)} 
-                  className="h-8 bg-background" 
-                  placeholder="Např. 1" 
-                />
-              </div>
+
+              {polPasteType === 'vosk' ? (
+                <>
+                  {renderSelect("Název vosku", polWaxName, setPolWaxName, [
+                    {val:"uv_shield", label:"UV shield"},
+                    {val:"flash_touch", label:"Flash Touch"}
+                  ])}
+                  {renderSelect("Skupenství", polWaxState, setPolWaxState, [
+                    {val:"tekuty_vosk", label:"Tekutý vosk"},
+                    {val:"pasta", label:"Pasta"}
+                  ])}
+                  {renderSelect("Nádoba", polPasteCont, setPolPasteCont, [
+                    {val:"BOT", label:"Láhev (Bottle)"},
+                    {val:"CAN", label:"Plechovka (Tin / Can)"}
+                  ])}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Množství (ml)</Label>
+                    <Input 
+                      type="number" 
+                      value={polWaxQty} 
+                      onChange={(e) => setPolWaxQty(e.target.value)} 
+                      className="h-8 bg-background" 
+                      placeholder="Např. 500" 
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {renderSelect("Barva", polPasteColor, setPolPasteColor, [
+                    {val:"white", label:"Bílá (White)"},
+                    {val:"black", label:"Černá (Black)"}
+                  ])}
+                  {renderSelect("Nádoba", polPasteCont, setPolPasteCont, [
+                    {val:"BOT", label:"Láhev (Bottle)"},
+                    {val:"CAN", label:"Plechovka (Tin / Can)"}
+                  ])}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Hmotnost (kg)</Label>
+                    <Input 
+                      type="number" 
+                      value={polPasteWeight} 
+                      onChange={(e) => setPolPasteWeight(e.target.value)} 
+                      className="h-8 bg-background" 
+                      placeholder="Např. 1" 
+                    />
+                  </div>
+                </>
+              )}
             </>
           )}
 

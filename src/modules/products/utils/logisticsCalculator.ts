@@ -367,14 +367,21 @@ export function calculateGrossWeight(
       const podkat = String(s.podkategorie ?? "pasty")
 
       if (podkat === "pasty") {
-        const hmotnost = parseWeightKg(s.hmotnost as string)
-        if (!hmotnost) return { weightKg: null, confidence: "low", breakdown: "Chybí hmotnost pasty." }
+        let netWeight = 0
+        if (s.typ === 'vosk') {
+          const mlMatch = String(s.mnozstvi || "").match(/^(\d+)/)
+          const ml = mlMatch ? parseInt(mlMatch[1]) : 500
+          netWeight = ml / 1000 // Convert ml to kg approximation (1ml = 1g)
+        } else {
+          netWeight = parseWeightKg(s.hmotnost as string) || 0
+        }
+        if (!netWeight) return { weightKg: null, confidence: "low", breakdown: "Chybí hmotnost/množství pasty/vosku." }
         const packaging = 0.15
-        const total = r3(hmotnost + packaging)
+        const total = r3(netWeight + packaging)
         return {
           weightKg: total,
           confidence: "high",
-          breakdown: `${hmotnost} kg pasta + ${packaging} kg obal = ${total} kg`
+          breakdown: `${netWeight} kg netto + ${packaging} kg obal = ${total} kg`
         }
       }
 
