@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import { z } from 'zod'
 import { createClient } from '@/shared/lib/supabase/server'
-import { verifyTurnstileToken } from '@/shared/utils/security'
+import { verifyTurnstileToken, checkLoginAttempts, logLoginAttempt } from '@/shared/utils/security'
 
 const loginSchema = z.object({
   email: z.string().email('Neplatný formát e-mailové adresy'),
@@ -38,10 +38,18 @@ export async function login(formData: FormData) {
 
   const { email, password } = parseResult.data
 
-  // 3. Turnstile token check
-  const turnstileToken = formData.get('cf-turnstile-response') as string
   const headerList = await headers()
   const ip = headerList.get('x-forwarded-for')?.split(',')[0].trim() || undefined
+
+  // 2.5 Check progressive delay for brute-force prevention
+  const attemptsCheck = await checkLoginAttempts(email, ip)
+  if (!attemptsCheck.allowed) {
+    console.warn(`[Security] Login blocked for email: ${email} (cooldown: ${attemptsCheck.waitSeconds}s)`)
+    redirect(`/login?message=Příliš mnoho neúspěšných pokusů. Zkuste to prosím znovu za ${attemptsCheck.waitSeconds} sekund.`)
+  }
+
+  // 3. Turnstile token check
+  const turnstileToken = formData.get('cf-turnstile-response') as string
 
   const isHuman = await verifyTurnstileToken(turnstileToken, ip)
   if (!isHuman) {
@@ -55,8 +63,12 @@ export async function login(formData: FormData) {
 
   if (error) {
     console.error("Login failed:", error.message)
+    await logLoginAttempt(email, false, ip)
     redirect('/login?message=Chybné jméno nebo heslo')
   }
+
+  // Log successful login to clear failures count
+  await logLoginAttempt(email, true, ip)
 
   revalidatePath('/', 'layout')
   redirect('/')
