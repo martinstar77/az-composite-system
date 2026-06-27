@@ -536,7 +536,7 @@ export function generateProductName(
 
       if (specs.typ_kotouce === 'vlneny') {
         if (code === 'UNI') {
-          return `Brusný kotouč vlněný vlnové koule universal ${prumer}`.trim()
+          return `Brusný kotouč vlněný koule universal ${prumer}`.trim()
         }
         const assocPaste = pasteNameMap[code] || ""
         const assocPart = assocPaste ? ` pro ${assocPaste}` : ""
