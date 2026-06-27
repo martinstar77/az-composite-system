@@ -753,13 +753,14 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             const stateCode = stateCodeMap[polWaxState] || 'LIQ'
             const cleanQty = polWaxQty.trim().toUpperCase().replace(/[^0-9]/g, '')
 
-            generatedSku = `POL-WAX-${nameCode}-${stateCode}-${cleanQty}ML`
+            const unitSuffix = 'KG'
+            generatedSku = `POL-WAX-${nameCode}-${stateCode}-${cleanQty}${unitSuffix}`
             generatedSpecs = {
               podkategorie: 'pasty',
               typ: 'vosk',
               nazev_vosku: polWaxName,
               skupenstvi: polWaxState,
-              mnozstvi: `${cleanQty} ml`
+              mnozstvi: `${cleanQty} kg`
             }
           } else {
             const typeCodeMap: Record<string, string> = {
@@ -1279,7 +1280,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               typ: 'vosk',
               nazev_vosku: polWaxName,
               skupenstvi: polWaxState,
-              mnozstvi: `${polWaxQty} ml`
+              mnozstvi: `${polWaxQty} kg`
             }
           }
           return {
@@ -1902,13 +1903,13 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                     {val:"pasta", label:"Pasta"}
                   ])}
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Množství (ml)</Label>
+                    <Label className="text-xs text-muted-foreground">Hmotnost (kg)</Label>
                     <Input 
                       type="number" 
                       value={polWaxQty} 
                       onChange={(e) => setPolWaxQty(e.target.value)} 
                       className="h-8 bg-background" 
-                      placeholder="Např. 500" 
+                      placeholder="Např. 1" 
                     />
                   </div>
                 </>
