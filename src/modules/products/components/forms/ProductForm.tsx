@@ -229,19 +229,70 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [adhColor, setAdhColor] = useState(specs.barva || "black")
   const [adhVolume, setAdhVolume] = useState(specs.objem || "50ML")
   // Cleaners
+  const [clnSub, setClnSub] = useState(specs.podkategorie || "standard")
   const [clnBrand, setClnBrand] = useState(specs.značka || "RST5")
   const [clnPack, setClnPack] = useState(specs.balení || "5L")
   const [clnType, setClnType] = useState(specs.typ || "WIP")
-  const [clnQty, setClnQty] = useState(specs.mnozstvi || "")
+  const [clnQty, setClnQty] = useState<string>(() => {
+    if (specs.podkategorie === 'pmp') return ""
+    return specs.mnozstvi ? String(specs.mnozstvi).replace(/[^0-9]/g, '') : ""
+  })
+  const [clnPmpType, setClnPmpType] = useState(specs.typ || "liquid")
+  const [clnPmpQty, setClnPmpQty] = useState<string>(() => {
+    if (specs.podkategorie === 'pmp' && specs.mnozstvi) {
+      const match = String(specs.mnozstvi).match(/^(\d+(?:\.\d+)?)/)
+      return match ? match[1] : String(specs.mnozstvi)
+    }
+    return "500"
+  })
   // Cores
   const [coreMat, setCoreMat] = useState(specs.materiál || "PVC")
   const [coreDens, setCoreDens] = useState(String(specs.hustota_kgm3 || "80"))
   const [coreThick, setCoreThick] = useState(specs.tloušťka || "10MM")
   const [coreFinish, setCoreFinish] = useState(specs.úprava || "PL")
-  // Polish/Abrasives
-  const [polBrand, setPolBrand] = useState(specs.značka || "REX")
-  const [polCont, setPolCont] = useState(specs.obal || "CAN")
-  const [polSize, setPolSize] = useState(specs.velikost || "1KG")
+  // Polish/Abrasives (Overhauled)
+  const [polSub, setPolSub] = useState(specs.podkategorie || "pasty")
+  const [polPasteType, setPolPasteType] = useState(specs.typ || "rex")
+  const [polPasteWax, setPolPasteWax] = useState(specs.vosk || "none")
+  const [polPasteCont, setPolPasteCont] = useState(specs.obal || "BOT")
+  const [polPasteWeight, setPolPasteWeight] = useState<string>(() => {
+    if (specs.hmotnost) {
+      const match = String(specs.hmotnost).match(/^(\d+(?:\.\d+)?)/)
+      return match ? match[1] : String(specs.hmotnost)
+    }
+    return "1"
+  })
+  const [polDiscType, setPolDiscType] = useState(specs.typ_kotouce || "vlneny")
+  const [polDiscCode, setPolDiscCode] = useState(specs.kod_kotouce || "ST1")
+  const [polDiscDia, setPolDiscDia] = useState<string>(() => {
+    if (specs.prumer && specs.podkategorie === 'brusne_kotouce') {
+      const match = String(specs.prumer).match(/^(\d+(?:\.\d+)?)/)
+      return match ? match[1] : String(specs.prumer)
+    }
+    return "160"
+  })
+  // Polishing Accessories
+  const [polAccType, setPolAccType] = useState(specs.typ_prislusenstvi || "backplate")
+  const [polAccProp, setPolAccProp] = useState(specs.vlastnost || "rigid")
+  const [polAccDia, setPolAccDia] = useState<string>(() => {
+    if (specs.prumer && specs.podkategorie === 'prislusenstvi') {
+      const match = String(specs.prumer).match(/^(\d+(?:\.\d+)?)/)
+      return match ? match[1] : String(specs.prumer)
+    }
+    return "150"
+  })
+  // Chemie (Chemie category)
+  const [chemSub, setChemSub] = useState(specs.podkategorie || "lepidlo_ve_spreji")
+  const [chemAdhProp, setChemAdhProp] = useState(specs.vlastnost || "visual")
+  const [chemBaseType, setChemBaseType] = useState(specs.chemie || "waterbased")
+  const [chemSealerProp, setChemSealerProp] = useState(specs.vlastnost || "HS")
+  const [chemVol, setChemVol] = useState<string>(() => {
+    if (specs.objem) {
+      const match = String(specs.objem).match(/^(\d+(?:\.\d+)?)/)
+      return match ? match[1] : String(specs.objem)
+    }
+    return "500"
+  })
   // Fasteners (Spojovací materiál pro kompozity)
   const [fasType, setFasType] = useState(specs.typ_spoje || "BFAST") // Bonding Fastener
   const [fasBase, setFasBase] = useState(specs.zakladna || "STUD") // Závitová tyč / Matice
@@ -408,6 +459,39 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     }
   }, [fabMat2, fabTow2])
 
+  // Synchronize disc code & diameter based on disc type selection
+  useEffect(() => {
+    if (kategorieId === 'brouseni_a_lesteni' && polSub === 'brusne_kotouce') {
+      if (polDiscType === 'vlneny') {
+        if (polDiscCode !== 'ST1' && polDiscCode !== 'SL3') {
+          setPolDiscCode('ST1')
+        }
+      } else if (polDiscType === 'pena') {
+        setPolDiscCode('DA03')
+      } else if (polDiscType === 'vlnove_koule') {
+        setPolDiscCode('universal')
+        setPolDiscDia('75')
+      }
+    }
+  }, [polDiscType, polSub, kategorieId])
+
+  // Reset chemVol defaults based on subcategory
+  useEffect(() => {
+    if (kategorieId === 'chemie') {
+      if (chemSub === 'lepidlo_ve_spreji' || chemSub === 'blinder') {
+        setChemVol(prev => {
+          const num = parseFloat(prev) || 0
+          return num < 10 ? "500" : prev
+        })
+      } else {
+        setChemVol(prev => {
+          const num = parseFloat(prev) || 0
+          return num >= 10 ? "5" : prev
+        })
+      }
+    }
+  }, [chemSub, kategorieId])
+
   useEffect(() => {
     let generatedSku = ""
     let generatedSpecs = {}
@@ -525,28 +609,89 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         break;
       }
       case 'spotrebni_chemie': {
-        const cleanQty = clnQty.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
-        const unitSuffixMap: Record<string, string> = {
-          WIP: "KS",
-          CON: "L",
-          SPR: "ML"
-        }
-        const unitSuffix = unitSuffixMap[clnType] || ""
-        generatedSku = `CLN-${clnBrand}-${clnType}-${cleanQty}${unitSuffix}`
-        generatedSpecs = {
-          značka: clnBrand,
-          typ: clnType,
-          mnozstvi: clnQty
-        }
+        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
 
-        // Set basic unit defaults dynamically
-        if (clnType === 'CON') {
-          setValue("zakladni_mj_id", "l", { shouldValidate: true })
-        } else {
+        if (clnSub === 'standard') {
+          const cleanQty = clnQty.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+          const unitSuffixMap: Record<string, string> = {
+            WIP: "KS",
+            CON: "L",
+            SPR: "ML"
+          }
+          const unitSuffix = unitSuffixMap[clnType] || ""
+          generatedSku = `CLN-${clnBrand}-${clnType}-${cleanQty}${unitSuffix}`
+          generatedSpecs = {
+            podkategorie: 'standard',
+            značka: clnBrand,
+            typ: clnType,
+            mnozstvi: clnQty
+          }
+
+          if (clnType === 'CON') {
+            setValue("zakladni_mj_id", "l", { shouldValidate: true })
+          } else {
+            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+          }
+        } else if (clnSub === 'pmp') {
+          const cleanQty = clnPmpQty.trim().toUpperCase().replace(/[^0-9]/g, '')
+          generatedSku = `CLN-PMP-LIQ-${cleanQty}ML`
+          generatedSpecs = {
+            podkategorie: 'pmp',
+            typ: 'liquid',
+            mnozstvi: `${cleanQty} ml`
+          }
           setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+        }
+        break;
+      }
+      case 'chemie': {
+        const cleanVol = chemVol.trim().toUpperCase().replace(/[^0-9]/g, '')
+        if (chemSub === 'lepidlo_ve_spreji' || chemSub === 'blinder') {
+          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+        } else {
+          setValue("zakladni_mj_id", "l", { shouldValidate: true })
         }
         setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
         setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+
+        if (chemSub === 'lepidlo_ve_spreji') {
+          const vlastnostCode = chemAdhProp === 'visual' ? 'VIS' : 'IND'
+          generatedSku = `SAD-${vlastnostCode}-${cleanVol}ML`
+          generatedSpecs = {
+            podkategorie: chemSub,
+            vlastnost: chemAdhProp,
+            objem: `${cleanVol} ml`
+          }
+        } else if (chemSub === 'blinder') {
+          const chemieCode = chemBaseType === 'waterbased' ? 'WB' : 'SOL'
+          generatedSku = `BLN-${chemieCode}-${cleanVol}ML`
+          generatedSpecs = {
+            podkategorie: chemSub,
+            chemie: chemBaseType,
+            objem: `${cleanVol} ml`
+          }
+        } else if (chemSub === 'plnic_poru_sealer') {
+          const chemieCode = chemBaseType === 'waterbased' ? 'WB' : 'SOL'
+          const vlastnostCode = chemSealerProp
+          generatedSku = `SLR-${chemieCode}-${vlastnostCode}-${cleanVol}L`
+          generatedSpecs = {
+            podkategorie: chemSub,
+            chemie: chemBaseType,
+            vlastnost: chemSealerProp,
+            objem: `${cleanVol} l`
+          }
+        } else if (chemSub === 'separatory_release_agent') {
+          const chemieCode = chemBaseType === 'waterbased' ? 'WB' : 'SOL'
+          const vlastnostCode = chemSealerProp
+          generatedSku = `REL-${chemieCode}-${vlastnostCode}-${cleanVol}L`
+          generatedSpecs = {
+            podkategorie: chemSub,
+            chemie: chemBaseType,
+            vlastnost: chemSealerProp,
+            objem: `${cleanVol} l`
+          }
+        }
         break;
       }
       case 'cores_standard':
@@ -555,10 +700,79 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         generatedSku = `${prefix}-${coreMat}-${coreDens}-${coreThick}-${coreFinish}`
         generatedSpecs = { materiál: coreMat, hustota_kgm3: parseInt(coreDens) || 0, tloušťka: coreThick, úprava: coreFinish }
         break;
-      case 'brouseni_a_lesteni':
-        generatedSku = `POL-${polBrand}-${polCont}-${polSize}`
-        generatedSpecs = { značka: polBrand, obal: polCont, velikost: polSize }
+      case 'brouseni_a_lesteni': {
+        setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+
+        if (polSub === 'pasty') {
+          const typeCodeMap: Record<string, string> = {
+            rex: 'REX',
+            perla15: 'PER15',
+            top_finish_3: 'TF3'
+          }
+          const waxCodeMap: Record<string, string> = {
+            TF3: 'TF3',
+            UV_shield: 'UV',
+            none: 'NA'
+          }
+          const typeCode = typeCodeMap[polPasteType] || 'REX'
+          const waxCode = waxCodeMap[polPasteWax] || 'NA'
+          const cleanWeight = polPasteWeight.trim().toUpperCase().replace(/[^0-9]/g, '')
+          
+          generatedSku = `POL-${typeCode}-${waxCode}-${polPasteCont}-${cleanWeight}KG`
+          generatedSpecs = {
+            podkategorie: 'pasty',
+            typ: polPasteType,
+            vosk: polPasteWax,
+            obal: polPasteCont,
+            hmotnost: `${cleanWeight} kg`
+          }
+        } else if (polSub === 'brusne_kotouce') {
+          const typeCodeMap: Record<string, string> = {
+            vlneny: 'WOOL',
+            pena: 'FOAM',
+            vlnove_koule: 'BALL'
+          }
+          const codeMap: Record<string, string> = {
+            ST1: 'ST1',
+            SL3: 'SL3',
+            DA03: 'DA03',
+            universal: 'UNI'
+          }
+          const typeCode = typeCodeMap[polDiscType] || 'WOOL'
+          const code = codeMap[polDiscCode] || 'UNI'
+          const cleanDia = polDiscDia.trim().toUpperCase().replace(/[^0-9]/g, '')
+
+          generatedSku = `PAD-${typeCode}-${code}-D${cleanDia}`
+          generatedSpecs = {
+            podkategorie: 'brusne_kotouce',
+            typ_kotouce: polDiscType,
+            kod_kotouce: polDiscCode,
+            prumer: cleanDia
+          }
+        } else if (polSub === 'prislusenstvi') {
+          const typeCodeMap: Record<string, string> = {
+            backplate: 'BKP'
+          }
+          const propCodeMap: Record<string, string> = {
+            rigid: 'RIG',
+            flexible: 'FLX'
+          }
+          const typeCode = typeCodeMap[polAccType] || 'BKP'
+          const propCode = propCodeMap[polAccProp] || 'RIG'
+          const cleanDia = polAccDia.trim().toUpperCase().replace(/[^0-9]/g, '')
+
+          generatedSku = `ACC-${typeCode}-${propCode}-D${cleanDia}`
+          generatedSpecs = {
+            podkategorie: 'prislusenstvi',
+            typ_prislusenstvi: polAccType,
+            vlastnost: polAccProp,
+            prumer: cleanDia
+          }
+        }
         break;
+      }
       case 'spojovaci_material':
         generatedSku = `FAS-${fasType}-${fasBase}-${fasSize}-${fasMat}`
         generatedSpecs = { typ_spoje: fasType, zakladna: fasBase, zavit_prumer: fasSize, material: fasMat }
@@ -925,12 +1139,12 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       setValue("sku", generatedSku, { shouldValidate: true })
       setValue("specifikace_json", JSON.stringify(generatedSpecs, null, 2))
       
-      if (isNameGenerated && (kategorieId === 'vyztuzne_materialy' || kategorieId === 'consumables' || kategorieId === 'naradi' || kategorieId === 'lepidla' || kategorieId === 'pryskyrice' || kategorieId === 'spotrebni_chemie')) {
+      if (isNameGenerated && (kategorieId === 'vyztuzne_materialy' || kategorieId === 'consumables' || kategorieId === 'naradi' || kategorieId === 'lepidla' || kategorieId === 'pryskyrice' || kategorieId === 'spotrebni_chemie' || kategorieId === 'chemie' || kategorieId === 'brouseni_a_lesteni')) {
         const generatedName = generateProductName(generatedSpecs, kategorieId, lookups.fiberCodes)
         setValue("nazev", generatedName, { shouldValidate: true })
       }
     }
-  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, clnBrand, clnPack, clnType, clnQty, coreMat, coreDens, coreThick, coreFinish, polBrand, polCont, polSize, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conFtSirka, conFtTemp, conFtDelka, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, setValue, lookups.fiberCodes])
+  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, clnSub, clnBrand, clnPack, clnType, clnQty, clnPmpType, clnPmpQty, coreMat, coreDens, coreThick, coreFinish, polSub, polPasteType, polPasteWax, polPasteCont, polPasteWeight, polDiscType, polDiscCode, polDiscDia, polAccType, polAccProp, polAccDia, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conFtSirka, conFtTemp, conFtDelka, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, chemSub, chemAdhProp, chemBaseType, chemSealerProp, chemVol, setValue, lookups.fiberCodes])
 
   // Live SKU Duplicate Check (Debounced)
   useEffect(() => {
@@ -984,6 +1198,16 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           setValue("jednotka_baleni_id", "ks")
           setValue("mnozstvi_v_baleni", 1)
           break
+        case 'chemie':
+          setValue("zakladni_mj_id", "ks")
+          setValue("jednotka_baleni_id", "ks")
+          setValue("mnozstvi_v_baleni", 1)
+          break
+        case 'brouseni_a_lesteni':
+          setValue("zakladni_mj_id", "ks")
+          setValue("jednotka_baleni_id", "ks")
+          setValue("mnozstvi_v_baleni", 1)
+          break
         default:
           setValue("zakladni_mj_id", "ks")
           setValue("jednotka_baleni_id", "ks")
@@ -997,7 +1221,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       } else if (catId === 'pryskyrice' || catId === 'lepidla') {
         setValue("def_typ_skladovani", "sklad")
         setValue("shelf_life_mesice", 12)
-      } else if (catId === 'spotrebni_chemie') {
+      } else if (catId === 'spotrebni_chemie' || catId === 'chemie') {
         setValue("def_typ_skladovani", "sklad")
         setValue("shelf_life_mesice", 24)
       } else {
@@ -1049,7 +1273,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     </div>
   )
 
-  const isChemicalCategory = kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie';
+  const isChemicalCategory = kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie' || kategorieId === 'chemie';
 
   return (
     <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
@@ -1077,7 +1301,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <Label htmlFor="nazev">Název produktu</Label>
-            {['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie'].includes(kategorieId) && (
+            {['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie', 'chemie', 'brouseni_a_lesteni'].includes(kategorieId) && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground select-none">
                 <input 
                   type="checkbox" 
@@ -1094,8 +1318,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           <Input 
             id="nazev" 
             placeholder="Název produktu" 
-            readOnly={isNameGenerated && ['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie'].includes(kategorieId)}
-            className={isNameGenerated && ['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie'].includes(kategorieId) ? "bg-muted text-muted-foreground cursor-not-allowed font-medium border-zinc-850" : "font-medium"}
+            readOnly={isNameGenerated && ['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie', 'chemie', 'brouseni_a_lesteni'].includes(kategorieId)}
+            className={isNameGenerated && ['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie', 'chemie', 'brouseni_a_lesteni'].includes(kategorieId) ? "bg-muted text-muted-foreground cursor-not-allowed font-medium border-zinc-850" : "font-medium"}
             {...register("nazev")} 
           />
           {errors.nazev && <p className="text-xs text-destructive">{errors.nazev.message}</p>}
@@ -1309,32 +1533,130 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         </>
       )) : kategorieId === 'spotrebni_chemie' ? renderGeneratorWrapper("Čističe", (
         <>
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Značka</Label>
-            <Input 
-              value={clnBrand} 
-              onChange={(e) => setClnBrand(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} 
-              className="h-8 bg-background" 
-              placeholder="RST5" 
-            />
-          </div>
-          {renderSelect("Typ čističe", clnType, setClnType, [
-            {val:"WIP", label:"Ubrousky (Wipes)"},
-            {val:"CON", label:"Koncentrát (Concentrate)"},
-            {val:"SPR", label:"Sprej (Spray)"}
+          {renderSelect("Podkategorie", clnSub, setClnSub, [
+            {val:"standard", label:"Standardní čistič"},
+            {val:"pmp", label:"PMP"}
           ])}
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">
-              {clnType === 'WIP' ? "Množství (kusy)" : clnType === 'CON' ? "Množství (litry)" : "Množství (mililitry)"}
-            </Label>
-            <Input 
-              type="number" 
-              value={clnQty} 
-              onChange={(e) => setClnQty(e.target.value)} 
-              className="h-8 bg-background" 
-              placeholder={clnType === 'WIP' ? "Např. 100" : clnType === 'CON' ? "Např. 5" : "Např. 400"}
-            />
-          </div>
+
+          {clnSub === 'standard' && (
+            <>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Značka</Label>
+                <Input 
+                  value={clnBrand} 
+                  onChange={(e) => setClnBrand(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} 
+                  className="h-8 bg-background" 
+                  placeholder="RST5" 
+                />
+              </div>
+              {renderSelect("Typ čističe", clnType, setClnType, [
+                {val:"WIP", label:"Ubrousky (Wipes)"},
+                {val:"CON", label:"Koncentrát (Concentrate)"},
+                {val:"SPR", label:"Sprej (Spray)"}
+              ])}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">
+                  {clnType === 'WIP' ? "Množství (kusy)" : clnType === 'CON' ? "Množství (litry)" : "Množství (mililitry)"}
+                </Label>
+                <Input 
+                  type="number" 
+                  value={clnQty} 
+                  onChange={(e) => setClnQty(e.target.value)} 
+                  className="h-8 bg-background" 
+                  placeholder={clnType === 'WIP' ? "Např. 100" : clnType === 'CON' ? "Např. 5" : "Např. 400"}
+                />
+              </div>
+            </>
+          )}
+
+          {clnSub === 'pmp' && (
+            <>
+              {renderSelect("Typ čističe", clnPmpType, setClnPmpType, [
+                {val:"liquid", label:"Liquid (Liquid)"}
+              ])}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Množství (ml)</Label>
+                <Input 
+                  type="number" 
+                  value={clnPmpQty} 
+                  onChange={(e) => setClnPmpQty(e.target.value)} 
+                  className="h-8 bg-background" 
+                  placeholder="Např. 500" 
+                />
+              </div>
+            </>
+          )}
+        </>
+      )) : kategorieId === 'chemie' ? renderGeneratorWrapper("Chemie", (
+        <>
+          {renderSelect("Podkategorie", chemSub, setChemSub, [
+            {val:"lepidlo_ve_spreji", label:"Lepidla ve spreji"},
+            {val:"blinder", label:"Blinder"},
+            {val:"plnic_poru_sealer", label:"Plnič pórů - Sealer"},
+            {val:"separatory_release_agent", label:"Separátory/Release agent"}
+          ])}
+
+          {chemSub === 'lepidlo_ve_spreji' && (
+            <>
+              {renderSelect("Vlastnost", chemAdhProp, setChemAdhProp, [
+                {val:"visual", label:"Pohledový (Visual)"},
+                {val:"industry", label:"Nepohledový (Industry)"}
+              ])}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Množství (ml)</Label>
+                <Input 
+                  type="number" 
+                  value={chemVol} 
+                  onChange={(e) => setChemVol(e.target.value)} 
+                  className="h-8 bg-background" 
+                  placeholder="Např. 500" 
+                />
+              </div>
+            </>
+          )}
+
+          {chemSub === 'blinder' && (
+            <>
+              {renderSelect("Chemie", chemBaseType, setChemBaseType, [
+                {val:"waterbased", label:"Na vodní bázi (Waterbased)"},
+                {val:"solvent", label:"Rozpouštědlový (Solvent)"}
+              ])}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Množství (ml)</Label>
+                <Input 
+                  type="number" 
+                  value={chemVol} 
+                  onChange={(e) => setChemVol(e.target.value)} 
+                  className="h-8 bg-background" 
+                  placeholder="Např. 500" 
+                />
+              </div>
+            </>
+          )}
+
+          {(chemSub === 'plnic_poru_sealer' || chemSub === 'separatory_release_agent') && (
+            <>
+              {renderSelect("Chemie", chemBaseType, setChemBaseType, [
+                {val:"waterbased", label:"Na vodní bázi (Waterbased)"},
+                {val:"solvent", label:"Rozpouštědlový (Solvent)"}
+              ])}
+              {renderSelect("Vlastnost", chemSealerProp, setChemSealerProp, [
+                {val:"HS", label:"HS (High Slip)"},
+                {val:"LS", label:"LS (Low Slip)"},
+                {val:"EP", label:"EP (Easy Paint)"}
+              ])}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Množství (l)</Label>
+                <Input 
+                  type="number" 
+                  value={chemVol} 
+                  onChange={(e) => setChemVol(e.target.value)} 
+                  className="h-8 bg-background" 
+                  placeholder="Např. 5" 
+                />
+              </div>
+            </>
+          )}
         </>
       )) : (kategorieId === 'cores_standard' || kategorieId === 'cores_active') ? renderGeneratorWrapper("Jádrové materiály", (
         <>
@@ -1343,11 +1665,130 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           <div className="space-y-2"><Label className="text-xs text-muted-foreground">Tloušťka (např. 10MM)</Label><Input value={coreThick} onChange={(e) => setCoreThick(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} className="h-8 bg-background" /></div>
           {renderSelect("Úprava", coreFinish, setCoreFinish, [{val:"PL", label:"PL (Plain)"}, {val:"GS", label:"GS (Grid Scored)"}, {val:"PERF", label:"PERF (Perforated)"}])}
         </>
-      )) : kategorieId === 'brouseni_a_lesteni' ? renderGeneratorWrapper("Broušení a Leštění", (
+      )) : kategorieId === 'brouseni_a_lesteni' ? renderGeneratorWrapper("Broušení a leštění", (
         <>
-          <div className="space-y-2"><Label className="text-xs text-muted-foreground">Značka/Typ</Label><Input value={polBrand} onChange={(e) => setPolBrand(e.target.value.toUpperCase().replace(/[^A-Fa-f0-9]/g, ''))} className="h-8 bg-background" placeholder="REX" /></div>
-          {renderSelect("Nádoba", polCont, setPolCont, [{val:"CAN", label:"CAN (Canister)"}, {val:"BOT", label:"BOT (Bottle)"}, {val:"PAD", label:"PAD"}])}
-          <div className="space-y-2"><Label className="text-xs text-muted-foreground">Velikost/Váha</Label><Input value={polSize} onChange={(e) => setPolSize(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))} className="h-8 bg-background" placeholder="1KG" /></div>
+          {renderSelect("Podkategorie", polSub, setPolSub, [
+            {val:"pasty", label:"Pasty"},
+            {val:"brusne_kotouce", label:"Brusné kotouče"},
+            {val:"prislusenstvi", label:"Příslušenství"}
+          ])}
+
+          {polSub === 'pasty' && (
+            <>
+              {renderSelect("Typ pasty", polPasteType, setPolPasteType, [
+                {val:"rex", label:"Rex"},
+                {val:"perla15", label:"Perla 15"},
+                {val:"top_finish_3", label:"Top Finish 3 (top finish 3)"}
+              ])}
+              {renderSelect("Vosk", polPasteWax, setPolPasteWax, [
+                {val:"none", label:"Bez vosku (none)"},
+                {val:"TF3", label:"TF3"},
+                {val:"UV_shield", label:"UV shield"}
+              ])}
+              {renderSelect("Nádoba", polPasteCont, setPolPasteCont, [
+                {val:"BOT", label:"Láhev (Bottle)"},
+                {val:"CAN", label:"Kanystr (Canister)"}
+              ])}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Hmotnost (kg)</Label>
+                <Input 
+                  type="number" 
+                  value={polPasteWeight} 
+                  onChange={(e) => setPolPasteWeight(e.target.value)} 
+                  className="h-8 bg-background" 
+                  placeholder="Např. 1" 
+                />
+              </div>
+            </>
+          )}
+
+          {polSub === 'brusne_kotouce' && (
+            <>
+              {renderSelect("Typ kotouče", polDiscType, setPolDiscType, [
+                {val:"vlneny", label:"Vlněný"},
+                {val:"pena", label:"Pěnový (Pěna)"},
+                {val:"vlnove_koule", label:"Vlnové koule"}
+              ])}
+
+              {polDiscType === 'vlneny' && (
+                <>
+                  {renderSelect("Kód kotouče (Pasta)", polDiscCode, setPolDiscCode, [
+                    {val:"ST1", label:"ST1 (pro pastu Rex)"},
+                    {val:"SL3", label:"SL3 (pro pastu Perla 15)"}
+                  ])}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Průměr (mm)</Label>
+                    <Input 
+                      type="number" 
+                      value={polDiscDia} 
+                      onChange={(e) => setPolDiscDia(e.target.value)} 
+                      className="h-8 bg-background" 
+                      placeholder="Např. 160" 
+                    />
+                  </div>
+                </>
+              )}
+
+              {polDiscType === 'pena' && (
+                <>
+                  {renderSelect("Kód kotouče", polDiscCode, setPolDiscCode, [
+                    {val:"DA03", label:"DA03"}
+                  ])}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Průměr (mm)</Label>
+                    <Input 
+                      type="number" 
+                      value={polDiscDia} 
+                      onChange={(e) => setPolDiscDia(e.target.value)} 
+                      className="h-8 bg-background" 
+                      placeholder="Např. 160" 
+                    />
+                  </div>
+                </>
+              )}
+
+              {polDiscType === 'vlnove_koule' && (
+                <>
+                  {renderSelect("Kód kotouče", polDiscCode, setPolDiscCode, [
+                    {val:"universal", label:"universal (Universal)"}
+                  ])}
+                  <div className="space-y-2">
+                    <Label className="text-xs text-muted-foreground">Průměr (mm)</Label>
+                    <Input 
+                      type="number" 
+                      value={polDiscDia} 
+                      onChange={(e) => setPolDiscDia(e.target.value)} 
+                      className="h-8 bg-background border-zinc-800 bg-muted cursor-not-allowed opacity-90" 
+                      placeholder="Např. 75" 
+                      readOnly
+                    />
+                  </div>
+                </>
+              )}
+            </>
+          )}
+
+          {polSub === 'prislusenstvi' && (
+            <>
+              {renderSelect("Typ příslušenství", polAccType, setPolAccType, [
+                {val:"backplate", label:"Backplate"}
+              ])}
+              {renderSelect("Vlastnost", polAccProp, setPolAccProp, [
+                {val:"rigid", label:"Rigidní (rigid)"},
+                {val:"flexible", label:"Flexibilní (flexible)"}
+              ])}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Průměr (mm)</Label>
+                <Input 
+                  type="number" 
+                  value={polAccDia} 
+                  onChange={(e) => setPolAccDia(e.target.value)} 
+                  className="h-8 bg-background" 
+                  placeholder="Např. 150" 
+                />
+              </div>
+            </>
+          )}
         </>
       )) : kategorieId === 'spojovaci_material' ? renderGeneratorWrapper("Spojovací materiál pro kompozity", (
         <>
@@ -2215,11 +2656,11 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           id="specifikace_json" 
           placeholder='{"vazba": "Twill 2/2", "gramaz": 200}' 
           className={`font-mono text-xs h-24 ${kategorieId && kategorieId !== '' && kategorieId !== 'draft' ? 'bg-muted/50 text-muted-foreground' : ''}`}
-          readOnly={kategorieId === 'vyztuzne_materialy' || kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie' || kategorieId === 'cores_standard' || kategorieId === 'cores_active' || kategorieId === 'brouseni_a_lesteni' || kategorieId === 'spojovaci_material' || kategorieId === 'naradi' || kategorieId === 'consumables'}
+          readOnly={kategorieId === 'vyztuzne_materialy' || kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie' || kategorieId === 'cores_standard' || kategorieId === 'cores_active' || kategorieId === 'brouseni_a_lesteni' || kategorieId === 'spojovaci_material' || kategorieId === 'naradi' || kategorieId === 'consumables' || kategorieId === 'chemie'}
           {...register("specifikace_json")}
         />
         <p className="text-[10px] text-muted-foreground italic">
-          {kategorieId === 'vyztuzne_materialy' || kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie' || kategorieId === 'cores_standard' || kategorieId === 'cores_active' || kategorieId === 'brouseni_a_lesteni' || kategorieId === 'spojovaci_material' || kategorieId === 'naradi' || kategorieId === 'consumables' 
+          {kategorieId === 'vyztuzne_materialy' || kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie' || kategorieId === 'cores_standard' || kategorieId === 'cores_active' || kategorieId === 'brouseni_a_lesteni' || kategorieId === 'spojovaci_material' || kategorieId === 'naradi' || kategorieId === 'consumables' || kategorieId === 'chemie'
             ? "Tato data jsou generována automaticky z vašeho výběru nahoře a nelze je upravovat ručně."
             : "Zadejte ve formátu { \"vlastnost\": \"hodnota\" } pro kategorie bez generátoru."}
         </p>

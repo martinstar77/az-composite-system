@@ -98,6 +98,7 @@ const CATEGORY_SPEC_MAP: Record<string, { key: string; label: string }[]> = {
     { key: 'open_time_min', label: 'Zpracovatelnost' }
   ],
   spotrebni_chemie: [
+    { key: 'podkategorie', label: 'Podkategorie' },
     { key: 'typ', label: 'Typ' },
     { key: 'značka', label: 'Značka' },
     { key: 'mnozstvi', label: 'Množství' }
@@ -105,6 +106,21 @@ const CATEGORY_SPEC_MAP: Record<string, { key: string; label: string }[]> = {
   naradi: [
     { key: 'podkategorie', label: 'Podkategorie' },
     { key: 'objem_l', label: 'Objem' }
+  ],
+  chemie: [
+    { key: 'podkategorie', label: 'Podkategorie' },
+    { key: 'chemie', label: 'Báze' },
+    { key: 'vlastnost', label: 'Vlastnost' },
+    { key: 'objem', label: 'Objem' }
+  ],
+  brouseni_a_lesteni: [
+    { key: 'podkategorie', label: 'Podkategorie' },
+    { key: 'typ', label: 'Typ pasty' },
+    { key: 'typ_kotouce', label: 'Typ kotouče' },
+    { key: 'kod_kotouce', label: 'Kód kotouče' },
+    { key: 'typ_prislusenstvi', label: 'Příslušenství' },
+    { key: 'prumer', label: 'Průměr' },
+    { key: 'hmotnost', label: 'Hmotnost' }
   ]
 }
 
@@ -114,7 +130,18 @@ const SPEC_VALUE_LABELS: Record<string, Record<string, string>> = {
     PU: 'Polyuretan (PU)',
     MMA: 'Akrylát (MMA)',
     VE: 'Vinylester (VE)',
-    PE: 'Polyester (PE)'
+    PE: 'Polyester (PE)',
+    waterbased: 'Na vodní bázi',
+    solvent: 'Rozpouštědlový'
+  },
+  vlastnost: {
+    visual: 'Pohledový',
+    industry: 'Nepohledový',
+    HS: 'High Slip',
+    LS: 'Low Slip',
+    EP: 'Easy Paint',
+    rigid: 'Rigidní',
+    flexible: 'Flexibilní'
   },
   typ: {
     RES: 'Pryskyřice (Resin)',
@@ -128,7 +155,11 @@ const SPEC_VALUE_LABELS: Record<string, Record<string, string>> = {
     WF: 'WF (Tkanina / Woven)',
     UD: 'UD (Jednosměrná / Uni)',
     BIAX: 'BIAX (Biaxiální)',
-    MAT: 'MAT (Rohož)'
+    MAT: 'MAT (Rohož)',
+    rex: 'Rex',
+    perla15: 'Perla 15',
+    top_finish_3: 'Top Finish 3',
+    liquid: 'Liquid (Tekutina)'
   },
   technologie: {
     INF: 'Infuze (Infusion)',
@@ -198,7 +229,36 @@ const SPEC_VALUE_LABELS: Record<string, Record<string, string>> = {
     SQ: 'Hadice a spirály (SQ)',
     V: 'Ventily (V)',
     CU: 'Mycí stanice (CU)',
-    SU: 'Spinner unit (SU)'
+    SU: 'Spinner unit (SU)',
+    lepidlo_ve_spreji: 'Lepidla ve spreji',
+    blinder: 'Blinder',
+    plnic_poru_sealer: 'Plnič pórů / Sealer',
+    separatory_release_agent: 'Separátory / Release agent',
+    pasty: 'Pasty',
+    brusne_kotouce: 'Brusné kotouče',
+    prislusenstvi: 'Příslušenství',
+    standard: 'Standardní čistič',
+    pmp: 'PMP'
+  },
+  typ_kotouce: {
+    vlneny: 'Vlněný',
+    pena: 'Pěnový',
+    vlnove_koule: 'Vlnové koule'
+  },
+  kod_kotouce: {
+    ST1: 'ST1',
+    SL3: 'SL3',
+    DA03: 'DA03',
+    universal: 'Universal'
+  },
+  vosk: {
+    TF3: 'TF3',
+    UV_shield: 'UV shield',
+    none: 'Bez vosku',
+    NA: 'N/A'
+  },
+  typ_prislusenstvi: {
+    backplate: 'Backplate'
   }
 }
 

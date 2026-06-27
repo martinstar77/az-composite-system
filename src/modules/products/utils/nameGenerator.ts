@@ -436,6 +436,12 @@ export function generateProductName(
   }
 
   if (categoryId === 'spotrebni_chemie') {
+    const sub = specs.podkategorie || "standard"
+    if (sub === 'pmp') {
+      const qty = specs.mnozstvi || ""
+      return `Čistič PMP liquid, ${qty}`.trim().replace(/,\s*$/, '')
+    }
+
     const typeLabelMap: Record<string, string> = {
       WIP: "Čisticí ubrousky",
       CON: "Čisticí koncentrát",
@@ -454,8 +460,115 @@ export function generateProductName(
     const typeLabel = typeLabelMap[typ] || "Čistič"
     const unit = unitMap[typ] || ""
 
-    const qtyStr = qty && unit ? `, ${qty} ${unit}` : qty ? `, ${qty}` : ""
+    let qtyStr = ""
+    if (qty) {
+      const hasUnitSuffix = /[a-zA-Z]/.test(qty)
+      qtyStr = hasUnitSuffix ? `, ${qty}` : `, ${qty} ${unit}`.trim()
+    }
     return `${typeLabel} ${brand}${qtyStr}`.trim()
+  }
+
+  if (categoryId === 'chemie') {
+    const sub = specs.podkategorie
+    const chemieMap: Record<string, string> = {
+      waterbased: "na vodní bázi",
+      solvent: "rozpouštědlový"
+    }
+    const vlastnostMap: Record<string, string> = {
+      visual: "pohledové",
+      industry: "nepohledové",
+      HS: "High Slip",
+      LS: "Low Slip",
+      EP: "Easy Paint"
+    }
+
+    const subNameMap: Record<string, string> = {
+      lepidlo_ve_spreji: "Lepidlo ve spreji",
+      blinder: "Blinder",
+      plnic_poru_sealer: "Plnič pórů / Sealer",
+      separatory_release_agent: "Separátor / Release agent"
+    }
+
+    const baseName = subNameMap[sub] || "Chemie"
+    const chemieStr = chemieMap[specs.chemie] || ""
+    const vlastnostStr = vlastnostMap[specs.vlastnost] || ""
+    const objemStr = specs.objem || ""
+
+    if (sub === 'lepidlo_ve_spreji') {
+      return [baseName, vlastnostStr].filter(Boolean).join(" ") + (objemStr ? `, ${objemStr}` : "")
+    } else if (sub === 'blinder') {
+      return [baseName, chemieStr].filter(Boolean).join(" ") + (objemStr ? `, ${objemStr}` : "")
+    } else if (sub === 'plnic_poru_sealer' || sub === 'separatory_release_agent') {
+      const prep = [chemieStr, vlastnostStr].filter(Boolean).join(" ")
+      return [baseName, prep].filter(Boolean).join(" ") + (objemStr ? `, ${objemStr}` : "")
+    }
+    return baseName
+  }
+
+  if (categoryId === 'brouseni_a_lesteni') {
+    const sub = specs.podkategorie
+    if (sub === 'pasty') {
+      const typeMap: Record<string, string> = {
+        rex: "Rex",
+        perla15: "Perla 15",
+        top_finish_3: "top finish 3"
+      }
+      const waxMap: Record<string, string> = {
+        TF3: "TF3",
+        UV_shield: "UV shield",
+        none: "",
+        NA: ""
+      }
+      const contMap: Record<string, string> = {
+        CAN: "kanystr",
+        BOT: "láhev"
+      }
+      const pasteType = typeMap[specs.typ] || specs.typ || ""
+      const waxStr = waxMap[specs.vosk] || ""
+      const contStr = contMap[specs.obal] || specs.obal || ""
+      const weightStr = specs.hmotnost || ""
+
+      const typeAndWax = [pasteType, waxStr].filter(Boolean).join(" ")
+      return [`Lešticí pasta ${typeAndWax}`.trim(), contStr, weightStr].filter(Boolean).join(", ")
+    } else if (sub === 'brusne_kotouce') {
+      const discTypeMap: Record<string, string> = {
+        vlneny: "vlněný",
+        pena: "pěnový",
+        vlnove_koule: "vlnové koule"
+      }
+      const pasteNameMap: Record<string, string> = {
+        ST1: "Rex",
+        SL3: "Perla 15"
+      }
+      const discTypeStr = discTypeMap[specs.typ_kotouce] || specs.typ_kotouce || ""
+      const code = specs.kod_kotouce || ""
+      const prumer = specs.prumer ? `D${specs.prumer}` : ""
+
+      if (specs.typ_kotouce === 'vlneny') {
+        const assocPaste = pasteNameMap[code] || ""
+        const assocPart = assocPaste ? ` pro ${assocPaste}` : ""
+        return `Brusný kotouč ${discTypeStr} ${code}${assocPart} ${prumer}`.trim()
+      } else if (specs.typ_kotouce === 'pena') {
+        return `Brusný kotouč ${discTypeStr} ${code} ${prumer}`.trim()
+      } else if (specs.typ_kotouce === 'vlnove_koule') {
+        return `Brusný kotouč ${discTypeStr} universal ${prumer}`.trim()
+      }
+      return `Brusný kotouč ${discTypeStr} ${prumer}`.trim()
+    } else if (sub === 'prislusenstvi') {
+      const typeMap: Record<string, string> = {
+        backplate: "Backplate"
+      }
+      const propMap: Record<string, string> = {
+        rigid: "rigidní",
+        flexible: "flexibilní"
+      }
+      const accType = typeMap[specs.typ_prislusenstvi] || specs.typ_prislusenstvi || ""
+      const propStr = propMap[specs.vlastnost] || specs.vlastnost || ""
+      const prumer = specs.prumer ? `D${specs.prumer}` : ""
+
+      return `${accType} ${propStr} ${prumer}`.trim()
+    }
+    return "Broušení a leštění"
   }
 
   return ""
