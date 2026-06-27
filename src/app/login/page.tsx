@@ -3,6 +3,7 @@ import { login } from './actions'
 import { Button } from '@/shared/components/ui/button'
 import { Input } from '@/shared/components/ui/input'
 import { Label } from '@/shared/components/ui/label'
+import { Turnstile } from '@/shared/components/ui/turnstile'
 
 export default async function LoginPage({
   searchParams,
@@ -61,6 +62,18 @@ export default async function LoginPage({
           )}
 
           <form className="space-y-6" action={login}>
+            {/* Honeypot field - visually hidden. Bots will fill it, humans won't. */}
+            <div className="absolute -top-[9999px] -left-[9999px] h-0 w-0 overflow-hidden" aria-hidden="true">
+              <label htmlFor="website_verification">Pokud jste člověk, ponechte toto pole prázdné</label>
+              <input
+                id="website_verification"
+                name="website_verification"
+                type="text"
+                tabIndex={-1}
+                autoComplete="off"
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="email">E-mailová adresa</Label>
               <Input
@@ -84,6 +97,9 @@ export default async function LoginPage({
                 className="bg-muted/50"
               />
             </div>
+
+            {/* Cloudflare Turnstile bot verification */}
+            <Turnstile />
 
             <Button type="submit" className="w-full font-semibold">
               Přihlásit se do systému

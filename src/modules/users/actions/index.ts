@@ -5,6 +5,23 @@ import { createAdminClient } from '@/shared/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { UserProfile, Role } from '../types'
 
+async function ensureAdmin() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    throw new Error('Unauthorized')
+  }
+  const { data: profile } = await supabase
+    .from('profily_uzivatelu')
+    .select('role_id')
+    .eq('id', user.id)
+    .single()
+    
+  if (profile?.role_id !== 'admin') {
+    throw new Error('Unauthorized - Admin role required')
+  }
+}
+
 export async function getUsers(): Promise<{ data: UserProfile[] | null, error: unknown }> {
   const supabase = await createClient()
   
@@ -43,6 +60,7 @@ export async function updateUserRole(userId: string, newRoleId: string) {
 }
 
 export async function createUserWithPassword(email: string, password: string, roleId: string, nickname: string) {
+  await ensureAdmin()
   const adminAuthClient = createAdminClient()
   
   // 1. Create the user directly with a password via Supabase Admin API
@@ -75,6 +93,7 @@ export async function createUserWithPassword(email: string, password: string, ro
 }
 
 export async function updateUserFull(userId: string, payload: { email?: string, jmeno?: string, role_id?: string }) {
+  await ensureAdmin()
   const adminAuthClient = createAdminClient()
   
   // 1. Update Auth if email is provided
@@ -117,12 +136,14 @@ export async function updateUserProfile(userId: string, updates: { jmeno?: strin
 }
 
 export async function deleteUser(userId: string) {
+  await ensureAdmin()
   const adminAuthClient = createAdminClient()
   const { error } = await adminAuthClient.auth.admin.deleteUser(userId)
   return { error }
 }
 
 export async function adminResetPassword(userId: string, newPassword: string) {
+  await ensureAdmin()
   const adminAuthClient = createAdminClient()
   const { data, error } = await adminAuthClient.auth.admin.updateUserById(userId, {
     password: newPassword
