@@ -483,14 +483,11 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   useEffect(() => {
     if (kategorieId === 'brouseni_a_lesteni' && polSub === 'brusne_kotouce') {
       if (polDiscType === 'vlneny') {
-        if (polDiscCode !== 'ST1' && polDiscCode !== 'SL3') {
-          setPolDiscCode('ST1')
+        if (polDiscCode !== 'ST1Y' && polDiscCode !== 'SL3' && polDiscCode !== 'UNI') {
+          setPolDiscCode('ST1Y')
         }
       } else if (polDiscType === 'pena') {
         setPolDiscCode('DA03')
-      } else if (polDiscType === 'vlnove_koule') {
-        setPolDiscCode('universal')
-        setPolDiscDia('75')
       }
     }
   }, [polDiscType, polSub, kategorieId])
@@ -758,17 +755,16 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         } else if (polSub === 'brusne_kotouce') {
           const typeCodeMap: Record<string, string> = {
             vlneny: 'WOOL',
-            pena: 'FOAM',
-            vlnove_koule: 'BALL'
+            pena: 'FOAM'
           }
           const codeMap: Record<string, string> = {
-            ST1: 'ST1',
+            ST1Y: 'ST1Y',
             SL3: 'SL3',
             DA03: 'DA03',
-            universal: 'UNI'
+            UNI: 'UNI'
           }
           const typeCode = typeCodeMap[polDiscType] || 'WOOL'
-          const code = codeMap[polDiscCode] || 'UNI'
+          const code = codeMap[polDiscCode] || 'ST1Y'
           const cleanDia = polDiscDia.trim().toUpperCase().replace(/[^0-9]/g, '')
 
           generatedSku = `PAD-${typeCode}-${code}-D${cleanDia}`
@@ -1867,15 +1863,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             <>
               {renderSelect("Typ kotouče", polDiscType, setPolDiscType, [
                 {val:"vlneny", label:"Vlněný"},
-                {val:"pena", label:"Pěnový (Pěna)"},
-                {val:"vlnove_koule", label:"Vlnové koule"}
+                {val:"pena", label:"Pěnový (Pěna)"}
               ])}
 
               {polDiscType === 'vlneny' && (
                 <>
                   {renderSelect("Kód kotouče (Pasta)", polDiscCode, setPolDiscCode, [
-                    {val:"ST1", label:"ST1 (pro pastu Rex)"},
-                    {val:"SL3", label:"SL3 (pro pastu Perla 15)"}
+                    {val:"ST1Y", label:"ST1 Y (pro pastu Rex – žlutý)"},
+                    {val:"SL3", label:"SL3 (pro pastu Perla 15)"},
+                    {val:"UNI", label:"UNI – vlnové koule (universal)"}
                   ])}
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">Průměr (mm)</Label>
@@ -1903,25 +1899,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                       onChange={(e) => setPolDiscDia(e.target.value)} 
                       className="h-8 bg-background" 
                       placeholder="Např. 160" 
-                    />
-                  </div>
-                </>
-              )}
-
-              {polDiscType === 'vlnove_koule' && (
-                <>
-                  {renderSelect("Kód kotouče", polDiscCode, setPolDiscCode, [
-                    {val:"universal", label:"universal (Universal)"}
-                  ])}
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Průměr (mm)</Label>
-                    <Input 
-                      type="number" 
-                      value={polDiscDia} 
-                      onChange={(e) => setPolDiscDia(e.target.value)} 
-                      className="h-8 bg-background border-zinc-800 bg-muted cursor-not-allowed opacity-90" 
-                      placeholder="Např. 75" 
-                      readOnly
                     />
                   </div>
                 </>

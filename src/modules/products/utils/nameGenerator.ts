@@ -524,11 +524,10 @@ export function generateProductName(
     } else if (sub === 'brusne_kotouce') {
       const discTypeMap: Record<string, string> = {
         vlneny: "vlněný",
-        pena: "pěnový",
-        vlnove_koule: "vlnové koule"
+        pena: "pěnový"
       }
       const pasteNameMap: Record<string, string> = {
-        ST1: "Rex",
+        ST1Y: "Rex",
         SL3: "Perla 15"
       }
       const discTypeStr = discTypeMap[specs.typ_kotouce] || specs.typ_kotouce || ""
@@ -536,13 +535,14 @@ export function generateProductName(
       const prumer = specs.prumer ? `D${specs.prumer}` : ""
 
       if (specs.typ_kotouce === 'vlneny') {
+        if (code === 'UNI') {
+          return `Brusný kotouč vlněný vlnové koule universal ${prumer}`.trim()
+        }
         const assocPaste = pasteNameMap[code] || ""
         const assocPart = assocPaste ? ` pro ${assocPaste}` : ""
         return `Brusný kotouč ${discTypeStr} ${code}${assocPart} ${prumer}`.trim()
       } else if (specs.typ_kotouce === 'pena') {
         return `Brusný kotouč ${discTypeStr} ${code} ${prumer}`.trim()
-      } else if (specs.typ_kotouce === 'vlnove_koule') {
-        return `Brusný kotouč ${discTypeStr} universal ${prumer}`.trim()
       }
       return `Brusný kotouč ${discTypeStr} ${prumer}`.trim()
     } else if (sub === 'prislusenstvi') {
