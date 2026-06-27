@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 import { UserProfile, Role } from '../types'
 
-export const passwordSchema = z.string()
+const passwordSchema = z.string()
   .min(8, 'Heslo musí mít alespoň 8 znaků')
   .refine(val => /[A-Z]/.test(val), 'Heslo musí obsahovat alespoň jedno velké písmeno')
   .refine(val => /[a-z]/.test(val), 'Heslo musí obsahovat alespoň jedno malé písmeno')
