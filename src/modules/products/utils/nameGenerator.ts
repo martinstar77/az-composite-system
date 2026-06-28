@@ -617,17 +617,6 @@ export function generateProductName(
       if (techStr) extraParts.push(techStr)
     }
 
-    const useMapCS: Record<string, string> = {
-      FOR: "na formy",
-      DIL: "na díly"
-    }
-    const useMapEN: Record<string, string> = {
-      FOR: "for molds",
-      DIL: "for parts"
-    }
-    const useStr = isCs ? (useMapCS[pouziti] || "") : (useMapEN[pouziti] || "")
-    if (useStr) extraParts.push(useStr)
-
     let fullName = [baseName, ...extraParts].filter(Boolean).join(" ")
 
     if (typ === "HRD" && specs.cas_vytvrzeni) {
