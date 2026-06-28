@@ -298,6 +298,44 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
   const observerTargetRef = React.useRef<HTMLDivElement>(null)
   const isFirstRender = React.useRef(true)
 
+  // Restore filters from sessionStorage on mount
+  React.useEffect(() => {
+    try {
+      const storedFilters = sessionStorage.getItem("product_catalog_filters")
+      const storedSearch = sessionStorage.getItem("product_catalog_search")
+      const storedSpecs = sessionStorage.getItem("product_catalog_specs")
+      const storedSorting = sessionStorage.getItem("product_catalog_sorting")
+
+      if (storedFilters) {
+        setColumnFilters(JSON.parse(storedFilters))
+      }
+      if (storedSearch) {
+        setGlobalFilter(storedSearch)
+        setDebouncedSearch(storedSearch)
+      }
+      if (storedSpecs) {
+        setSpecFilters(JSON.parse(storedSpecs))
+      }
+      if (storedSorting) {
+        setSorting(JSON.parse(storedSorting))
+      }
+    } catch (e) {
+      console.error("Error restoring filters from sessionStorage:", e)
+    }
+  }, [])
+
+  // Save filters to sessionStorage when they change
+  React.useEffect(() => {
+    try {
+      sessionStorage.setItem("product_catalog_filters", JSON.stringify(columnFilters))
+      sessionStorage.setItem("product_catalog_search", globalFilter)
+      sessionStorage.setItem("product_catalog_specs", JSON.stringify(specFilters))
+      sessionStorage.setItem("product_catalog_sorting", JSON.stringify(sorting))
+    } catch (e) {
+      console.error("Error saving filters to sessionStorage:", e)
+    }
+  }, [columnFilters, globalFilter, specFilters, sorting])
+
   // Memoized filters
   const selectedCategories = React.useMemo(() => {
     return columnFilters.find(f => f.id === 'kategorie_id')?.value as string[] | undefined
@@ -1071,12 +1109,14 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
             })()
           )}
 
-          {(columnFilters.length > 0 || Object.keys(specFilters).length > 0) && (
+          {(columnFilters.length > 0 || Object.keys(specFilters).length > 0 || !!globalFilter) && (
             <Button 
               variant="ghost" 
               onClick={() => {
                 setColumnFilters([])
                 setSpecFilters({})
+                setGlobalFilter("")
+                setDebouncedSearch("")
               }}
               className="h-9 px-2 text-zinc-500 hover:text-zinc-200"
             >
