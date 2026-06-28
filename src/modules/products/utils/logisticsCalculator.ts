@@ -366,7 +366,7 @@ export function calculateGrossWeight(
     case "brouseni_a_lesteni": {
       const podkat = String(s.podkategorie ?? "pasty")
 
-      if (podkat === "pasty") {
+      if (podkat === "pasty" || podkat === "vosk") {
         const netWeight = parseWeightKg((s.hmotnost || s.mnozstvi) as string) || 0
         if (!netWeight) return { weightKg: null, confidence: "low", breakdown: "Chybí hmotnost pasty/vosku." }
         const packaging = 0.15
@@ -692,7 +692,7 @@ export function resolvePackagingProfile(
 
     case "brouseni_a_lesteni": {
       const podkat = String(specs.podkategorie ?? "pasty")
-      if (podkat === "pasty") return findByType("krabice_standard")
+      if (podkat === "pasty" || podkat === "vosk") return findByType("krabice_standard")
       return findByType("sacek") ?? findByType("krabice_standard")
     }
 

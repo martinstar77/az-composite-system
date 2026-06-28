@@ -237,6 +237,7 @@ const SPEC_VALUE_LABELS: Record<string, Record<string, string>> = {
     pasty: 'Pasty',
     brusne_kotouce: 'Brusné kotouče',
     prislusenstvi: 'Příslušenství',
+    vosk: 'Vosk',
     standard: 'Standardní čistič',
     pmp: 'PMP'
   },

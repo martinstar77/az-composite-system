@@ -500,27 +500,27 @@ export function generateProductName(
 
   if (categoryId === 'brouseni_a_lesteni') {
     const sub = specs.podkategorie
+    if (sub === 'vosk') {
+      const waxNameMap: Record<string, string> = {
+        uv_shield: "UV shield",
+        flash_touch: "Flash Touch"
+      }
+      const stateMap: Record<string, string> = {
+        tekuty_vosk: "tekutý vosk",
+        pasta: "pasta"
+      }
+      const waxName = waxNameMap[specs.nazev_vosku] || specs.nazev_vosku || ""
+      const stateStr = stateMap[specs.skupenstvi] || specs.skupenstvi || ""
+      const qtyStr = specs.mnozstvi || ""
+      return [`Vosk ${waxName} ${stateStr}`.trim(), qtyStr].filter(Boolean).join(", ")
+    }
+
     if (sub === 'pasty') {
       const contMap: Record<string, string> = {
         CAN: "plechovka",
         BOT: "láhev"
       }
       const contStr = contMap[specs.obal] || specs.obal || ""
-
-      if (specs.typ === 'vosk') {
-        const waxNameMap: Record<string, string> = {
-          uv_shield: "UV shield",
-          flash_touch: "Flash Touch"
-        }
-        const stateMap: Record<string, string> = {
-          tekuty_vosk: "tekutý vosk",
-          pasta: "pasta"
-        }
-        const waxName = waxNameMap[specs.nazev_vosku] || specs.nazev_vosku || ""
-        const stateStr = stateMap[specs.skupenstvi] || specs.skupenstvi || ""
-        const qtyStr = specs.mnozstvi || ""
-        return [`Vosk ${waxName} ${stateStr}`.trim(), qtyStr].filter(Boolean).join(", ")
-      }
 
       const typeMap: Record<string, string> = {
         rex: "Rex",

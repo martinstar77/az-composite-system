@@ -272,11 +272,11 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [polWaxName, setPolWaxName] = useState(specs.nazev_vosku || "uv_shield")
   const [polWaxState, setPolWaxState] = useState(specs.skupenstvi || "tekuty_vosk")
   const [polWaxQty, setPolWaxQty] = useState<string>(() => {
-    if (specs.mnozstvi && specs.typ === 'vosk') {
-      const match = String(specs.mnozstvi).match(/^(\d+)/)
-      return match ? match[1] : "500"
+    if (specs.mnozstvi && (specs.podkategorie === 'vosk' || specs.typ === 'vosk')) {
+      const match = String(specs.mnozstvi).match(/^(\d+(?:\.\d+)?)/)
+      return match ? match[1] : String(specs.mnozstvi)
     }
-    return "500"
+    return "1"
   })
   const [polPasteColor, setPolPasteColor] = useState(specs.barva || "white")
   const [polPasteCont, setPolPasteCont] = useState(specs.obal || "BOT")
@@ -739,51 +739,48 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
         setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
 
-        if (polSub === 'pasty') {
-          if (polPasteType === 'vosk') {
-            const waxNameCodeMap: Record<string, string> = {
-              uv_shield: 'UV',
-              flash_touch: 'FT'
-            }
-            const stateCodeMap: Record<string, string> = {
-              tekuty_vosk: 'LIQ',
-              pasta: 'PST'
-            }
-            const nameCode = waxNameCodeMap[polWaxName] || 'UV'
-            const stateCode = stateCodeMap[polWaxState] || 'LIQ'
-            const cleanQty = polWaxQty.trim().toUpperCase().replace(/[^0-9]/g, '')
+        if (polSub === 'vosk') {
+          const waxNameCodeMap: Record<string, string> = {
+            uv_shield: 'UV',
+            flash_touch: 'FT'
+          }
+          const stateCodeMap: Record<string, string> = {
+            tekuty_vosk: 'LIQ',
+            pasta: 'PST'
+          }
+          const nameCode = waxNameCodeMap[polWaxName] || 'UV'
+          const stateCode = stateCodeMap[polWaxState] || 'LIQ'
+          const cleanQty = polWaxQty.trim().toUpperCase().replace(/[^0-9]/g, '')
 
-            const unitSuffix = 'KG'
-            generatedSku = `POL-WAX-${nameCode}-${stateCode}-${cleanQty}${unitSuffix}`
-            generatedSpecs = {
-              podkategorie: 'pasty',
-              typ: 'vosk',
-              nazev_vosku: polWaxName,
-              skupenstvi: polWaxState,
-              mnozstvi: `${cleanQty} kg`
-            }
-          } else {
-            const typeCodeMap: Record<string, string> = {
-              rex: 'REX',
-              perla15: 'PER15',
-              top_finish_3: 'TF3'
-            }
-            const colorCodeMap: Record<string, string> = {
-              white: 'WHT',
-              black: 'BLK'
-            }
-            const typeCode = typeCodeMap[polPasteType] || 'REX'
-            const colorCode = colorCodeMap[polPasteColor] || 'WHT'
-            const cleanWeight = polPasteWeight.trim().toUpperCase().replace(/[^0-9]/g, '')
-            
-            generatedSku = `POL-${typeCode}-${colorCode}-${polPasteCont}-${cleanWeight}KG`
-            generatedSpecs = {
-              podkategorie: 'pasty',
-              typ: polPasteType,
-              barva: polPasteColor,
-              obal: polPasteCont,
-              hmotnost: `${cleanWeight} kg`
-            }
+          generatedSku = `POL-WAX-${nameCode}-${stateCode}-${cleanQty}KG`
+          generatedSpecs = {
+            podkategorie: 'vosk',
+            typ: 'vosk',
+            nazev_vosku: polWaxName,
+            skupenstvi: polWaxState,
+            mnozstvi: `${cleanQty} kg`
+          }
+        } else if (polSub === 'pasty') {
+          const typeCodeMap: Record<string, string> = {
+            rex: 'REX',
+            perla15: 'PER15',
+            top_finish_3: 'TF3'
+          }
+          const colorCodeMap: Record<string, string> = {
+            white: 'WHT',
+            black: 'BLK'
+          }
+          const typeCode = typeCodeMap[polPasteType] || 'REX'
+          const colorCode = colorCodeMap[polPasteColor] || 'WHT'
+          const cleanWeight = polPasteWeight.trim().toUpperCase().replace(/[^0-9]/g, '')
+          
+          generatedSku = `POL-${typeCode}-${colorCode}-${polPasteCont}-${cleanWeight}KG`
+          generatedSpecs = {
+            podkategorie: 'pasty',
+            typ: polPasteType,
+            barva: polPasteColor,
+            obal: polPasteCont,
+            hmotnost: `${cleanWeight} kg`
           }
         } else if (polSub === 'brusne_kotouce') {
           const typeCodeMap: Record<string, string> = {
@@ -1273,16 +1270,16 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         return baseSpecs
       }
       case 'brouseni_a_lesteni': {
-        if (polSub === 'pasty') {
-          if (polPasteType === 'vosk') {
-            return {
-              podkategorie: 'pasty',
-              typ: 'vosk',
-              nazev_vosku: polWaxName,
-              skupenstvi: polWaxState,
-              mnozstvi: `${polWaxQty} kg`
-            }
+        if (polSub === 'vosk') {
+          return {
+            podkategorie: 'vosk',
+            typ: 'vosk',
+            nazev_vosku: polWaxName,
+            skupenstvi: polWaxState,
+            mnozstvi: `${polWaxQty} kg`
           }
+        }
+        if (polSub === 'pasty') {
           return {
             podkategorie: 'pasty',
             typ: polPasteType,
@@ -1880,7 +1877,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           {renderSelect("Podkategorie", polSub, setPolSub, [
             {val:"pasty", label:"Pasty"},
             {val:"brusne_kotouce", label:"Brusné kotouče"},
-            {val:"prislusenstvi", label:"Příslušenství"}
+            {val:"prislusenstvi", label:"Příslušenství"},
+            {val:"vosk", label:"Vosk"}
           ])}
 
           {polSub === 'pasty' && (
@@ -1888,53 +1886,49 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               {renderSelect("Typ pasty", polPasteType, setPolPasteType, [
                 {val:"rex", label:"Rex (Brusná pasta)"},
                 {val:"perla15", label:"Perla 15 (Brusná pasta)"},
-                {val:"top_finish_3", label:"Top Finish 3 (Lešticí pasta)"},
-                {val:"vosk", label:"Vosk"}
+                {val:"top_finish_3", label:"Top Finish 3 (Lešticí pasta)"}
               ])}
+              {renderSelect("Barva", polPasteColor, setPolPasteColor, [
+                {val:"white", label:"Bílá (White)"},
+                {val:"black", label:"Černá (Black)"}
+              ])}
+              {renderSelect("Nádoba", polPasteCont, setPolPasteCont, [
+                {val:"BOT", label:"Láhev (Bottle)"},
+                {val:"CAN", label:"Plechovka (Tin / Can)"}
+              ])}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Hmotnost (kg)</Label>
+                <Input 
+                  type="number" 
+                  value={polPasteWeight} 
+                  onChange={(e) => setPolPasteWeight(e.target.value)} 
+                  className="h-8 bg-background" 
+                  placeholder="Např. 1" 
+                />
+              </div>
+            </>
+          )}
 
-              {polPasteType === 'vosk' ? (
-                <>
-                  {renderSelect("Název vosku", polWaxName, setPolWaxName, [
-                    {val:"uv_shield", label:"UV shield"},
-                    {val:"flash_touch", label:"Flash Touch"}
-                  ])}
-                  {renderSelect("Skupenství", polWaxState, setPolWaxState, [
-                    {val:"tekuty_vosk", label:"Tekutý vosk"},
-                    {val:"pasta", label:"Pasta"}
-                  ])}
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Hmotnost (kg)</Label>
-                    <Input 
-                      type="number" 
-                      value={polWaxQty} 
-                      onChange={(e) => setPolWaxQty(e.target.value)} 
-                      className="h-8 bg-background" 
-                      placeholder="Např. 1" 
-                    />
-                  </div>
-                </>
-              ) : (
-                <>
-                  {renderSelect("Barva", polPasteColor, setPolPasteColor, [
-                    {val:"white", label:"Bílá (White)"},
-                    {val:"black", label:"Černá (Black)"}
-                  ])}
-                  {renderSelect("Nádoba", polPasteCont, setPolPasteCont, [
-                    {val:"BOT", label:"Láhev (Bottle)"},
-                    {val:"CAN", label:"Plechovka (Tin / Can)"}
-                  ])}
-                  <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">Hmotnost (kg)</Label>
-                    <Input 
-                      type="number" 
-                      value={polPasteWeight} 
-                      onChange={(e) => setPolPasteWeight(e.target.value)} 
-                      className="h-8 bg-background" 
-                      placeholder="Např. 1" 
-                    />
-                  </div>
-                </>
-              )}
+          {polSub === 'vosk' && (
+            <>
+              {renderSelect("Název vosku", polWaxName, setPolWaxName, [
+                {val:"uv_shield", label:"UV shield"},
+                {val:"flash_touch", label:"Flash Touch"}
+              ])}
+              {renderSelect("Skupenství", polWaxState, setPolWaxState, [
+                {val:"tekuty_vosk", label:"Tekutý vosk"},
+                {val:"pasta", label:"Pasta"}
+              ])}
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Hmotnost (kg)</Label>
+                <Input 
+                  type="number" 
+                  value={polWaxQty} 
+                  onChange={(e) => setPolWaxQty(e.target.value)} 
+                  className="h-8 bg-background" 
+                  placeholder="Např. 1" 
+                />
+              </div>
             </>
           )}
 
