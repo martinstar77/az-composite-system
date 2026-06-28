@@ -572,15 +572,34 @@ export function generateProductName(
     let baseName = ""
     
     if (isCs) {
-      if (adjMapCS[chemie]) {
-        if (typ === "RES") adjective = adjMapCS[chemie].F
-        else if (typ === "HRD") adjective = adjMapCS[chemie].N
-        else adjective = adjMapCS[chemie].M
+      if (typ === "HRD") {
+        const chemNounCS: Record<string, string> = {
+          EP: "epoxidovou",
+          VE: "vinylesterovou",
+          PE: "polyesterovou"
+        }
+        const chemStr = chemNounCS[chemie] || chemie
+        baseName = `Tužidlo pro ${chemStr} pryskyřici`
+      } else {
+        if (adjMapCS[chemie]) {
+          if (typ === "RES") adjective = adjMapCS[chemie].F
+          else adjective = adjMapCS[chemie].M
+        }
+        baseName = adjective ? `${adjective.charAt(0).toUpperCase() + adjective.slice(1)} ${baseNoun}` : baseNoun
       }
-      baseName = adjective ? `${adjective.charAt(0).toUpperCase() + adjective.slice(1)} ${baseNoun}` : baseNoun
     } else {
-      adjective = adjMapEN[chemie] || ""
-      baseName = adjective ? `${adjective} ${baseNoun}` : baseNoun
+      if (typ === "HRD") {
+        const chemNounEN: Record<string, string> = {
+          EP: "epoxy",
+          VE: "vinyl ester",
+          PE: "polyester"
+        }
+        const chemStr = chemNounEN[chemie] || chemie.toLowerCase()
+        baseName = `Hardener for ${chemStr} resin`
+      } else {
+        adjective = adjMapEN[chemie] || ""
+        baseName = adjective ? `${adjective} ${baseNoun}` : baseNoun
+      }
     }
 
     const extraParts: string[] = []
