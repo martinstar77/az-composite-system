@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category') || 'all'
     const status = searchParams.get('status') || 'all'
     const search = searchParams.get('search') || ''
+    const lang = searchParams.get('lang') || 'cs'
 
     // 1. Fetch all necessary data on the server
     const [
@@ -48,11 +49,18 @@ export async function GET(request: NextRequest) {
         ? templatesList.find(t => t.id === primarySourcing.logisticka_sablona_id)
         : null
 
+      const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === product.zakladni_mj_id
+      const totalUnits = primarySourcing
+        ? ((primarySourcing.prevodni_pomer_na_zakladni && primarySourcing.prevodni_pomer_na_zakladni !== 1)
+            ? primarySourcing.prevodni_pomer_na_zakladni
+            : (isBuyingInBasicUnit ? 1 : (product.mnozstvi_v_baleni || 1)))
+        : 1
+
       const pricing = primarySourcing 
         ? calculateProductPricing(
             primarySourcing.nakupni_cena,
             primarySourcing.mena,
-            primarySourcing.prevodni_pomer_na_zakladni || 1,
+            totalUnits,
             product.hmotnost_baliku_kg || 0,
             product.clo_procenta,
             {
@@ -67,7 +75,10 @@ export async function GET(request: NextRequest) {
               delka: product.balik_delka_cm_override,
               sirka: product.balik_sirka_cm_override,
               vyska: product.balik_vyska_cm_override
-            }
+            },
+            undefined,
+            product.simulovana_velikost_objednavky || 1,
+            product.mnozstvi_v_baleni || 1
           )
         : null
 
@@ -78,6 +89,7 @@ export async function GET(request: NextRequest) {
     let filteredProducts = pricedProducts.filter(p => {
       const matchesSearch = 
         p.nazev.toLowerCase().includes(search.toLowerCase()) || 
+        (p.nazev_en && p.nazev_en.toLowerCase().includes(search.toLowerCase())) ||
         p.sku.toLowerCase().includes(search.toLowerCase())
       
       const matchesCategory = category === 'all' || p.kategorie_id === category
@@ -86,11 +98,11 @@ export async function GET(request: NextRequest) {
       return matchesSearch && matchesCategory && matchesStatus
     })
 
-    // 4. Sorting by name (Czech alphabet locale)
+    // 4. Sorting by name (locale dependent)
     filteredProducts.sort((a, b) => {
-      const valA = a.nazev || ''
-      const valB = b.nazev || ''
-      return valA.localeCompare(valB, 'cs')
+      const valA = lang === 'en' ? (a.nazev_en || a.nazev || '') : (a.nazev || '')
+      const valB = lang === 'en' ? (b.nazev_en || b.nazev || '') : (b.nazev || '')
+      return valA.localeCompare(valB, lang === 'en' ? 'en' : 'cs')
     })
 
     // 5. Target exchange rate calculation
@@ -111,15 +123,20 @@ export async function GET(request: NextRequest) {
         products: filteredProducts as any,
         tier: tier as any,
         targetCurrency: currency as any,
-        exchangeRate
+        exchangeRate,
+        lang: lang as any
       }) as any
     )
 
     // 7. Stream response as PDF
+    const filename = lang === 'cs'
+      ? `AZ_Composites_Katalog_${tier.toUpperCase()}_${currency}.pdf`
+      : `AZ_Composites_Catalog_${tier.toUpperCase()}_${currency}.pdf`
+
     return new Response(new Uint8Array(buffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="AZ_Composites_Katalog_${tier.toUpperCase()}_${currency}.pdf"`,
+        'Content-Disposition': `inline; filename="${filename}"`,
         'Cache-Control': 'no-store, max-age=0',
       },
     })

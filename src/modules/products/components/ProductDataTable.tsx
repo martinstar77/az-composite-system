@@ -946,7 +946,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
             <Settings2 className="h-4 w-4" /> Upravit logistiku
           </Button>
           <Button size="sm" onClick={() => setIsBulkSourcingOpen(true)} className="gap-2 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full">
-            <Building2 className="h-4 w-4" /> Přidat dodavatele
+            <Building2 className="h-4 w-4" /> Přiřadit / upravit dodavatele
           </Button>
           <Button size="sm" onClick={() => setIsSpeedPricingOpen(true)} className="gap-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 border border-yellow-500/30 rounded-full">
             <Zap className="h-4 w-4" /> Zadat ceny
@@ -986,6 +986,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
         open={isBulkSourcingOpen}
         onOpenChange={setIsBulkSourcingOpen}
         selectedProductIds={selectedProductIds}
+        selectedProducts={selectedRows.map(row => row.original)}
         suppliers={lookups.suppliers || []}
         templates={lookups.templates || []}
         units={lookups.units || []}

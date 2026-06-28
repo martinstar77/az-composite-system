@@ -36,6 +36,7 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
     retail: product.cilova_marze_retail_procenta || 30,
     partner: product.cilova_marze_partner_procenta || 20
   })
+  const [simulovanaVelikost, setSimulovanaVelikost] = useState<number>(product.simulovana_velikost_objednavky || 1)
   const activeSourcing = useMemo(() => sourcingData.filter(s => !s.deleted_at), [sourcingData])
   const primarySourcing = activeSourcing.find(s => s.is_primary) || activeSourcing[0]
   const hasPrimary = activeSourcing.some(s => s.is_primary)
@@ -44,11 +45,21 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
     ? templates.find(t => t.id === primarySourcing.logisticka_sablona_id)
     : null
 
+  const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === product.zakladni_mj_id
+  const isRatioFallbackUsed = !primarySourcing?.prevodni_pomer_na_zakladni || primarySourcing.prevodni_pomer_na_zakladni === 1
+  const totalUnits = primarySourcing
+    ? ((primarySourcing.prevodni_pomer_na_zakladni && primarySourcing.prevodni_pomer_na_zakladni !== 1)
+        ? primarySourcing.prevodni_pomer_na_zakladni
+        : (isBuyingInBasicUnit ? 1 : (product.mnozstvi_v_baleni || 1)))
+    : 1
+
+  const showRatioFallbackWarning = !!(primarySourcing && isRatioFallbackUsed && !isBuyingInBasicUnit && (product.mnozstvi_v_baleni || 1) > 1)
+
   const breakdown = primarySourcing 
     ? calculateProductPricing(
         primarySourcing.nakupni_cena,
         primarySourcing.mena,
-        primarySourcing.prevodni_pomer_na_zakladni || 1, // totalUnits
+        totalUnits, // totalUnits
         product.hmotnost_baliku_kg || 0,
         product.clo_procenta,
         {
@@ -63,7 +74,10 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
           delka: product.balik_delka_cm_override,
           sirka: product.balik_sirka_cm_override,
           vyska: product.balik_vyska_cm_override
-        }
+        },
+        undefined,
+        simulovanaVelikost,
+        product.mnozstvi_v_baleni || 1
       )
     : null
 
@@ -156,7 +170,7 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
   const handleSaveMargins = async () => {
     setIsSubmitting(true)
     try {
-      const { error } = await updateProductMargins(product.id, tempMargins)
+      const { error } = await updateProductMargins(product.id, tempMargins, simulovanaVelikost)
       if (error) throw error
       toast.success("Cílové marže a prodejní ceny byly upraveny", { description: "Změny byly uloženy a ceny překalkulovány." })
       setMargins(tempMargins)
@@ -165,6 +179,18 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
       toast.error("Chyba při úpravě marží", { description: e.message })
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleBlurSimulovanaVelikost = async () => {
+    if (simulovanaVelikost !== product.simulovana_velikost_objednavky) {
+      try {
+        const { error } = await updateProductMargins(product.id, margins, simulovanaVelikost)
+        if (error) throw error
+        toast.success("Simulovaná velikost objednávky byla uložena")
+      } catch (e: any) {
+        toast.error("Chyba při ukládání simulace", { description: e.message })
+      }
     }
   }
 
@@ -225,9 +251,16 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
             <p className="text-sm font-bold text-white">
               {primarySourcing.dodavatele?.nazev_spolecnosti} ({primarySourcing.nakupni_cena} {primarySourcing.mena} / {primarySourcing.c_merne_jednotky?.zkratka || 'MJ'})
             </p>
-            {parseFloat(primarySourcing.prevodni_pomer_na_zakladni) > 1 && (
-              <p className="text-xs text-zinc-400 mt-0.5">
-                Konverzní poměr: 1 {primarySourcing.c_merne_jednotky?.zkratka || 'bal.'} = {primarySourcing.prevodni_pomer_na_zakladni} {product.c_merne_jednotky_zakladni?.zkratka || 'ks'}
+            {totalUnits > 1 && (
+              <p className="text-xs text-zinc-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
+                <span>
+                  Konverzní poměr: 1 {primarySourcing.c_merne_jednotky?.zkratka || 'bal.'} = {totalUnits} {product.c_merne_jednotky_zakladni?.zkratka || 'ks'}
+                </span>
+                {showRatioFallbackWarning && (
+                  <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-amber-500/30 text-amber-400 bg-amber-500/5 font-medium animate-pulse">
+                    ⚠️ Použit fallback z balení produktu
+                  </Badge>
+                )}
               </p>
             )}
           </div>
@@ -246,6 +279,31 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
             </Badge>
           )}
         </div>
+      </div>
+
+      {/* Simulační parametry velikosti objednávky */}
+      <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-md">
+        <div className="space-y-1.5 w-full md:w-1/3">
+          <Label className="text-xs uppercase font-bold text-zinc-400 flex items-center gap-1.5">
+            Simulovaná velikost objednávky (dávka)
+          </Label>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              min="1"
+              value={simulovanaVelikost}
+              onChange={(e) => setSimulovanaVelikost(Math.max(1, parseInt(e.target.value) || 1))}
+              onBlur={handleBlurSimulovanaVelikost}
+              className="bg-zinc-900 border-zinc-800 text-xs text-white"
+            />
+            <span className="text-xs text-zinc-500 self-center shrink-0 font-mono">
+              {primarySourcing?.c_merne_jednotky?.zkratka || 'MJ'}
+            </span>
+          </div>
+        </div>
+        <p className="text-xs text-zinc-500 italic max-w-xl leading-relaxed">
+          Zadejte počet nákupních jednotek, které se posílají společně v jedné zásilce. Fixní logistické poplatky (SWIFT, proclení, odpady, balné) a celková hmotnost zásilky pro výpočet dopravy budou rozpočítány podle této velikosti objednávky.
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -498,7 +556,7 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
                             <Label className="text-zinc-500 text-[10px] uppercase font-bold">Marže %</Label>
                             <Input 
                               type="number" 
-                              step="0.1" 
+                              step="0.01" 
                               value={tempMargins.retail} 
                               onChange={(e) => handleRetailMarginChange(e.target.value)} 
                               className="bg-zinc-950 border-zinc-800 text-xs h-9 font-mono" 
@@ -525,7 +583,7 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
                             <Label className="text-zinc-500 text-[10px] uppercase font-bold">Marže %</Label>
                             <Input 
                               type="number" 
-                              step="0.1" 
+                              step="0.01" 
                               value={tempMargins.partner} 
                               onChange={(e) => handlePartnerMarginChange(e.target.value)} 
                               className="bg-zinc-950 border-zinc-800 text-xs h-9 font-mono" 
@@ -725,7 +783,7 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
                             <Label className="text-[10px] text-zinc-500">Sleva %</Label>
                             <Input 
                               type="number" 
-                              step="0.1" 
+                              step="0.01" 
                               value={b.sleva_procenta} 
                               onChange={(e) => {
                                 const copy = [...quantityBreaks]
@@ -803,7 +861,7 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
                             <Label className="text-[10px] text-zinc-500">Sleva %</Label>
                             <Input 
                               type="number" 
-                              step="0.1" 
+                              step="0.01" 
                               value={b.sleva_procenta} 
                               onChange={(e) => {
                                 const copy = [...quantityBreaks]

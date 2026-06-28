@@ -3,6 +3,7 @@ import { z } from "zod"
 export const productFormSchema = z.object({
   sku: z.string().min(2, { message: "SKU musí mít alespoň 2 znaky." }),
   nazev: z.string().min(3, { message: "Název musí mít alespoň 3 znaky." }),
+  nazev_en: z.string().optional().or(z.literal("")),
   
   // Relations
   kategorie_id: z.string().min(1, { message: "Vyberte kategorii." }),

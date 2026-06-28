@@ -92,12 +92,12 @@ const SCENARIO_PRESETS: Record<string, Record<string, any>> = {
       typ_vypoctu_dopravy_v2: "linear_czk",
       koeficient_a: 18.804,
       koeficient_b: 349.38,
-      poplatek_banka_czk: 190,
+      poplatek_banka_czk: 0,
       bezpecnostni_koeficient: 1.05
     },
     balik_dlouhy: {
       typ_vypoctu_dopravy_v2: "segmented_czk",
-      poplatek_banka_czk: 190,
+      poplatek_banka_czk: 0,
       bezpecnostni_koeficient: 1.05,
       segmenty_dopravy: [
         { od_kg: 0, do_kg: 46.9, a: 14.26, b: 718.45, dopravce: "UPS Economy" },
@@ -109,7 +109,7 @@ const SCENARIO_PRESETS: Record<string, Record<string, any>> = {
   CZ: {
     balik_dlouhy: {
       typ_vypoctu_dopravy_v2: "segmented_czk",
-      poplatek_banka_czk: 190,
+      poplatek_banka_czk: 0,
       bezpecnostni_koeficient: 1.05,
       segmenty_dopravy: [
         { od_kg: 0, do_kg: 30.9, a: 2.5374, b: 138.79, dopravce: "GLS/DPD" },
@@ -121,7 +121,7 @@ const SCENARIO_PRESETS: Record<string, Record<string, any>> = {
   DE: {
     balik_standard: {
       typ_vypoctu_dopravy_v2: "segmented_czk",
-      poplatek_banka_czk: 190,
+      poplatek_banka_czk: 0,
       bezpecnostni_koeficient: 1.05,
       segmenty_dopravy: [
         { od_kg: 0, do_kg: 30.9, a: 15.771, b: 216.52, dopravce: "GLS" },
@@ -130,7 +130,7 @@ const SCENARIO_PRESETS: Record<string, Record<string, any>> = {
     },
     balik_dlouhy: {
       typ_vypoctu_dopravy_v2: "segmented_czk",
-      poplatek_banka_czk: 190,
+      poplatek_banka_czk: 0,
       bezpecnostni_koeficient: 1.05,
       segmenty_dopravy: [
         { od_kg: 0, do_kg: 30.9, a: 15.16, b: 229.56, dopravce: "GLS" },
@@ -142,14 +142,14 @@ const SCENARIO_PRESETS: Record<string, Record<string, any>> = {
       typ_vypoctu_dopravy_v2: "pallet_alloc",
       pallet_cena_eur: 225.02,
       pallet_pocet_produktu: 30,
-      poplatek_banka_czk: 190,
+      poplatek_banka_czk: 0,
       bezpecnostni_koeficient: 1.05
     }
   },
   PL: {
     balik_standard: {
       typ_vypoctu_dopravy_v2: "segmented_czk",
-      poplatek_banka_czk: 190,
+      poplatek_banka_czk: 0,
       bezpecnostni_koeficient: 1.05,
       segmenty_dopravy: [
         { od_kg: 0, do_kg: 30.9, a: 14.039, b: 153.3, dopravce: "GLS" },
@@ -159,14 +159,14 @@ const SCENARIO_PRESETS: Record<string, Record<string, any>> = {
     sacek_lq: {
       typ_vypoctu_dopravy_v2: "fixed_eur",
       fixni_cena_eur: 50.00,
-      poplatek_banka_czk: 190,
+      poplatek_banka_czk: 0,
       bezpecnostni_koeficient: 1.05
     }
   },
   NL: {
     balik_standard: {
       typ_vypoctu_dopravy_v2: "segmented_czk",
-      poplatek_banka_czk: 190,
+      poplatek_banka_czk: 0,
       bezpecnostni_koeficient: 1.05,
       segmenty_dopravy: [
         { od_kg: 0, do_kg: 30.9, a: 18.929, b: 245.81, dopravce: "GLS" },
@@ -179,14 +179,14 @@ const SCENARIO_PRESETS: Record<string, Record<string, any>> = {
       typ_vypoctu_dopravy_v2: "pallet_alloc",
       pallet_cena_eur: 225.02,
       pallet_pocet_produktu: 30,
-      poplatek_banka_czk: 190,
+      poplatek_banka_czk: 0,
       bezpecnostni_koeficient: 1.05
     }
   },
   FR: {
     balik_standard: {
       typ_vypoctu_dopravy_v2: "segmented_czk",
-      poplatek_banka_czk: 190,
+      poplatek_banka_czk: 0,
       bezpecnostni_koeficient: 1.05,
       segmenty_dopravy: [
         { od_kg: 0, do_kg: 30.9, a: 15.771, b: 216.52, dopravce: "GLS" },
@@ -197,7 +197,7 @@ const SCENARIO_PRESETS: Record<string, Record<string, any>> = {
       typ_vypoctu_dopravy_v2: "pallet_alloc",
       pallet_cena_eur: 225.02,
       pallet_pocet_produktu: 30,
-      poplatek_banka_czk: 190,
+      poplatek_banka_czk: 0,
       bezpecnostni_koeficient: 1.05
     }
   }

@@ -220,7 +220,7 @@ export async function getLatestRates(): Promise<{ data: ExchangeRate[] | null, e
     .from('historie_kurzu')
     .select('*')
     .eq('datum', recentDate.datum)
-    .in('mena', ['EUR', 'USD', 'GBP', 'CNY']) // Main currencies for AZ Composite
+    .in('mena', ['EUR', 'USD', 'GBP', 'CNY', 'PLN']) // Main currencies for AZ Composite
   
   return { data, error }
 }

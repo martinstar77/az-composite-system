@@ -63,12 +63,21 @@ export async function login(formData: FormData) {
 
   if (error) {
     console.error("Login failed:", error.message)
-    await logLoginAttempt(email, false, ip)
+    try {
+      await logLoginAttempt(email, false, ip)
+    } catch (logErr) {
+      console.error('[Security] Failed to log login attempt:', logErr)
+    }
     redirect('/login?message=Chybné jméno nebo heslo')
   }
 
   // Log successful login to clear failures count
-  await logLoginAttempt(email, true, ip)
+  try {
+    await logLoginAttempt(email, true, ip)
+  } catch (logErr) {
+    console.error('[Security] Failed to log successful login attempt:', logErr)
+    // Non-critical – user is authenticated, proceed with redirect
+  }
 
   revalidatePath('/', 'layout')
   redirect('/')

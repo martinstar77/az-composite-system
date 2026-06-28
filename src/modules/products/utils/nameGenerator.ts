@@ -1,10 +1,33 @@
 export function generateProductName(
   specs: any, 
   categoryId: string, 
-  fiberCodes?: Array<{ id: string, nazev: string }>
+  fiberCodes?: Array<{ id: string, nazev: string }>,
+  lang: 'cs' | 'en' = 'cs'
 ): string {
+  const isCs = lang === 'cs';
+
   if (categoryId === 'vyztuzne_materialy') {
-    const materialMap: Record<string, string> = {
+    const materialMapCS: Record<string, string> = {
+      CF: "Uhlíková",
+      GF: "Skelná",
+      AF: "Aramidová",
+      BIOF: "Bio lněná",
+      BIOH: "Bio konopná",
+      PAN: "Polyakrylonitrilová",
+      PET: "Polyesterová (PET)",
+      OF: "Ostatní",
+    }
+    const materialMapHybridCS: Record<string, string> = {
+      CF: "uhlík",
+      GF: "sklo",
+      AF: "aramid",
+      BIOF: "bio len",
+      BIOH: "bio konopí",
+      PAN: "polyakrylonitril",
+      PET: "PET",
+      OF: "ostatní",
+    }
+    const materialMapEN: Record<string, string> = {
       CF: "Carbon",
       GF: "Glass",
       AF: "Aramid",
@@ -15,14 +38,31 @@ export function generateProductName(
       OF: "Other",
     }
 
-    const formMap: Record<string, string> = {
+    const formMapCS: Record<string, string> = {
+      WF: "tkanina",
+      UD: "UD páska",
+      BIAX: "biaxiální tkanina",
+      MAT: "rohož"
+    }
+    const formMapEN: Record<string, string> = {
       WF: "Fibre Fabric",
       UD: "UD Tape",
       BIAX: "Biaxial Fabric",
       MAT: "Fibre Mat"
     }
 
-    const weaveMap: Record<string, string> = {
+    const weaveMapCS: Record<string, string> = {
+      P: "plátno",
+      T22: "kepr 2/2",
+      T44: "kepr 4/4",
+      NP: "vpichovaná",
+      EM: "emulzní",
+      PB: "prášková",
+      ST: "šitá",
+      "090": "0/90°",
+      "45": "±45°"
+    }
+    const weaveMapEN: Record<string, string> = {
       P: "Plain",
       T22: "Twill 2/2",
       T44: "Twill 4/4",
@@ -55,7 +95,12 @@ export function generateProductName(
       return staticMap[codeId.toLowerCase()] || codeId.toUpperCase()
     }
 
-    const useMap: Record<string, string> = {
+    const useMapCS: Record<string, string> = {
+      E: "Ekonomická",
+      V: "Pohledová",
+      I: "Průmyslová"
+    }
+    const useMapEN: Record<string, string> = {
       E: "Economy",
       V: "Visual",
       I: "Industry"
@@ -66,15 +111,28 @@ export function generateProductName(
     if (specs.materiál === "HF") {
       const mat1Key = specs.material1 || (specs.materiál_složení && specs.materiál_složení[0]) || ""
       const mat2Key = specs.material2 || (specs.materiál_složení && specs.materiál_složení[1]) || ""
-      const mat1 = materialMap[mat1Key] || ""
-      const mat2 = materialMap[mat2Key] || ""
-      materialStr = mat1 && mat2 ? `${mat1} / ${mat2} Hybrid` : "Hybrid"
+      if (isCs) {
+        const mat1 = materialMapHybridCS[mat1Key] || ""
+        const mat2 = materialMapHybridCS[mat2Key] || ""
+        materialStr = mat1 && mat2 ? `Hybridní (${mat1} / ${mat2})` : "Hybridní"
+      } else {
+        const mat1 = materialMapEN[mat1Key] || ""
+        const mat2 = materialMapEN[mat2Key] || ""
+        materialStr = mat1 && mat2 ? `${mat1} / ${mat2} Hybrid` : "Hybrid"
+      }
     } else {
-      materialStr = materialMap[specs.materiál] || ""
+      materialStr = isCs ? (materialMapCS[specs.materiál] || "") : (materialMapEN[specs.materiál] || "")
     }
 
-    const formStr = formMap[specs.typ] || "Fabric"
-    const baseName = materialStr ? `${materialStr} ${formStr}` : formStr
+    const formStr = isCs ? (formMapCS[specs.typ] || "tkanina") : (formMapEN[specs.typ] || "Fabric")
+    
+    // Capitalize first letter of baseName in CS if it starts with lowercase
+    let baseName = ""
+    if (isCs) {
+      baseName = materialStr ? `${materialStr} ${formStr}` : (formStr.charAt(0).toUpperCase() + formStr.slice(1))
+    } else {
+      baseName = materialStr ? `${materialStr} ${formStr}` : formStr
+    }
 
     // 2. Grammage
     const weightStr = specs.gramáž ? `${specs.gramáž}g/m2` : ""
@@ -99,7 +157,7 @@ export function generateProductName(
 
     // 4. Weave
     const weaveStr = (specs.vazba && specs.vazba.toUpperCase() !== "NA")
-      ? (weaveMap[specs.vazba] || specs.vazba)
+      ? (isCs ? (weaveMapCS[specs.vazba] || specs.vazba) : (weaveMapEN[specs.vazba] || specs.vazba))
       : ""
 
     // 5. Width in cm
@@ -116,7 +174,7 @@ export function generateProductName(
     }
 
     // 7. Quality Tier
-    const useStr = useMap[specs.použití] || ""
+    const useStr = isCs ? (useMapCS[specs.použití] || "") : (useMapEN[specs.použití] || "")
 
     // Join sections before separator
     const nameParts = [baseName, weightStr, towStr, weaveStr, widthStr].filter(Boolean)
@@ -135,27 +193,45 @@ export function generateProductName(
     const sub = specs.podkategorie
     switch (sub) {
       case 'BF': {
-        const formatMap: Record<string, string> = {
+        const formatMapCS: Record<string, string> = {
           TUBE: "tubus",
           SHT: "plochá",
           VSHT: "V-sklad",
           GSC: "harmonika"
         }
-        const formatStr = formatMap[specs.format] || specs.format || ""
+        const formatMapEN: Record<string, string> = {
+          TUBE: "tube",
+          SHT: "flat sheet",
+          VSHT: "V-fold",
+          GSC: "gusseted tube"
+        }
+        const formatStr = isCs 
+          ? (formatMapCS[specs.format] || specs.format || "")
+          : (formatMapEN[specs.format] || specs.format || "")
         const thickStr = specs.tloustka_um ? `${specs.tloustka_um}µm` : ""
         const tempStr = specs.teplotni_odolnost || ""
         const widthStr = specs.sirka_cm ? `${specs.sirka_cm}cm` : ""
-        return ["Vakuová fólie", formatStr, thickStr, tempStr, widthStr].filter(Boolean).join(" ")
+        const baseName = isCs ? "Vakuová fólie" : "Vacuum bagging film"
+        return [baseName, formatStr, thickStr, tempStr, widthStr].filter(Boolean).join(" ")
       }
       case 'RF': {
-        const perfMap: Record<string, string> = {
+        const perfMapCS: Record<string, string> = {
           NP: "neperforovaná",
           P3: "perforovaná P3",
           P6: "perforovaná P6",
           P16: "perforovaná P16",
           P31: "perforovaná P31"
         }
-        const perfStr = perfMap[specs.perforace] || specs.perforace || ""
+        const perfMapEN: Record<string, string> = {
+          NP: "non-perforated",
+          P3: "perforated P3",
+          P6: "perforated P6",
+          P16: "perforated P16",
+          P31: "perforated P31"
+        }
+        const perfStr = isCs
+          ? (perfMapCS[specs.perforace] || specs.perforace || "")
+          : (perfMapEN[specs.perforace] || specs.perforace || "")
         const thickStr = specs.tloustka_um ? `${specs.tloustka_um}µm` : ""
         const tempMap: Record<string, string> = {
           LT: "LT",
@@ -171,100 +247,153 @@ export function generateProductName(
         }
         const tempStr = tempMap[specs.teplotni_odolnost] || specs.teplotni_odolnost || ""
         const widthStr = specs.sirka_cm ? `${specs.sirka_cm}cm` : ""
-        return ["Separační fólie", perfStr, thickStr, tempStr, widthStr].filter(Boolean).join(" ")
+        const baseName = isCs ? "Separační fólie" : "Release film"
+        return [baseName, perfStr, thickStr, tempStr, widthStr].filter(Boolean).join(" ")
       }
       case 'PP': {
-        const polyMap: Record<string, string> = {
+        const polyMapCS: Record<string, string> = {
           PE: "polyester",
           PA66: "nylon"
         }
-        const polyStr = polyMap[specs.polymer] || specs.polymer || ""
+        const polyMapEN: Record<string, string> = {
+          PE: "polyester",
+          PA66: "nylon"
+        }
+        const polyStr = isCs
+          ? (polyMapCS[specs.polymer] || specs.polymer || "")
+          : (polyMapEN[specs.polymer] || specs.polymer || "")
         const weightStr = specs.gramaz_gm2 ? `${specs.gramaz_gm2}g/m2` : ""
         const widthStr = specs.sirka_cm ? `${specs.sirka_cm}cm` : ""
-        return ["Strhávací tkanina", polyStr, weightStr, widthStr].filter(Boolean).join(" ")
+        const baseName = isCs ? "Strhávací tkanina" : "Peel ply"
+        return [baseName, polyStr, weightStr, widthStr].filter(Boolean).join(" ")
       }
       case 'PP-PTFE': {
-        const adhStr = specs.je_lepici === true ? "samolepicí" : "nesamolepicí"
+        const adhStr = isCs
+          ? (specs.je_lepici === true ? "samolepicí" : "nesamolepicí")
+          : (specs.je_lepici === true ? "self-adhesive" : "non-adhesive")
         const thickStr = specs.tloustka_um ? `${specs.tloustka_um}µm` : ""
         const widthStr = specs.sirka_cm ? `${specs.sirka_cm}cm` : ""
-        return ["Teflonová strhávací tkanina", adhStr, thickStr, widthStr].filter(Boolean).join(" ")
+        const baseName = isCs ? "Teflonová strhávací tkanina" : "PTFE coated peel ply"
+        return [baseName, adhStr, thickStr, widthStr].filter(Boolean).join(" ")
       }
       case 'BC': {
         const weightStr = specs.gramaz_gm2 ? `${specs.gramaz_gm2}g/m2` : ""
         const widthStr = specs.sirka_cm ? `${specs.sirka_cm}cm` : ""
-        return ["Odsávací netkaná textilie", weightStr, widthStr].filter(Boolean).join(" ")
+        const baseName = isCs ? "Odsávací netkaná textilie" : "Breather/bleeder felt"
+        return [baseName, weightStr, widthStr].filter(Boolean).join(" ")
       }
       case 'ST': {
         const tempStr = specs.teplotni_odolnost_c ? `${specs.teplotni_odolnost_c}°C` : ""
         const widthStr = specs.sirka_mm ? `${specs.sirka_mm}mm` : ""
-        return ["Těsnicí páska", tempStr, widthStr].filter(Boolean).join(" ")
+        const baseName = isCs ? "Těsnicí páska" : "Sealant tape"
+        return [baseName, tempStr, widthStr].filter(Boolean).join(" ")
       }
       case 'FT': {
         const widthStr = specs.sirka_mm ? `${specs.sirka_mm}mm` : ""
         const tempStr = specs.teplotni_odolnost || ""
-        return ["Lepicí páska Flash tape", widthStr, tempStr].filter(Boolean).join(" ")
+        const baseName = isCs ? "Lepicí páska Flash tape" : "Flash tape adhesive tape"
+        return [baseName, widthStr, tempStr].filter(Boolean).join(" ")
       }
       case 'FM': {
-        const typeMap: Record<string, string> = {
+        const typeMapCS: Record<string, string> = {
           EXT: "extrudovaná",
           WVN: "tkaná"
         }
-        const colorMap: Record<string, string> = {
+        const typeMapEN: Record<string, string> = {
+          EXT: "extruded",
+          WVN: "woven"
+        }
+        const colorMapCS: Record<string, string> = {
           CLR: "čirá",
           BLK: "černá",
           RED: "červená",
           GRN: "zelená"
         }
-        const speedMap: Record<string, string> = {
+        const colorMapEN: Record<string, string> = {
+          CLR: "clear",
+          BLK: "black",
+          RED: "red",
+          GRN: "green"
+        }
+        const speedMapCS: Record<string, string> = {
           low: "nízká rychlost",
           medium: "střední rychlost",
           high: "vysoká rychlost"
         }
-        const typeStr = typeMap[specs.typ_vyroby] || ""
+        const speedMapEN: Record<string, string> = {
+          low: "low flow speed",
+          medium: "medium flow speed",
+          high: "high flow speed"
+        }
+        const typeStr = isCs ? (typeMapCS[specs.typ_vyroby] || "") : (typeMapEN[specs.typ_vyroby] || "")
         const matStr = specs.material || ""
-        const speedStr = speedMap[specs.rychlost_proudeni] || specs.rychlost_proudeni || ""
-        const colorStr = colorMap[specs.barva] || ""
+        const speedStr = isCs 
+          ? (speedMapCS[specs.rychlost_proudeni] || specs.rychlost_proudeni || "")
+          : (speedMapEN[specs.rychlost_proudeni] || specs.rychlost_proudeni || "")
+        const colorStr = isCs ? (colorMapCS[specs.barva] || "") : (colorMapEN[specs.barva] || "")
         const widthStr = specs.sirka_cm ? `${specs.sirka_cm}cm` : ""
-        return ["Distribuční síťka", typeStr, matStr, speedStr, colorStr, widthStr].filter(Boolean).join(" ")
+        const baseName = isCs ? "Distribuční síťka" : "Resin distribution mesh"
+        return [baseName, typeStr, matStr, speedStr, colorStr, widthStr].filter(Boolean).join(" ")
       }
       case 'FCH': {
-        const subMap: Record<string, string> = {
+        const subMapCS: Record<string, string> = {
           TAPE: "páskový",
           SPRL: "spirálový",
           OMEGA: "omega profil",
           TUBE: "hadice",
           TTUBE: "hadice"
         }
-        const subStr = subMap[specs.podtyp_fch] || ""
+        const subMapEN: Record<string, string> = {
+          TAPE: "flat tape style",
+          SPRL: "spiral",
+          OMEGA: "omega profile",
+          TUBE: "tube",
+          TTUBE: "tube"
+        }
+        const subStr = isCs 
+          ? (subMapCS[specs.podtyp_fch] || "")
+          : (subMapEN[specs.podtyp_fch] || "")
         let dimStr = ""
         if (specs.podtyp_fch === "TAPE") {
           dimStr = specs.sirka_mm && specs.vyska_mm ? `${specs.sirka_mm}x${specs.vyska_mm}mm` : ""
-        } else if (specs.podtyp_fch === "SPRL") {
-          dimStr = specs.vnitrni_prumer_mm ? `vnitřní průměr ${specs.vnitrni_prumer_mm}mm` : ""
-        } else if (specs.podtyp_fch === "OMEGA") {
-          dimStr = specs.vnitrni_prumer_mm ? `vnitřní průměr ${specs.vnitrni_prumer_mm}mm` : ""
-        } else if (specs.podtyp_fch === "TUBE" || specs.podtyp_fch === "TTUBE") {
-          dimStr = specs.vnitrni_prumer_mm ? `vnitřní průměr ${specs.vnitrni_prumer_mm}mm` : ""
+        } else {
+          if (specs.vnitrni_prumer_mm) {
+            dimStr = isCs 
+              ? `vnitřní průměr ${specs.vnitrni_prumer_mm}mm`
+              : `inner diameter ${specs.vnitrni_prumer_mm}mm`
+          }
         }
-
-        return ["Distribuční kanálek", subStr, dimStr].filter(Boolean).join(" ")
+        const baseName = isCs ? "Distribuční kanálek" : "Resin distribution channel"
+        return [baseName, subStr, dimStr].filter(Boolean).join(" ")
       }
       case 'TUBE': {
         const matStr = specs.material || ""
-        const diaStr = specs.vnitrni_prumer_mm ? `vnitřní průměr ${specs.vnitrni_prumer_mm}mm` : ""
+        let diaStr = ""
+        if (specs.vnitrni_prumer_mm) {
+          diaStr = isCs
+            ? `vnitřní průměr ${specs.vnitrni_prumer_mm}mm`
+            : `inner diameter ${specs.vnitrni_prumer_mm}mm`
+        }
         let tempStr = ""
         if (specs.teplotni_odolnost) {
           const match = String(specs.teplotni_odolnost).match(/\d+/)
           if (match) {
-            tempStr = `do ${match[0]}°C`
+            tempStr = isCs ? `do ${match[0]}°C` : `up to ${match[0]}°C`
           }
         }
-        return ["Hadice", matStr, diaStr, tempStr].filter(Boolean).join(" ")
+        const baseName = isCs ? "Hadice" : "Hose"
+        return [baseName, matStr, diaStr, tempStr].filter(Boolean).join(" ")
       }
       case 'K': {
-        const tvarStr = specs.tvar ? `tvar ${specs.tvar}` : ""
-        const diaStr = specs.vnejsi_prumer_mm ? `vnější průměr ${specs.vnejsi_prumer_mm}mm` : ""
-        return ["Konektor", tvarStr, diaStr].filter(Boolean).join(" ")
+        const tvarStr = specs.tvar ? (isCs ? `tvar ${specs.tvar}` : `shape ${specs.tvar}`) : ""
+        let diaStr = ""
+        if (specs.vnejsi_prumer_mm) {
+          diaStr = isCs
+            ? `vnější průměr ${specs.vnejsi_prumer_mm}mm`
+            : `outer diameter ${specs.vnejsi_prumer_mm}mm`
+        }
+        const baseName = isCs ? "Konektor" : "Connector"
+        return [baseName, tvarStr, diaStr].filter(Boolean).join(" ")
       }
       case 'MTI': {
         const typ = specs.typ_mti || ""
@@ -282,13 +411,19 @@ export function generateProductName(
         return baseName
       }
       case 'KP': {
-        const tvarMap: Record<string, string> = {
+        const tvarMapCS: Record<string, string> = {
           T: "T-kus",
           O: "kruhový"
         }
-        const tvarStr = tvarMap[specs.tvar] || ""
+        const tvarMapEN: Record<string, string> = {
+          T: "T-piece",
+          O: "circular"
+        }
+        const tvarStr = isCs ? (tvarMapCS[specs.tvar] || "") : (tvarMapEN[specs.tvar] || "")
+        const matStr = isCs ? "plast" : "plastic"
         const diaStr = specs.prumer_mm ? `${specs.prumer_mm}mm` : ""
-        return ["Konektor průchodný", tvarStr, "plast", diaStr].filter(Boolean).join(" ")
+        const baseName = isCs ? "Konektor průchodný" : "Through-connector"
+        return [baseName, tvarStr, matStr, diaStr].filter(Boolean).join(" ")
       }
     }
   }
@@ -298,33 +433,48 @@ export function generateProductName(
     switch (sub) {
       case 'BU': {
         const diaStr = specs.prumer_mm ? `${specs.prumer_mm}mm` : ""
-        return ["Vakuová průchodka", "kov", diaStr].filter(Boolean).join(" ")
+        const matStr = isCs ? "kov" : "metal"
+        const baseName = isCs ? "Vakuová průchodka" : "Vacuum breach/feedthrough"
+        return [baseName, matStr, diaStr].filter(Boolean).join(" ")
       }
       case 'QR': {
-        const typMap: Record<string, string> = {
+        const typMapCS: Record<string, string> = {
           PLUG: "vsuvka",
           SOCKET: "samice"
         }
-        const matMap: Record<string, string> = {
+        const typMapEN: Record<string, string> = {
+          PLUG: "plug (male)",
+          SOCKET: "socket (female)"
+        }
+        const matMapCS: Record<string, string> = {
           BRS: "mosaz",
           STL: "ocel",
           SS: "nerez"
         }
-        const typStr = typMap[specs.typ_pripojeni] || ""
-        const matStr = matMap[specs.material] || ""
-        return ["Rychlospojka", typStr, matStr].filter(Boolean).join(" ")
+        const matMapEN: Record<string, string> = {
+          BRS: "brass",
+          STL: "steel",
+          SS: "stainless steel"
+        }
+        const typStr = isCs ? (typMapCS[specs.typ_pripojeni] || "") : (typMapEN[specs.typ_pripojeni] || "")
+        const matStr = isCs ? (matMapCS[specs.material] || "") : (matMapEN[specs.material] || "")
+        const baseName = isCs ? "Rychlospojka" : "Quick coupling"
+        return [baseName, typStr, matStr].filter(Boolean).join(" ")
       }
       case 'SQ': {
         const diaStr = specs.prumer_mm ? `${specs.prumer_mm}mm` : ""
-        return ["Škrtící svorka", diaStr].filter(Boolean).join(" ")
+        const baseName = isCs ? "Škrtící svorka" : "Hose pinch clamp"
+        return [baseName, diaStr].filter(Boolean).join(" ")
       }
       case 'V': {
         const idStr = specs.identifikator ? `– ${specs.identifikator}` : ""
-        return ["Vakuometr", idStr].filter(Boolean).join(" ")
+        const baseName = isCs ? "Vakuometr" : "Vacuum gauge"
+        return [baseName, idStr].filter(Boolean).join(" ")
       }
       case 'CU': {
         const objemStr = specs.objem_l ? `, ${specs.objem_l} l` : ""
-        return `Mycí stanice RST5${objemStr}`
+        const baseName = isCs ? "Mycí stanice RST5" : "RST5 Cleaning station"
+        return `${baseName}${objemStr}`
       }
       case 'SU': {
         return "Spinner unit Spin RST5"
@@ -333,20 +483,32 @@ export function generateProductName(
   }
 
   if (categoryId === 'lepidla') {
-    const chemMap: Record<string, string> = {
+    const chemMapCS: Record<string, string> = {
       EP: "epoxidové",
       PU: "polyuretanové",
       MMA: "akrylátové (MMA)"
     }
-    const colorMap: Record<string, string> = {
+    const chemMapEN: Record<string, string> = {
+      EP: "epoxy",
+      PU: "polyurethane",
+      MMA: "acrylic (MMA)"
+    }
+    const colorMapCS: Record<string, string> = {
       black: "černé",
       grey: "šedé",
       white: "bílé",
       clear: "čiré",
       "off-white": "krémové (off-white)"
     }
-    const chemStr = chemMap[specs.chemie] || specs.chemie || ""
-    const colorStr = colorMap[specs.barva] || specs.barva || ""
+    const colorMapEN: Record<string, string> = {
+      black: "black",
+      grey: "grey",
+      white: "white",
+      clear: "clear",
+      "off-white": "off-white"
+    }
+    const chemStr = isCs ? (chemMapCS[specs.chemie] || specs.chemie || "") : (chemMapEN[specs.chemie] || specs.chemie || "")
+    const colorStr = isCs ? (colorMapCS[specs.barva] || specs.barva || "") : (colorMapEN[specs.barva] || specs.barva || "")
     const openTimeStr = specs.open_time_min ? `${specs.open_time_min} min` : ""
     const volumeStr = specs.objem || ""
     
@@ -363,8 +525,9 @@ export function generateProductName(
     const colorChar = colorCharMap[specs.barva] || ""
     const codeSuffix = chemCode && openTimeVal && colorChar ? `(${chemCode}${openTimeVal}${colorChar})` : ""
     
+    const prefix = isCs ? `Lepidlo ${chemStr}` : `${chemStr.charAt(0).toUpperCase() + chemStr.slice(1)} adhesive`
     const parts = [
-      `Lepidlo ${chemStr}`.trim(),
+      prefix.trim(),
       colorStr,
       codeSuffix
     ].filter(Boolean).join(" ")
@@ -374,49 +537,76 @@ export function generateProductName(
   }
   
   if (categoryId === 'pryskyrice') {
-    const typeLabelMap: Record<string, string> = {
+    const typeLabelMapCS: Record<string, string> = {
       RES: "pryskyřice",
       HRD: "tužidlo",
       GEL: "gelcoat",
       COP: "coupling coat",
       FIL: "tmel"
     }
+    const typeLabelMapEN: Record<string, string> = {
+      RES: "resin",
+      HRD: "hardener",
+      GEL: "gelcoat",
+      COP: "coupling coat",
+      FIL: "filler"
+    }
 
-    const adjMap: Record<string, { F: string; M: string; N: string }> = {
+    const adjMapCS: Record<string, { F: string; M: string; N: string }> = {
       EP: { F: "epoxidová", M: "epoxidový", N: "epoxidové" },
       VE: { F: "vinylesterová", M: "vinylesterový", N: "vinylesterové" },
       PE: { F: "polyesterová", M: "polyesterový", N: "polyesterové" }
+    }
+    const adjMapEN: Record<string, string> = {
+      EP: "Epoxy",
+      VE: "Vinyl ester",
+      PE: "Polyester"
     }
 
     const typ = specs.typ || ""
     const chemie = specs.chemie || ""
     const pouziti = specs.pouziti || ""
 
-    const baseNoun = typeLabelMap[typ] || typ
+    const baseNoun = isCs ? (typeLabelMapCS[typ] || typ) : (typeLabelMapEN[typ] || typ)
     let adjective = ""
-    if (adjMap[chemie]) {
-      if (typ === "RES") adjective = adjMap[chemie].F
-      else if (typ === "HRD") adjective = adjMap[chemie].N
-      else adjective = adjMap[chemie].M
+    let baseName = ""
+    
+    if (isCs) {
+      if (adjMapCS[chemie]) {
+        if (typ === "RES") adjective = adjMapCS[chemie].F
+        else if (typ === "HRD") adjective = adjMapCS[chemie].N
+        else adjective = adjMapCS[chemie].M
+      }
+      baseName = adjective ? `${adjective.charAt(0).toUpperCase() + adjective.slice(1)} ${baseNoun}` : baseNoun
+    } else {
+      adjective = adjMapEN[chemie] || ""
+      baseName = adjective ? `${adjective} ${baseNoun}` : baseNoun
     }
 
-    const baseName = adjective ? `${adjective.charAt(0).toUpperCase() + adjective.slice(1)} ${baseNoun}` : baseNoun
     const extraParts: string[] = []
 
     if (typ === "COP" || typ === "GEL" || typ === "FIL") {
-      const techMap: Record<string, string> = {
+      const techMapCS: Record<string, string> = {
         INF: "pro infuzi",
         WL: "pro ruční laminaci"
       }
-      const techStr = techMap[specs.technologie] || ""
+      const techMapEN: Record<string, string> = {
+        INF: "for infusion",
+        WL: "for hand lay-up"
+      }
+      const techStr = isCs ? (techMapCS[specs.technologie] || "") : (techMapEN[specs.technologie] || "")
       if (techStr) extraParts.push(techStr)
     }
 
-    const useMap: Record<string, string> = {
+    const useMapCS: Record<string, string> = {
       FOR: "na formy",
       DIL: "na díly"
     }
-    const useStr = useMap[pouziti] || ""
+    const useMapEN: Record<string, string> = {
+      FOR: "for molds",
+      DIL: "for parts"
+    }
+    const useStr = isCs ? (useMapCS[pouziti] || "") : (useMapEN[pouziti] || "")
     if (useStr) extraParts.push(useStr)
 
     let fullName = [baseName, ...extraParts].filter(Boolean).join(" ")
@@ -432,16 +622,27 @@ export function generateProductName(
     const sub = specs.podkategorie || "standard"
     if (sub === 'pmp') {
       const qty = specs.mnozstvi || ""
-      return `Čistič PMP liquid, ${qty}`.trim().replace(/,\s*$/, '')
+      const baseName = isCs ? "Čistič PMP liquid" : "Cleaner PMP liquid"
+      return `${baseName}, ${qty}`.trim().replace(/,\s*$/, '')
     }
 
-    const typeLabelMap: Record<string, string> = {
+    const typeLabelMapCS: Record<string, string> = {
       WIP: "Čisticí ubrousky",
       CON: "Čisticí koncentrát",
       SPR: "Čisticí sprej"
     }
-    const unitMap: Record<string, string> = {
+    const typeLabelMapEN: Record<string, string> = {
+      WIP: "Cleaning wipes",
+      CON: "Cleaning concentrate",
+      SPR: "Cleaning spray"
+    }
+    const unitMapCS: Record<string, string> = {
       WIP: "ks",
+      CON: "l",
+      SPR: "ml"
+    }
+    const unitMapEN: Record<string, string> = {
+      WIP: "pcs",
       CON: "l",
       SPR: "ml"
     }
@@ -450,8 +651,8 @@ export function generateProductName(
     const brand = specs.značka || specs.znacka || ""
     const qty = specs.mnozstvi || specs.množství || ""
 
-    const typeLabel = typeLabelMap[typ] || "Čistič"
-    const unit = unitMap[typ] || ""
+    const typeLabel = isCs ? (typeLabelMapCS[typ] || "Čistič") : (typeLabelMapEN[typ] || "Cleaner")
+    const unit = isCs ? (unitMapCS[typ] || "") : (unitMapEN[typ] || "")
 
     let qtyStr = ""
     if (qty) {
@@ -463,28 +664,45 @@ export function generateProductName(
 
   if (categoryId === 'chemie') {
     const sub = specs.podkategorie
-    const chemieMap: Record<string, string> = {
+    const chemieMapCS: Record<string, string> = {
       waterbased: "na vodní bázi",
       solvent: "rozpouštědlový"
     }
-    const vlastnostMap: Record<string, string> = {
+    const chemieMapEN: Record<string, string> = {
+      waterbased: "water-based",
+      solvent: "solvent-based"
+    }
+    const vlastnostMapCS: Record<string, string> = {
       visual: "pohledové",
       industry: "nepohledové",
       HS: "High Slip",
       LS: "Low Slip",
       EP: "Easy Paint"
     }
+    const vlastnostMapEN: Record<string, string> = {
+      visual: "cosmetic",
+      industry: "industrial",
+      HS: "High Slip",
+      LS: "Low Slip",
+      EP: "Easy Paint"
+    }
 
-    const subNameMap: Record<string, string> = {
+    const subNameMapCS: Record<string, string> = {
       lepidlo_ve_spreji: "Lepidlo ve spreji",
-      blinder: "Blinder",
+      blinder: "Binder",
       plnic_poru_sealer: "Plnič pórů / Sealer",
       separatory_release_agent: "Separátor / Release agent"
     }
+    const subNameMapEN: Record<string, string> = {
+      lepidlo_ve_spreji: "Spray adhesive",
+      blinder: "Binder",
+      plnic_poru_sealer: "Pore sealer / filler",
+      separatory_release_agent: "Release agent"
+    }
 
-    const baseName = subNameMap[sub] || "Chemie"
-    const chemieStr = chemieMap[specs.chemie] || ""
-    const vlastnostStr = vlastnostMap[specs.vlastnost] || ""
+    const baseName = isCs ? (subNameMapCS[sub] || "Chemie") : (subNameMapEN[sub] || "Chemicals")
+    const chemieStr = isCs ? (chemieMapCS[specs.chemie] || "") : (chemieMapEN[specs.chemie] || "")
+    const vlastnostStr = isCs ? (vlastnostMapCS[specs.vlastnost] || "") : (vlastnostMapEN[specs.vlastnost] || "")
     const objemStr = specs.objem || ""
 
     if (sub === 'lepidlo_ve_spreji') {
@@ -501,84 +719,132 @@ export function generateProductName(
   if (categoryId === 'brouseni_a_lesteni') {
     const sub = specs.podkategorie
     if (sub === 'vosk') {
-      const waxNameMap: Record<string, string> = {
+      const waxNameMap = {
         uv_shield: "UV shield",
         flash_touch: "Flash Touch"
       }
-      const stateMap: Record<string, string> = {
+      const stateMapCS = {
         tekuty_vosk: "tekutý vosk",
         pasta: "pasta"
       }
-      const waxName = waxNameMap[specs.nazev_vosku] || specs.nazev_vosku || ""
-      const stateStr = stateMap[specs.skupenstvi] || specs.skupenstvi || ""
+      const stateMapEN = {
+        tekuty_vosk: "liquid wax",
+        pasta: "paste"
+      }
+      const waxName = (waxNameMap as any)[specs.nazev_vosku] || specs.nazev_vosku || ""
+      const stateStr = isCs ? ((stateMapCS as any)[specs.skupenstvi] || specs.skupenstvi || "") : ((stateMapEN as any)[specs.skupenstvi] || specs.skupenstvi || "")
       const qtyStr = specs.mnozstvi || ""
-      return [`Vosk ${waxName} ${stateStr}`.trim(), qtyStr].filter(Boolean).join(", ")
+      const baseName = isCs ? "Vosk" : "Wax"
+      return [`${baseName} ${waxName} ${stateStr}`.trim(), qtyStr].filter(Boolean).join(", ")
     }
 
     if (sub === 'pasty') {
-      const contMap: Record<string, string> = {
+      const contMapCS = {
         CAN: "plechovka",
         BOT: "láhev"
       }
-      const contStr = contMap[specs.obal] || specs.obal || ""
+      const contMapEN = {
+        CAN: "can",
+        BOT: "bottle"
+      }
+      const contStr = isCs ? ((contMapCS as any)[specs.obal] || specs.obal || "") : ((contMapEN as any)[specs.obal] || specs.obal || "")
 
-      const typeMap: Record<string, string> = {
+      const typeMap = {
         rex: "Rex",
         perla15: "Perla 15",
         top_finish_3: "Top Finish 3"
       }
-      const colorMap: Record<string, string> = {
+      const colorMapCS = {
         white: "bílá",
         black: "černá"
       }
-      const pasteType = typeMap[specs.typ] || specs.typ || ""
-      const colorStr = colorMap[specs.barva] || ""
+      const colorMapEN = {
+        white: "white",
+        black: "black"
+      }
+      const pasteType = (typeMap as any)[specs.typ] || specs.typ || ""
+      const colorStr = isCs ? ((colorMapCS as any)[specs.barva] || "") : ((colorMapEN as any)[specs.barva] || "")
       const weightStr = specs.hmotnost || ""
 
       const typeAndColor = [pasteType, colorStr].filter(Boolean).join(" ")
-      const prefix = (specs.typ === 'rex' || specs.typ === 'perla15') ? "Brusná pasta" : "Lešticí pasta"
+      let prefix = ""
+      if (isCs) {
+        prefix = (specs.typ === 'rex' || specs.typ === 'perla15') ? "Brusná pasta" : "Lešticí pasta"
+      } else {
+        prefix = (specs.typ === 'rex' || specs.typ === 'perla15') ? "Abrasive compound" : "Polishing compound"
+      }
       return [`${prefix} ${typeAndColor}`.trim(), contStr, weightStr].filter(Boolean).join(", ")
     } else if (sub === 'brusne_kotouce') {
-      const discTypeMap: Record<string, string> = {
+      const discTypeMapCS = {
         vlneny: "vlněný",
         pena: "pěnový"
       }
-      const pasteNameMap: Record<string, string> = {
+      const discTypeMapEN = {
+        vlneny: "wool",
+        pena: "foam"
+      }
+      const pasteNameMap = {
         ST1: "Rex",
         ST1Y: "Rex",
         SL3: "Perla 15"
       }
-      const discTypeStr = discTypeMap[specs.typ_kotouce] || specs.typ_kotouce || ""
+      const discTypeStr = isCs ? ((discTypeMapCS as any)[specs.typ_kotouce] || specs.typ_kotouce || "") : ((discTypeMapEN as any)[specs.typ_kotouce] || specs.typ_kotouce || "")
       const code = specs.kod_kotouce || ""
       const prumer = specs.prumer ? `D${specs.prumer}` : ""
 
       if (specs.typ_kotouce === 'vlneny') {
         if (code === 'UNI') {
-          return `Brusný kotouč vlněný koule universal ${prumer}`.trim()
+          return isCs
+            ? `Brusný kotouč vlněný koule universal ${prumer}`.trim()
+            : `Wool universal ball buffing pad ${prumer}`.trim()
         }
-        const assocPaste = pasteNameMap[code] || ""
-        const assocPart = assocPaste ? ` pro ${assocPaste}` : ""
-        return `Brusný kotouč ${discTypeStr} ${code}${assocPart} ${prumer}`.trim()
+        const assocPaste = (pasteNameMap as any)[code] || ""
+        if (isCs) {
+          const assocPart = assocPaste ? ` pro ${assocPaste}` : ""
+          return `Brusný kotouč vlněný ${code}${assocPart} ${prumer}`.trim()
+        } else {
+          const assocPart = assocPaste ? ` for ${assocPaste}` : ""
+          return `Wool buffing pad ${code}${assocPart} ${prumer}`.trim()
+        }
       } else if (specs.typ_kotouce === 'pena') {
-        return `Brusný kotouč ${discTypeStr} ${code} ${prumer}`.trim()
+        return isCs
+          ? `Brusný kotouč pěnový ${code} ${prumer}`.trim()
+          : `Foam buffing pad ${code} ${prumer}`.trim()
       }
-      return `Brusný kotouč ${discTypeStr} ${prumer}`.trim()
+      return isCs
+        ? `Brusný kotouč ${discTypeStr} ${prumer}`.trim()
+        : `${discTypeStr.charAt(0).toUpperCase() + discTypeStr.slice(1)} buffing pad ${prumer}`.trim()
     } else if (sub === 'prislusenstvi') {
-      const typeMap: Record<string, string> = {
+      const typeMap = {
         backplate: "Backplate"
       }
-      const propMap: Record<string, string> = {
+      const propMapCS = {
         rigid: "rigidní",
         flexible: "flexibilní"
       }
-      const accType = typeMap[specs.typ_prislusenstvi] || specs.typ_prislusenstvi || ""
-      const propStr = propMap[specs.vlastnost] || specs.vlastnost || ""
+      const propMapEN = {
+        rigid: "rigid",
+        flexible: "flexible"
+      }
+      const accType = (typeMap as any)[specs.typ_prislusenstvi] || specs.typ_prislusenstvi || ""
+      const propStr = isCs ? ((propMapCS as any)[specs.vlastnost] || specs.vlastnost || "") : ((propMapEN as any)[specs.vlastnost] || specs.vlastnost || "")
       const prumer = specs.prumer ? `D${specs.prumer}` : ""
 
       return `${accType} ${propStr} ${prumer}`.trim()
     }
-    return "Broušení a leštění"
+    return isCs ? "Broušení a leštění" : "Sanding and polishing"
   }
 
   return ""
+}
+
+export function generateProductNames(
+  specs: any,
+  categoryId: string,
+  fiberCodes?: Array<{ id: string, nazev: string }>
+): { cs: string; en: string } {
+  return {
+    cs: generateProductName(specs, categoryId, fiberCodes, 'cs'),
+    en: generateProductName(specs, categoryId, fiberCodes, 'en')
+  }
 }

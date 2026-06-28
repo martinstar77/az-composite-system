@@ -12,7 +12,7 @@ export async function getProducts(): Promise<{ data: Product[] | null, error: an
     .from('produkty')
     .select(`
       *,
-      c_kategorie ( nazev ),
+      c_kategorie ( nazev, nazev_en ),
       c_merne_jednotky_zakladni:zakladni_mj_id ( nazev, zkratka ),
       c_merne_jednotky_baleni:jednotka_baleni_id ( nazev, zkratka ),
       c_procesy_odeslani ( nazev ),
@@ -22,6 +22,7 @@ export async function getProducts(): Promise<{ data: Product[] | null, error: an
       vytvoril:vytvoril_id ( jmeno ),
       upravil:upravil_id ( jmeno ),
       produkt_dodavatel (
+        dodavatel_id,
         nakupni_cena,
         mena,
         is_primary,
@@ -71,7 +72,7 @@ export async function getProductsPaged({
     .from('produkty')
     .select(`
       *,
-      c_kategorie ( nazev ),
+      c_kategorie ( nazev, nazev_en ),
       c_merne_jednotky_zakladni:zakladni_mj_id ( nazev, zkratka ),
       c_merne_jednotky_baleni:jednotka_baleni_id ( nazev, zkratka ),
       c_procesy_odeslani ( nazev ),
@@ -81,6 +82,7 @@ export async function getProductsPaged({
       vytvoril:vytvoril_id ( jmeno ),
       upravil:upravil_id ( jmeno ),
       produkt_dodavatel (
+        dodavatel_id,
         nakupni_cena,
         mena,
         is_primary,
@@ -153,7 +155,7 @@ export async function getProduct(id: string): Promise<{ data: Product | null, er
     .from('produkty')
     .select(`
       *,
-      c_kategorie ( nazev ),
+      c_kategorie ( nazev, nazev_en ),
       c_merne_jednotky_zakladni:zakladni_mj_id ( nazev, zkratka ),
       c_merne_jednotky_baleni:jednotka_baleni_id ( nazev, zkratka ),
       c_procesy_odeslani ( nazev ),
@@ -185,6 +187,7 @@ export async function createProduct(formData: ProductFormValues) {
   const dbPayload = {
     sku: formData.sku,
     nazev: formData.nazev,
+    nazev_en: formData.nazev_en || null,
     kategorie_id: formData.kategorie_id,
     zakladni_mj_id: formData.zakladni_mj_id,
     mnozstvi_v_baleni: formData.mnozstvi_v_baleni,
@@ -210,6 +213,8 @@ export async function createProduct(formData: ProductFormValues) {
     balik_delka_cm_override: formData.balik_delka_cm_override || null,
     balik_sirka_cm_override: formData.balik_sirka_cm_override || null,
     balik_vyska_cm_override: formData.balik_vyska_cm_override || null,
+
+    is_name_generated: formData.is_name_generated,
 
     vytvoril_id: user?.id,
     upravil_id: user?.id
@@ -239,6 +244,7 @@ export async function updateProduct(id: string, formData: ProductFormValues) {
   const dbPayload = {
     sku: formData.sku,
     nazev: formData.nazev,
+    nazev_en: formData.nazev_en || null,
     kategorie_id: formData.kategorie_id,
     zakladni_mj_id: formData.zakladni_mj_id,
     mnozstvi_v_baleni: formData.mnozstvi_v_baleni,
@@ -265,6 +271,8 @@ export async function updateProduct(id: string, formData: ProductFormValues) {
     balik_sirka_cm_override: formData.balik_sirka_cm_override || null,
     balik_vyska_cm_override: formData.balik_vyska_cm_override || null,
 
+    is_name_generated: formData.is_name_generated,
+
     upravil_id: user?.id,
     aktualizovano_at: new Date().toISOString()
   }
@@ -278,7 +286,7 @@ export async function updateProduct(id: string, formData: ProductFormValues) {
   return { data, error }
 }
 
-export async function updateProductMargins(id: string, margins: { retail: number, partner: number }) {
+export async function updateProductMargins(id: string, margins: { retail: number, partner: number }, simulovanaVelikostObjednavky?: number) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -287,6 +295,7 @@ export async function updateProductMargins(id: string, margins: { retail: number
     .update({
       cilova_marze_retail_procenta: margins.retail,
       cilova_marze_partner_procenta: margins.partner,
+      simulovana_velikost_objednavky: simulovanaVelikostObjednavky,
       upravil_id: user?.id,
       aktualizovano_at: new Date().toISOString()
     })
@@ -388,6 +397,7 @@ export async function cloneProduct(id: string) {
       vytvoril:vytvoril_id ( jmeno ),
       upravil:upravil_id ( jmeno ),
       produkt_dodavatel (
+        dodavatel_id,
         nakupni_cena,
         mena,
         is_primary,
@@ -515,10 +525,10 @@ export async function bulkUpsertSupplierToProducts(
   productIds: string[],
   supplierData: {
     dodavatel_id: string
-    mena: string
+    mena?: string | null
     logisticka_sablona_id?: string | null
     nakupni_mj_id?: string | null
-    prevodni_pomer_na_zakladni?: number
+    prevodni_pomer_na_zakladni?: number | null
     is_primary: boolean
   }
 ): Promise<{ inserted: number; updated: number; error: any }> {
@@ -530,8 +540,9 @@ export async function bulkUpsertSupplierToProducts(
   let updated = 0
   let lastError: any = null
 
-  // Pokud nastavujeme jako primárního, odinstalujeme is_primary u ostatních
-  if (supplierData.is_primary) {
+  // Pokud nastavujeme jako primárního a přiřazujeme konkrétního nového dodavatele,
+  // odinstalujeme is_primary u ostatních.
+  if (supplierData.is_primary && supplierData.dodavatel_id !== 'keep_primary') {
     await supabase
       .from('produkt_dodavatel')
       .update({ is_primary: false })
@@ -539,60 +550,98 @@ export async function bulkUpsertSupplierToProducts(
       .is('deleted_at', null)
   }
 
-  // Načteme existující aktivní záznamy pro kombinaci produkty × dodavatel
-  const { data: existingRecords } = await supabase
-    .from('produkt_dodavatel')
-    .select('id, produkt_id, nakupni_cena')
-    .in('produkt_id', productIds)
-    .eq('dodavatel_id', supplierData.dodavatel_id)
-    .is('deleted_at', null)
+  if (supplierData.dodavatel_id === 'keep_primary') {
+    // UPDATE existujících primárních dodavatelů u produktů
+    const { data: primaryRecords } = await supabase
+      .from('produkt_dodavatel')
+      .select('*')
+      .in('produkt_id', productIds)
+      .eq('is_primary', true)
+      .is('deleted_at', null)
 
-  const existingByProduct = new Map(
-    (existingRecords || []).map(r => [r.produkt_id, r])
-  )
+    const primaryByProduct = new Map(
+      (primaryRecords || []).map(r => [r.produkt_id, r])
+    )
 
-  for (const productId of productIds) {
-    const existing = existingByProduct.get(productId)
-
-    if (existing) {
-      // UPDATE — pouze logistika + podmínky, cenu zachováváme
-      const { error } = await supabase
-        .from('produkt_dodavatel')
-        .update({
-          logisticka_sablona_id: supplierData.logisticka_sablona_id ?? null,
-          nakupni_mj_id: supplierData.nakupni_mj_id ?? null,
-          prevodni_pomer_na_zakladni: supplierData.prevodni_pomer_na_zakladni ?? 1,
-          is_primary: supplierData.is_primary,
-          mena: supplierData.mena,
+    for (const productId of productIds) {
+      const existing = primaryByProduct.get(productId)
+      if (existing) {
+        const updatePayload: Record<string, any> = {
           upravil_id: user?.id,
           aktualizovano_at: now
-        })
-        .eq('id', existing.id)
+        }
+        if (supplierData.mena !== undefined) updatePayload.mena = supplierData.mena
+        if (supplierData.logisticka_sablona_id !== undefined) updatePayload.logisticka_sablona_id = supplierData.logisticka_sablona_id
+        if (supplierData.nakupni_mj_id !== undefined) updatePayload.nakupni_mj_id = supplierData.nakupni_mj_id
+        if (supplierData.prevodni_pomer_na_zakladni !== undefined) updatePayload.prevodni_pomer_na_zakladni = supplierData.prevodni_pomer_na_zakladni
 
-      if (error) lastError = error
-      else updated++
-    } else {
-      // INSERT — nový záznam bez ceny (nakupni_cena = 0, doplní Speed Pricing)
-      const { error } = await supabase
-        .from('produkt_dodavatel')
-        .insert({
-          produkt_id: productId,
-          dodavatel_id: supplierData.dodavatel_id,
-          nakupni_cena: 0,
-          mena: supplierData.mena,
-          moq: 1,
+        const { error } = await supabase
+          .from('produkt_dodavatel')
+          .update(updatePayload)
+          .eq('id', existing.id)
+
+        if (error) lastError = error
+        else updated++
+      }
+    }
+  } else {
+    // Původní chování pro konkrétního dodavatele
+    const { data: existingRecords } = await supabase
+      .from('produkt_dodavatel')
+      .select('id, produkt_id, nakupni_cena')
+      .in('produkt_id', productIds)
+      .eq('dodavatel_id', supplierData.dodavatel_id)
+      .is('deleted_at', null)
+
+    const existingByProduct = new Map(
+      (existingRecords || []).map(r => [r.produkt_id, r])
+    )
+
+    for (const productId of productIds) {
+      const existing = existingByProduct.get(productId)
+
+      if (existing) {
+        // UPDATE — pouze logistika + podmínky, cenu zachováváme
+        const updatePayload: Record<string, any> = {
           is_primary: supplierData.is_primary,
-          logisticka_sablona_id: supplierData.logisticka_sablona_id ?? null,
-          nakupni_mj_id: supplierData.nakupni_mj_id ?? null,
-          prevodni_pomer_na_zakladni: supplierData.prevodni_pomer_na_zakladni ?? 1,
-          vytvoril_id: user?.id,
           upravil_id: user?.id,
-          vytvoreno_at: now,
           aktualizovano_at: now
-        })
+        }
+        if (supplierData.mena !== undefined) updatePayload.mena = supplierData.mena
+        if (supplierData.logisticka_sablona_id !== undefined) updatePayload.logisticka_sablona_id = supplierData.logisticka_sablona_id
+        if (supplierData.nakupni_mj_id !== undefined) updatePayload.nakupni_mj_id = supplierData.nakupni_mj_id
+        if (supplierData.prevodni_pomer_na_zakladni !== undefined) updatePayload.prevodni_pomer_na_zakladni = supplierData.prevodni_pomer_na_zakladni
 
-      if (error) lastError = error
-      else inserted++
+        const { error } = await supabase
+          .from('produkt_dodavatel')
+          .update(updatePayload)
+          .eq('id', existing.id)
+
+        if (error) lastError = error
+        else updated++
+      } else {
+        // INSERT — nový záznam bez ceny (nakupni_cena = 0, doplní Speed Pricing)
+        const { error } = await supabase
+          .from('produkt_dodavatel')
+          .insert({
+            produkt_id: productId,
+            dodavatel_id: supplierData.dodavatel_id,
+            nakupni_cena: 0,
+            mena: supplierData.mena || 'EUR',
+            moq: 1,
+            is_primary: supplierData.is_primary,
+            logisticka_sablona_id: supplierData.logisticka_sablona_id ?? null,
+            nakupni_mj_id: supplierData.nakupni_mj_id ?? null,
+            prevodni_pomer_na_zakladni: supplierData.prevodni_pomer_na_zakladni ?? 1,
+            vytvoril_id: user?.id,
+            upravil_id: user?.id,
+            vytvoreno_at: now,
+            aktualizovano_at: now
+          })
+
+        if (error) lastError = error
+        else inserted++
+      }
     }
   }
 
@@ -764,4 +813,48 @@ export async function getCategoryFacets(categoryId: string, search?: string): Pr
   })
 
   return { data: formattedData, error: null }
+}
+
+export async function bulkRegenerateProductNames(): Promise<{ success: boolean, updatedCount?: number, error?: any }> {
+  const supabase = await createClient()
+  
+  const { data: fiberCodes } = await supabase.from('c_kody_vlakna').select('id, nazev')
+  const codes = fiberCodes || []
+
+  const { data: products, error } = await supabase
+    .from('produkty')
+    .select('id, sku, kategorie_id, specifikace, is_name_generated')
+    .is('deleted_at', null)
+    .eq('is_name_generated', true)
+  
+  if (error) {
+    return { success: false, error }
+  }
+  if (!products || products.length === 0) {
+    return { success: true, updatedCount: 0 }
+  }
+
+  const { generateProductNames } = await import('../utils/nameGenerator')
+  
+  let updatedCount = 0
+  
+  for (const product of products) {
+    const names = generateProductNames(product.specifikace, product.kategorie_id, codes)
+    
+    const { error: updateError } = await supabase
+      .from('produkty')
+      .update({
+        nazev: names.cs,
+        nazev_en: names.en
+      })
+      .eq('id', product.id)
+    
+    if (!updateError) {
+      updatedCount++
+    }
+  }
+
+  revalidatePath('/produkty')
+  revalidatePath('/katalogy')
+  return { success: true, updatedCount }
 }

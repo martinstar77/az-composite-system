@@ -61,7 +61,7 @@ export function SpeedPricingDrawer({ open, onOpenChange, products, onComplete, u
     }
   }, [open])
 
-  // Prefill ceny a měny z aktuálního produktu
+  // Prefill ceny a měny z aktuálního produktu s fallbackem z balení
   useEffect(() => {
     if (!currentProduct) return
     const primarySourcing =
@@ -70,12 +70,22 @@ export function SpeedPricingDrawer({ open, onOpenChange, products, onComplete, u
 
     if (primarySourcing) {
       const existingPrice = primarySourcing.nakupni_cena
-      const ratioStr = primarySourcing.prevodni_pomer_na_zakladni?.toString() || "1"
+      
+      // Fallback z fyzického balení produktu
+      const isBuyingInBasicUnit = primarySourcing.nakupni_mj_id === currentProduct.zakladni_mj_id
+      const fallbackUnitId = primarySourcing.nakupni_mj_id || currentProduct.jednotka_baleni_id || ""
+      
+      const hasExplicitRatio = primarySourcing.prevodni_pomer_na_zakladni && primarySourcing.prevodni_pomer_na_zakladni !== 1
+      const fallbackRatio = (hasExplicitRatio
+        ? primarySourcing.prevodni_pomer_na_zakladni
+        : (isBuyingInBasicUnit ? 1 : (currentProduct.mnozstvi_v_baleni || 1))) ?? 1
+
+      const ratioStr = fallbackRatio.toString()
       const priceStr = existingPrice > 0 ? existingPrice.toString() : ""
 
       setPrice(priceStr)
       setMena(primarySourcing.mena || "EUR")
-      setNakupniMjId(primarySourcing.nakupni_mj_id || "")
+      setNakupniMjId(fallbackUnitId)
       setPrevodniPomer(ratioStr)
       setPriceInputMode("package")
 
@@ -83,10 +93,11 @@ export function SpeedPricingDrawer({ open, onOpenChange, products, onComplete, u
       const pr = parseFloat(priceStr) || 0
       setUnitPrice((pr / ratio).toFixed(4).replace(/\.?0+$/, ""))
     } else {
+      // Fallback pro produkt bez sourcingu (pokud by nastal)
       setPrice("")
       setMena("EUR")
-      setNakupniMjId("")
-      setPrevodniPomer("1")
+      setNakupniMjId(currentProduct.jednotka_baleni_id || "")
+      setPrevodniPomer((currentProduct.mnozstvi_v_baleni || 1).toString())
       setPriceInputMode("package")
       setUnitPrice("")
     }
@@ -229,6 +240,14 @@ export function SpeedPricingDrawer({ open, onOpenChange, products, onComplete, u
     currentProduct?.produkt_dodavatel?.find(s => s.is_primary) ||
     currentProduct?.produkt_dodavatel?.[0]
 
+  const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === currentProduct?.zakladni_mj_id
+  const isMatchingProductPackaging = !!(currentProduct &&
+    nakupniMjId === currentProduct.jednotka_baleni_id &&
+    parseFloat(prevodniPomer) === (currentProduct.mnozstvi_v_baleni || 1))
+  const isFallbackUsedInSourcing = !!(primarySourcing &&
+    (!primarySourcing.nakupni_mj_id || !primarySourcing.prevodni_pomer_na_zakladni || primarySourcing.prevodni_pomer_na_zakladni === 1) &&
+    !isBuyingInBasicUnit)
+
   // Orientační kalkulace B2C / B2B (bez dopravy/cla — to je na detailu)
   const parsedPrice = parseFloat(price) || 0
   const retail = currentProduct?.cilova_marze_retail_procenta || 30
@@ -322,6 +341,29 @@ export function SpeedPricingDrawer({ open, onOpenChange, products, onComplete, u
               </p>
             )}
           </div>
+
+          {/* Fyzické balení produktu */}
+          {currentProduct && (
+            <div className="p-3.5 bg-zinc-900 border border-zinc-850 rounded-xl text-xs space-y-1.5 shadow-sm">
+              <span className="text-zinc-500 uppercase font-bold text-[9px] tracking-wider block">
+                Fyzické balení v katalogu
+              </span>
+              <div className="flex justify-between text-zinc-400">
+                <span>Základní prodejní jednotka:</span>
+                <span className="text-zinc-200 font-medium">
+                  {currentProduct.c_merne_jednotky_zakladni?.nazev || "Kus"} ({currentProduct.c_merne_jednotky_zakladni?.zkratka || "ks"})
+                </span>
+              </div>
+              {currentProduct.mnozstvi_v_baleni && (
+                <div className="flex justify-between text-zinc-400">
+                  <span>Množství v balení:</span>
+                  <span className="text-zinc-200 font-medium">
+                    {currentProduct.mnozstvi_v_baleni} {currentProduct.c_merne_jednotky_zakladni?.zkratka || "ks"} / {currentProduct.c_merne_jednotky_baleni?.zkratka || units.find(u => u.id === currentProduct.jednotka_baleni_id)?.zkratka || "bal"}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Cenový input */}
           <div className="space-y-4">
@@ -451,9 +493,20 @@ export function SpeedPricingDrawer({ open, onOpenChange, products, onComplete, u
               </div>
             </div>
             {nakupniMjId && parseFloat(prevodniPomer) > 0 && (
-              <p className="text-[10px] text-zinc-500 italic">
-                * 1 {units.find(u => u.id === nakupniMjId)?.zkratka || "bal"} = {prevodniPomer} {currentProduct?.c_merne_jednotky_zakladni?.zkratka || "ks"}
-              </p>
+              <div className="flex items-center justify-between text-[10px] text-zinc-500 italic">
+                <span>
+                  * 1 {units.find(u => u.id === nakupniMjId)?.zkratka || "bal"} = {prevodniPomer} {currentProduct?.c_merne_jednotky_zakladni?.zkratka || "ks"}
+                </span>
+                {isMatchingProductPackaging ? (
+                  <span className="text-emerald-500 flex items-center gap-0.5 font-semibold not-italic">
+                    ✓ Shoduje se s balením
+                  </span>
+                ) : isFallbackUsedInSourcing ? (
+                  <span className="text-amber-500 flex items-center gap-0.5 font-semibold not-italic">
+                    ⚠️ Použit fallback z balení
+                  </span>
+                ) : null}
+              </div>
             )}
 
             <p className="text-[10px] text-zinc-600 flex items-center gap-1 pt-1">

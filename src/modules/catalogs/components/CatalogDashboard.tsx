@@ -33,12 +33,14 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
   const [searchTerm, setSearchTerm] = useState("")
   const [exportTier, setExportTier] = useState<"retail" | "partner" | "partner_5" | "partner_10" | "partner_15" | "partner_20">("partner")
   const [exportCurrency, setExportCurrency] = useState<"CZK" | "EUR" | "USD">("EUR")
+  const [exportLang, setExportLang] = useState<"cs" | "en">("cs")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [sortField, setSortField] = useState<"nazev" | "sku" | "kategorie" | "landed_cost" | null>("nazev")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   
   const [isGeneratingExcel, setIsGeneratingExcel] = useState(false)
+  const [isRegenerating, setIsRegenerating] = useState(false)
 
   // Zpracování dat a výpočet všech cen v reálném čase
   const pricedProducts = useMemo<PricedProduct[]>(() => {
@@ -48,11 +50,18 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
         ? templates.find(t => t.id === primarySourcing.logisticka_sablona_id)
         : null
 
+      const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === product.zakladni_mj_id
+      const totalUnits = primarySourcing
+        ? ((primarySourcing.prevodni_pomer_na_zakladni && primarySourcing.prevodni_pomer_na_zakladni !== 1)
+            ? primarySourcing.prevodni_pomer_na_zakladni
+            : (isBuyingInBasicUnit ? 1 : (product.mnozstvi_v_baleni || 1)))
+        : 1
+
       const pricing = primarySourcing 
         ? calculateProductPricing(
             primarySourcing.nakupni_cena,
             primarySourcing.mena,
-            primarySourcing.prevodni_pomer_na_zakladni || 1,
+            totalUnits,
             product.hmotnost_baliku_kg || 0,
             product.clo_procenta,
             {
@@ -67,7 +76,10 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
               delka: product.balik_delka_cm_override,
               sirka: product.balik_sirka_cm_override,
               vyska: product.balik_vyska_cm_override
-            }
+            },
+            undefined,
+            product.simulovana_velikost_objednavky || 1,
+            product.mnozstvi_v_baleni || 1
           )
         : null
 
@@ -172,7 +184,7 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
     setIsGeneratingExcel(true);
     try {
       const exchangeRate = getTargetExchangeRate();
-      exportCatalogToExcel(filteredProducts, exportTier, exportCurrency, exchangeRate);
+      exportCatalogToExcel(filteredProducts, exportTier, exportCurrency, exchangeRate, exportLang);
       toast.success("Excel ceník byl úspěšně vygenerován.");
     } catch (e: any) {
       toast.error("Chyba při generování Excelu", { description: e.message });
@@ -183,11 +195,32 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
 
   const handleGeneratePDF = () => {
     try {
-      const url = `/api/katalogy/pdf?tier=${exportTier}&currency=${exportCurrency}&category=${categoryFilter}&status=${statusFilter}&search=${encodeURIComponent(searchTerm)}`
+      const url = `/api/katalogy/pdf?tier=${exportTier}&currency=${exportCurrency}&category=${categoryFilter}&status=${statusFilter}&lang=${exportLang}&search=${encodeURIComponent(searchTerm)}`
       window.open(url, '_blank')
       toast.success("PDF katalog se otevírá v nové záložce.")
     } catch (e: any) {
       toast.error("Chyba při otevírání PDF", { description: e.message })
+    }
+  }
+
+  const handleBulkRegenerate = async () => {
+    if (!window.confirm("Opravdu chcete hromadně přegenerovat názvy u všech produktů s automatickým generováním? Všechny české názvy budou přeloženy do češtiny (např. Carbon -> Uhlíková) a anglické názvy budou vygenerovány v EN.")) {
+      return
+    }
+    setIsRegenerating(true)
+    try {
+      const { bulkRegenerateProductNames } = await import("@/modules/products/actions")
+      const res = await bulkRegenerateProductNames()
+      if (res.success) {
+        toast.success(`Úspěšně aktualizováno ${res.updatedCount} produktů.`)
+        window.location.reload()
+      } else {
+        toast.error("Chyba při přegenerování názvů", { description: res.error?.message })
+      }
+    } catch (e: any) {
+      toast.error("Chyba při volání akce", { description: e.message })
+    } finally {
+      setIsRegenerating(false)
     }
   }
 
@@ -479,6 +512,19 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-2 col-span-2">
+              <Label>Jazyk katalogu</Label>
+              <Select value={exportLang} onValueChange={(val: any) => setExportLang(val)}>
+                <SelectTrigger className="bg-zinc-900 border-zinc-800">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-950 border-zinc-800">
+                  <SelectItem value="cs">Čeština (CS)</SelectItem>
+                  <SelectItem value="en">English (EN)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="pt-6 border-t border-zinc-800 flex gap-4">
@@ -502,6 +548,18 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
           <p className="text-center text-[10px] text-zinc-500">
             Export obsahuje pouze viditelná (vyfiltrovaná) data z tabulky. Vyfiltrujte kategorii výše pro specifický ceník.
           </p>
+          
+          <div className="pt-6 border-t border-zinc-900 flex justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkRegenerate}
+              disabled={isRegenerating}
+              className="text-[10px] text-zinc-500 hover:text-zinc-200 border-zinc-800"
+            >
+              {isRegenerating ? "Přegeneruji názvy..." : "Administrace: Hromadně přegenerovat názvy produktů (CS/EN)"}
+            </Button>
+          </div>
         </div>
       </TabsContent>
     </Tabs>

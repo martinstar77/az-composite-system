@@ -79,13 +79,17 @@ export function calculateProductPricing(
   template?: LogisticsTemplate | null,
   baliciProfil?: BaliciProfil | null,
   balikOverrides?: { delka?: number | null, sirka?: number | null, vyska?: number | null } | null,
-  boxSizesList?: StandardBoxSize[]
+  boxSizesList?: StandardBoxSize[],
+  orderQuantity?: number,
+  packSize?: number
 ): PricingBreakdown | null {
   if (totalUnits <= 0) totalUnits = 1 // Prevent division by zero
+  const qty = orderQuantity && orderQuantity > 0 ? orderQuantity : 1
+  const unitsInPack = packSize && packSize > 0 ? packSize : totalUnits
 
-  // 1. Resolve packaging dimensions and billedWeight
+  // 1. Resolve packaging dimensions and billedWeight for the whole shipment
   const packDims = resolvePackageDimensions(
-    weightKg,
+    weightKg * qty,
     baliciProfil || null,
     balikOverrides || {},
     boxSizesList
@@ -127,15 +131,19 @@ export function calculateProductPricing(
   let swiftRoklenFeeCzk = 0
   let swiftOurFeeCzk = 0
 
+  const EU_COUNTRIES = ['CZ', 'SK', 'PL', 'DE', 'AT', 'IT', 'FR', 'ES', 'NL', 'BE', 'DK', 'FI', 'GR', 'IE', 'PT', 'SE', 'HU', 'HR', 'BG', 'RO', 'LT', 'LV', 'EE', 'SI', 'LU', 'CY', 'MT']
+  const zemePuvodu = template?.zeme_puvodu?.toUpperCase()
+  const isEU = zemePuvodu ? EU_COUNTRIES.includes(zemePuvodu) : false
+
   if (currency !== 'CZK') {
-    let priceInEur = purchasingUnitPrice
+    let priceInEur = purchasingUnitPrice * qty
     if (currency === 'USD') {
-      priceInEur = (purchasingUnitPrice * usdRate) / eurRate
+      priceInEur = (purchasingUnitPrice * qty * usdRate) / eurRate
     } else if (currency !== 'EUR') {
-      priceInEur = (purchasingUnitPrice * rate) / eurRate
+      priceInEur = (purchasingUnitPrice * qty * rate) / eurRate
     }
 
-    // Determine Roklen Margin Tier
+    // Determine Roklen Margin Tier based on shipment total
     if (priceInEur <= 1000) {
       roklenMargin = 0.0048
     } else if (priceInEur <= 5000) {
@@ -148,16 +156,21 @@ export function calculateProductPricing(
       roklenMargin = 0.0008
     }
 
-    // Determine SWIFT Fees
-    if (priceInEur < 1000) {
-      swiftRoklenFeeCzk = 190
-      swiftOurFeeCzk = 0
-    } else if (priceInEur <= 4000) {
+    // Determine SWIFT Fees (exempt if in EU)
+    if (isEU) {
       swiftRoklenFeeCzk = 0
-      swiftOurFeeCzk = 0.30 * purchasingUnitPrice
+      swiftOurFeeCzk = 0
     } else {
-      swiftRoklenFeeCzk = 0
-      swiftOurFeeCzk = 0
+      if (priceInEur < 1000) {
+        swiftRoklenFeeCzk = 190
+        swiftOurFeeCzk = 0
+      } else if (priceInEur <= 4000) {
+        swiftRoklenFeeCzk = 0
+        swiftOurFeeCzk = 0.30 * purchasingUnitPrice * qty
+      } else {
+        swiftRoklenFeeCzk = 0
+        swiftOurFeeCzk = 0
+      }
     }
   }
 
@@ -165,8 +178,8 @@ export function calculateProductPricing(
   const effectiveEurRate = eurRate * (1 + roklenMargin)
 
   // --- CALCULATE TOTALS ---
-  const totalPurchasePriceOrig = purchasingUnitPrice // 981 EUR (for the whole package)
-  const totalPurchasePriceCzk = totalPurchasePriceOrig * effectiveRate   // 23,797.18 CZK (with Roklen margin)
+  const totalPurchasePriceOrig = purchasingUnitPrice * qty
+  const totalPurchasePriceCzk = totalPurchasePriceOrig * effectiveRate
   
   // Shipping Cost Logic
   let totalShippingCostCzk = 0
@@ -201,7 +214,8 @@ export function calculateProductPricing(
           break
 
         case 'pallet_alloc':
-          baseCostCzk = ((template.pallet_cena_eur ?? 0) * effectiveEurRate) / (template.pallet_pocet_produktu ?? 1)
+          // pallet allocation is per qty, i.e. we scale it with qty (representing allocation)
+          baseCostCzk = (((template.pallet_cena_eur ?? 0) * effectiveEurRate) / (template.pallet_pocet_produktu ?? 1)) * qty
           break
 
         default:
@@ -217,7 +231,7 @@ export function calculateProductPricing(
       } else if (template.typ_vypoctu_dopravy === 'vaha_kg') {
         totalShippingCostCzk = billedWeight * template.sazba_dopravy * effectiveEurRate
       } else {
-        totalShippingCostCzk = template.sazba_dopravy * effectiveEurRate // Fixed cost per batch
+        totalShippingCostCzk = template.sazba_dopravy * effectiveEurRate * qty // Fixed cost per batch
       }
     }
   } else {
@@ -231,45 +245,59 @@ export function calculateProductPricing(
     : (template?.vychozi_clo_procenta ?? settings.clo_default_procenta)
   const totalCustomsCostCzk = (totalPurchasePriceCzk + totalShippingCostCzk) * (cloPercent / 100)
   
-  // Granular Fees (CZK) - Dynamically calculated via RoklenFX defaults if standard v2, or fallback to fixed
+  // Granular Fees (CZK)
   let totalBankFeesCzk = swiftRoklenFeeCzk + swiftOurFeeCzk
   
   if (template) {
     const isV2 = template.typ_vypoctu_dopravy_v2 && template.typ_vypoctu_dopravy_v2 !== 'legacy'
-    // If the template has a customized bank fee (different from default 190.00) or is legacy, respect it as override
-    if (!isV2 || (template.poplatek_banka_czk !== 190)) {
+    if (isEU) {
+      totalBankFeesCzk = 0
+      swiftRoklenFeeCzk = 0
+      swiftOurFeeCzk = 0
+    } else if (!isV2 || (template.poplatek_banka_czk !== 190)) {
       totalBankFeesCzk = template.poplatek_banka_czk
       swiftRoklenFeeCzk = template.poplatek_banka_czk
       swiftOurFeeCzk = 0
     }
   } else if (currency !== 'CZK' && settings.poplatek_zahranicni_platba_czk !== 190) {
-    // Respect settings override if custom
-    totalBankFeesCzk = settings.poplatek_zahranicni_platba_czk
-    swiftRoklenFeeCzk = settings.poplatek_zahranicni_platba_czk
-    swiftOurFeeCzk = 0
+    if (isEU) {
+      totalBankFeesCzk = 0
+      swiftRoklenFeeCzk = 0
+      swiftOurFeeCzk = 0
+    } else {
+      totalBankFeesCzk = settings.poplatek_zahranicni_platba_czk
+      swiftRoklenFeeCzk = settings.poplatek_zahranicni_platba_czk
+      swiftOurFeeCzk = 0
+    }
+  } else {
+    if (isEU) {
+      totalBankFeesCzk = 0
+      swiftRoklenFeeCzk = 0
+      swiftOurFeeCzk = 0
+    }
   }
 
   const totalClearingFeesCzk = template?.poplatek_procleni_czk ?? 0
   const totalWasteFeesCzk = template?.poplatek_odpady_czk ?? 0
   const totalPackagingFeesCzk = template?.poplatek_balne_czk ?? 0
   
-  // Total Landed Cost
+  // Total Landed Cost (for the whole shipment)
   const totalLandedCostBase = totalPurchasePriceCzk + totalShippingCostCzk + totalCustomsCostCzk + totalBankFeesCzk + totalClearingFeesCzk + totalWasteFeesCzk + totalPackagingFeesCzk
   const totalBufferAmount = totalLandedCostBase * (settings.marze_rezerva_procenta / 100)
   const totalLandedCostWithBuffer = totalLandedCostBase + totalBufferAmount
 
-  // --- CALCULATE PER UNIT ---
-  const unitPurchasePriceCzk = totalPurchasePriceCzk / totalUnits
-  const unitShippingCostCzk = totalShippingCostCzk / totalUnits
-  const unitCustomsCostCzk = totalCustomsCostCzk / totalUnits
-  const unitBankFeesCzk = totalBankFeesCzk / totalUnits
-  const unitClearingFeesCzk = totalClearingFeesCzk / totalUnits
-  const unitWasteFeesCzk = totalWasteFeesCzk / totalUnits
-  const unitPackagingFeesCzk = totalPackagingFeesCzk / totalUnits
+  // --- CALCULATE PER UNIT (basic unit) ---
+  const unitPurchasePriceCzk = (totalPurchasePriceCzk / qty) / totalUnits
+  const unitShippingCostCzk = (totalShippingCostCzk / qty) / unitsInPack
+  const unitCustomsCostCzk = (totalCustomsCostCzk / qty) / unitsInPack
+  const unitBankFeesCzk = (totalBankFeesCzk / qty) / unitsInPack
+  const unitClearingFeesCzk = (totalClearingFeesCzk / qty) / unitsInPack
+  const unitWasteFeesCzk = (totalWasteFeesCzk / qty) / unitsInPack
+  const unitPackagingFeesCzk = (totalPackagingFeesCzk / qty) / unitsInPack
 
-  const unitLandedCostBase = totalLandedCostBase / totalUnits
-  const unitBufferAmount = totalBufferAmount / totalUnits
-  const unitLandedCostWithBuffer = totalLandedCostWithBuffer / totalUnits
+  const unitLandedCostBase = unitPurchasePriceCzk + unitShippingCostCzk + unitCustomsCostCzk + unitBankFeesCzk + unitClearingFeesCzk + unitWasteFeesCzk + unitPackagingFeesCzk
+  const unitBufferAmount = unitLandedCostBase * (settings.marze_rezerva_procenta / 100)
+  const unitLandedCostWithBuffer = unitLandedCostBase + unitBufferAmount
   
   // 6. Selling Prices (Price = Cost / (1 - Margin))
   const calculatePrice = (cost: number, marginPercent: number) => {
@@ -292,8 +320,13 @@ export function calculateProductPricing(
   const weakestRate = currency === 'EUR' ? 27.5 : (currency === 'USD' ? 25.5 : 1)
 
   const calculateMargin = (r: number) => {
-    const costOrig = (purchasingUnitPrice * r * (1 + roklenMargin)) + totalShippingCostCzk + totalCustomsCostCzk + totalBankFeesCzk + totalClearingFeesCzk + totalWasteFeesCzk + totalPackagingFeesCzk + totalBufferAmount
-    const costUnit = costOrig / totalUnits
+    const purchasePart = purchasingUnitPrice * r * (1 + roklenMargin)
+    const purchasePartUnit = purchasePart / totalUnits
+    
+    const logisticsPart = (totalShippingCostCzk + totalCustomsCostCzk + totalBankFeesCzk + totalClearingFeesCzk + totalWasteFeesCzk + totalPackagingFeesCzk + totalBufferAmount) / qty
+    const logisticsPartUnit = logisticsPart / unitsInPack
+    
+    const costUnit = purchasePartUnit + logisticsPartUnit
     return ((b2cUnitPrice - costUnit) / b2cUnitPrice) * 100
   }
 
@@ -302,13 +335,13 @@ export function calculateProductPricing(
     currency,
     totalUnits,
     
-    totalPurchasePriceCzk,
-    totalShippingCostCzk,
-    totalCustomsCostCzk,
-    totalBankFeesCzk,
-    totalClearingFeesCzk,
-    totalWasteFeesCzk,
-    totalPackagingFeesCzk,
+    totalPurchasePriceCzk: totalPurchasePriceCzk / qty,
+    totalShippingCostCzk: totalShippingCostCzk / qty,
+    totalCustomsCostCzk: totalCustomsCostCzk / qty,
+    totalBankFeesCzk: totalBankFeesCzk / qty,
+    totalClearingFeesCzk: totalClearingFeesCzk / qty,
+    totalWasteFeesCzk: totalWasteFeesCzk / qty,
+    totalPackagingFeesCzk: totalPackagingFeesCzk / qty,
 
     unitPurchasePriceCzk,
     unitShippingCostCzk,
@@ -318,9 +351,9 @@ export function calculateProductPricing(
     unitWasteFeesCzk,
     unitPackagingFeesCzk,
 
-    totalLandedCostBase,
-    totalBufferAmount,
-    totalLandedCostWithBuffer,
+    totalLandedCostBase: totalLandedCostBase / qty,
+    totalBufferAmount: totalBufferAmount / qty,
+    totalLandedCostWithBuffer: totalLandedCostWithBuffer / qty,
     
     unitLandedCostBase,
     unitBufferAmount,
@@ -338,16 +371,20 @@ export function calculateProductPricing(
     highMargin: calculateMargin(strongestRate),
 
     // Shipping Engine v2 outputs
-    billedWeightKg: billedWeight,
-    volumetricWeightKg: packDims.volumetricWeight_kg,
-    packagingDimensions: packDims,
-    shippingSafetyBufferCzk,
+    billedWeightKg: billedWeight / qty,
+    volumetricWeightKg: packDims.volumetricWeight_kg / qty,
+    packagingDimensions: {
+      ...packDims,
+      billedWeight_kg: packDims.billedWeight_kg / qty,
+      volumetricWeight_kg: packDims.volumetricWeight_kg / qty
+    },
+    shippingSafetyBufferCzk: shippingSafetyBufferCzk / qty,
 
     // RoklenFX dynamic details
     exchangeRateRaw: rate,
     roklenMarginApplied: roklenMargin,
-    swiftOurFeeCzk,
-    swiftRoklenFeeCzk
+    swiftOurFeeCzk: swiftOurFeeCzk / qty,
+    swiftRoklenFeeCzk: swiftRoklenFeeCzk / qty
   }
 }
 

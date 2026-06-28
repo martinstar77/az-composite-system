@@ -2,6 +2,7 @@ export interface Product {
   id: string
   sku: string
   nazev: string
+  nazev_en: string | null
   
   // Relations
   kategorie_id: string
@@ -51,6 +52,7 @@ export interface Product {
   cilova_marze_vip_procenta: number
   cilova_marze_premarket_open_procenta: number
   clo_procenta: number
+  simulovana_velikost_objednavky: number
 
   // Packaging & Shipping Engine v2
   balici_profil_id: string | null
@@ -84,6 +86,7 @@ export interface Product {
 
   // Nested Sourcing (DataGrid)
   produkt_dodavatel?: {
+    dodavatel_id: string
     nakupni_cena: number
     mena: string
     is_primary: boolean

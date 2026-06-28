@@ -188,6 +188,7 @@ function runTests() {
   console.log("\n1. Čína 13.3 kg standard krabice:")
   console.log(`- Billed Weight: ${res1?.billedWeightKg} kg`)
   console.log(`- Shipping Cost CZK: ${res1?.totalShippingCostCzk} CZK`)
+  console.log(`- Bank Fees CZK (SWIFT): ${res1?.totalBankFeesCzk} CZK (Expected: 190 CZK, outside EU)`)
   console.log(`- Expected Shipping: ~3244.97 CZK (94.788 * 13.3 + 1830.2) * 1.05`)
 
   // Test Case 2: Itálie rovnoměrné 10 kg
@@ -195,6 +196,7 @@ function runTests() {
   console.log("\n2. Itálie rovnoměrné 10 kg standard krabice:")
   console.log(`- Billed Weight: ${res2?.billedWeightKg} kg`)
   console.log(`- Shipping Cost CZK: ${res2?.totalShippingCostCzk} CZK`)
+  console.log(`- Bank Fees CZK (SWIFT): ${res2?.totalBankFeesCzk} CZK (Expected: 0 CZK, inside EU)`)
   console.log(`- Expected Shipping: ~564.29 CZK (18.804 * 10 + 349.38) * 1.05`)
 
   // Test Case 3: Itálie dlouhé 50 kg (segment 2)
@@ -208,6 +210,7 @@ function runTests() {
   const res4 = calculateProductPricing(100, "EUR", 1, 20.0, 0, { retail: 30, partner: 20 }, rates, settings, tPolskoLQ, pSacek)
   console.log("\n4. Polsko LQ fixní 50 EUR:")
   console.log(`- Shipping Cost CZK: ${res4?.totalShippingCostCzk} CZK`)
+  console.log(`- Bank Fees CZK (SWIFT): ${res4?.totalBankFeesCzk} CZK (Expected: 0 CZK, inside EU)`)
   console.log(`- Expected Shipping: 1318.80 CZK (50 * 25 * 1.0048 * 1.05)`)
 
   // Test Case 5: Paleta -> (225.02 EUR * 25 * 1.0048 / 30) * 1.05
@@ -224,6 +227,15 @@ function runTests() {
   console.log(`- Výška: ${pack6.vyska_cm} cm`)
   console.log(`- Objemová hmotnost: ${pack6.volumetricWeight_kg} kg`)
   console.log(`- Finální účtovaná hmotnost: ${pack6.billedWeight_kg} kg`)
+
+  // Test Case 7: Splitting shipping and bank fees (qty = 48)
+  const res7_single = calculateProductPricing(10, "EUR", 1, 1.0, 0, { retail: 30, partner: 20 }, rates, settings, tCina, pBoxStandard, {}, undefined, 48)
+  const res7_batch = calculateProductPricing(10, "EUR", 1, 1.0, 0, { retail: 30, partner: 20 }, rates, settings, tCina, pBoxStandard, {}, undefined, 1)
+  console.log("\n7. Batch splitting test (Čína, qty = 48 vs qty = 1):")
+  console.log(`- Single shipping (qty=1): ${res7_batch?.totalShippingCostCzk} CZK`)
+  console.log(`- Batch shipping (per unit, qty=48): ${res7_single?.totalShippingCostCzk} CZK`)
+  console.log(`- Single SWIFT fee: ${res7_batch?.totalBankFeesCzk} CZK`)
+  console.log(`- Batch SWIFT fee (per unit, qty=48): ${res7_single?.totalBankFeesCzk} CZK`)
 }
 
 runTests()

@@ -453,28 +453,6 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 </div>
               </div>
 
-              {/* Card 3: Sales MOQ */}
-              <div className="p-6 bg-zinc-900/40 border border-zinc-800 rounded-xl space-y-4 shadow-xl backdrop-blur-sm">
-                <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
-                  <ShoppingCart className="h-5 w-5 text-amber-500" />
-                  <h3 className="text-lg font-bold text-zinc-100">Minimální prodejní množství (Sales MOQ)</h3>
-                </div>
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Min. množství pro objednávku</p>
-                    <p className="text-lg font-bold text-zinc-200 mt-0.5">
-                      {product.moq_prodejni ?? 1} {product.c_merne_jednotky_zakladni?.zkratka}
-                    </p>
-                  </div>
-                  {product.moq_poznamka && (
-                    <div className="flex gap-2 items-start bg-amber-500/5 border border-amber-500/20 text-amber-200 p-3 rounded-lg text-xs leading-relaxed">
-                      <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                      <span>{product.moq_poznamka}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
               {/* Card 4: Poznámka k produktu */}
               {product.poznamka && (
                 <div className="p-6 bg-zinc-900/40 border border-zinc-800 rounded-xl space-y-3 shadow-xl backdrop-blur-sm border-l-4 border-l-primary">

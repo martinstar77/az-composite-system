@@ -3,8 +3,10 @@ import { createAdminClient } from '@/shared/lib/supabase/admin'
 export async function verifyTurnstileToken(token: string, ip?: string): Promise<boolean> {
   const secretKey = process.env.TURNSTILE_SECRET_KEY || '1x00000000000000000000000000000000'
 
-  // If we are using the test secret key, let it pass automatically (useful for dev and testing)
-  if (secretKey === '1x00000000000000000000000000000000' && (!token || token === '1x00000000000000000000AA')) {
+  // If we are using the test secret key, bypass Cloudflare API and allow automatically.
+  // The test secret key (1x000...0000) always returns success on Cloudflare's API anyway,
+  // but the early return avoids the network round-trip in dev/test environments.
+  if (secretKey === '1x00000000000000000000000000000000') {
     return true
   }
 

@@ -19,7 +19,7 @@ import { Textarea } from "@/shared/components/ui/textarea"
 import { productFormSchema, type ProductFormValues } from "@/modules/products/types/formSchema"
 import { createProduct, updateProduct, checkSkuExists } from "@/modules/products/actions"
 import { Product } from "../../types"
-import { generateProductName } from "../../utils/nameGenerator"
+import { generateProductName, generateProductNames } from "../../utils/nameGenerator"
 import { resolvePackageDimensions } from "@/modules/finance/utils/packagingEngine"
 import { calculateGrossWeight, resolvePackagingProfile } from "@/modules/products/utils/logisticsCalculator"
 import { Package, ShoppingCart, Sparkles, RotateCcw } from "lucide-react"
@@ -71,11 +71,12 @@ interface ProductFormProps {
 }
 
 export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCancel }: ProductFormProps) {
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<ProductFormValues>({
+  const { register, handleSubmit, formState: { errors, dirtyFields }, setValue, watch } = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema) as any,
     defaultValues: {
       sku: initialData?.sku || "",
       nazev: initialData?.nazev || "",
+      nazev_en: (initialData as any)?.nazev_en || "",
       kategorie_id: initialData?.kategorie_id || "",
       zakladni_mj_id: initialData?.zakladni_mj_id || "m2",
       jednotka_baleni_id: initialData?.jednotka_baleni_id || "bm",
@@ -612,9 +613,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         break;
       }
       case 'lepidla': {
-        setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-        setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        if (!dirtyFields.zakladni_mj_id && !initialData) {
+          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+        }
+        if (!dirtyFields.jednotka_baleni_id && !initialData) {
+          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        }
+        if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
+          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        }
         
         const colorMap: Record<string, string> = {
           black: "BLK",
@@ -636,8 +643,12 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         break;
       }
       case 'spotrebni_chemie': {
-        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-        setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        if (!dirtyFields.jednotka_baleni_id && !initialData) {
+          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        }
+        if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
+          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        }
 
         if (clnSub === 'standard') {
           const cleanQty = clnQty.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
@@ -673,14 +684,21 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         break;
       }
       case 'chemie': {
-        const cleanVol = chemVol.trim().toUpperCase().replace(/[^0-9]/g, '')
-        if (chemSub === 'lepidlo_ve_spreji' || chemSub === 'blinder') {
-          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-        } else {
-          setValue("zakladni_mj_id", "l", { shouldValidate: true })
+        const normalizedVol = chemVol.trim().replace(',', '.')
+        const cleanVol = normalizedVol.replace(/[^0-9]/g, '')
+        if (!dirtyFields.zakladni_mj_id && !initialData) {
+          if (chemSub === 'lepidlo_ve_spreji' || chemSub === 'blinder') {
+            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+          } else {
+            setValue("zakladni_mj_id", "l", { shouldValidate: true })
+          }
         }
-        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-        setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        if (!dirtyFields.jednotka_baleni_id && !initialData) {
+          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        }
+        if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
+          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        }
 
         if (chemSub === 'lepidlo_ve_spreji') {
           const vlastnostCode = chemAdhProp === 'visual' ? 'VIS' : 'IND'
@@ -688,7 +706,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           generatedSpecs = {
             podkategorie: chemSub,
             vlastnost: chemAdhProp,
-            objem: `${cleanVol} ml`
+            objem: `${normalizedVol} ml`
           }
         } else if (chemSub === 'blinder') {
           const chemieCode = chemBaseType === 'waterbased' ? 'WB' : 'SOL'
@@ -696,7 +714,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           generatedSpecs = {
             podkategorie: chemSub,
             chemie: chemBaseType,
-            objem: `${cleanVol} ml`
+            objem: `${normalizedVol} ml`
           }
         } else if (chemSub === 'plnic_poru_sealer') {
           const chemieCode = chemBaseType === 'waterbased' ? 'WB' : 'SOL'
@@ -706,7 +724,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             podkategorie: chemSub,
             chemie: chemBaseType,
             vlastnost: chemSealerProp,
-            objem: `${cleanVol} l`
+            objem: `${normalizedVol} l`
           }
         } else if (chemSub === 'separatory_release_agent') {
           const chemieCode = chemBaseType === 'waterbased' ? 'WB' : 'SOL'
@@ -716,7 +734,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             podkategorie: chemSub,
             chemie: chemBaseType,
             vlastnost: chemSealerProp,
-            objem: `${cleanVol} l`
+            objem: `${normalizedVol} l`
           }
         }
         break;
@@ -735,9 +753,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         }
         break;
       case 'brouseni_a_lesteni': {
-        setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-        setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        if (!dirtyFields.zakladni_mj_id && !initialData) {
+          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+        }
+        if (!dirtyFields.jednotka_baleni_id && !initialData) {
+          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        }
+        if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
+          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        }
 
         if (polSub === 'vosk') {
           const waxNameCodeMap: Record<string, string> = {
@@ -750,7 +774,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           }
           const nameCode = waxNameCodeMap[polWaxName] || 'UV'
           const stateCode = stateCodeMap[polWaxState] || 'LIQ'
-          const cleanQty = polWaxQty.trim().toUpperCase().replace(/[^0-9]/g, '')
+          const normalizedQty = polWaxQty.trim().replace(',', '.')
+          const cleanQty = normalizedQty.replace(/[^0-9]/g, '')
 
           generatedSku = `POL-WAX-${nameCode}-${stateCode}-${cleanQty}KG`
           generatedSpecs = {
@@ -758,7 +783,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             typ: 'vosk',
             nazev_vosku: polWaxName,
             skupenstvi: polWaxState,
-            mnozstvi: `${cleanQty} kg`
+            mnozstvi: `${normalizedQty} kg`
           }
         } else if (polSub === 'pasty') {
           const typeCodeMap: Record<string, string> = {
@@ -772,7 +797,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           }
           const typeCode = typeCodeMap[polPasteType] || 'REX'
           const colorCode = colorCodeMap[polPasteColor] || 'WHT'
-          const cleanWeight = polPasteWeight.trim().toUpperCase().replace(/[^0-9]/g, '')
+          const normalizedWeight = polPasteWeight.trim().replace(',', '.')
+          const cleanWeight = normalizedWeight.replace(/[^0-9]/g, '')
           
           generatedSku = `POL-${typeCode}-${colorCode}-${polPasteCont}-${cleanWeight}KG`
           generatedSpecs = {
@@ -780,7 +806,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             typ: polPasteType,
             barva: polPasteColor,
             obal: polPasteCont,
-            hmotnost: `${cleanWeight} kg`
+            hmotnost: `${normalizedWeight} kg`
           }
         } else if (polSub === 'brusne_kotouce') {
           const typeCodeMap: Record<string, string> = {
@@ -831,9 +857,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         generatedSpecs = { typ_spoje: fasType, zakladna: fasBase, zavit_prumer: fasSize, material: fasMat }
         break;
       case 'naradi': {
-        setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-        setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        if (!dirtyFields.zakladni_mj_id && !initialData) {
+          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+        }
+        if (!dirtyFields.jednotka_baleni_id && !initialData) {
+          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        }
+        if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
+          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        }
 
         switch (toolSub) {
           case 'BU': {
@@ -1144,9 +1176,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             break
           }
           case 'K': {
-            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-            setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            if (!dirtyFields.zakladni_mj_id && !initialData) {
+              setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+            }
+            if (!dirtyFields.jednotka_baleni_id && !initialData) {
+              setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+            }
+            if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
+              setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            }
             
             generatedSku = `K-${conKTvar}-${conKPrumer}`
             generatedSpecs = {
@@ -1157,9 +1195,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             break
           }
           case 'MTI': {
-            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-            setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            if (!dirtyFields.zakladni_mj_id && !initialData) {
+              setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+            }
+            if (!dirtyFields.jednotka_baleni_id && !initialData) {
+              setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+            }
+            if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
+              setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            }
             
             const wVal = conMtiWidth.trim()
             const wSku = wVal ? `-${wVal}` : ""
@@ -1172,9 +1216,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             break
           }
           case 'KP': {
-            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-            setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            if (!dirtyFields.zakladni_mj_id && !initialData) {
+              setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+            }
+            if (!dirtyFields.jednotka_baleni_id && !initialData) {
+              setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+            }
+            if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
+              setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            }
             
             generatedSku = `KP-${conKpTvar}-${conKpPrumer}`
             generatedSpecs = {
@@ -1197,8 +1247,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       setValue("specifikace_json", JSON.stringify(generatedSpecs, null, 2))
       
       if (isNameGenerated && (kategorieId === 'vyztuzne_materialy' || kategorieId === 'consumables' || kategorieId === 'naradi' || kategorieId === 'lepidla' || kategorieId === 'pryskyrice' || kategorieId === 'spotrebni_chemie' || kategorieId === 'chemie' || kategorieId === 'brouseni_a_lesteni')) {
-        const generatedName = generateProductName(generatedSpecs, kategorieId, lookups.fiberCodes)
-        setValue("nazev", generatedName, { shouldValidate: true })
+        const names = generateProductNames(generatedSpecs, kategorieId, lookups.fiberCodes)
+        setValue("nazev", names.cs, { shouldValidate: true })
+        setValue("nazev_en", names.en, { shouldValidate: true })
       }
     }
   }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, chemObjemNakup, clnSub, clnBrand, clnPack, clnType, clnQty, clnPmpType, clnPmpQty, coreMat, coreDens, coreThick, coreFinish, coreSirkaCm, coreDelkaCm, polSub, polPasteType, polPasteColor, polPasteCont, polPasteWeight, polWaxName, polWaxState, polWaxQty, polDiscType, polDiscCode, polDiscDia, polAccType, polAccProp, polAccDia, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conStPocetRoli, conFtSirka, conFtTemp, conFtDelka, conFtPocetRoli, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, chemSub, chemAdhProp, chemBaseType, chemSealerProp, chemVol, setValue, lookups.fiberCodes])
@@ -1470,50 +1521,66 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
       
       {/* 1. Hlavní klasifikace (Kategorie a Název) */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Kategorie</Label>
-          <Select onValueChange={handleCategoryChange} value={kategorieId || ""}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Vyberte kategorii">
-                {kategorieId === 'spotrebni_chemie' ? 'Čističe' : (lookups.categories.find(c => c.id === kategorieId)?.nazev)}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {lookups.categories
-                .filter(c => !['prepregy', 'cores_standard', 'cores_active'].includes(c.id) || c.id === initialData?.kategorie_id)
-                .map(c => (
-                  <SelectItem key={c.id} value={c.id}>{c.id === 'spotrebni_chemie' ? 'Čističe' : c.nazev}</SelectItem>
-                ))}
-            </SelectContent>
-          </Select>
-          {errors.kategorie_id && <p className="text-xs text-destructive">{errors.kategorie_id.message}</p>}
-        </div>
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <Label htmlFor="nazev">Název produktu</Label>
-            {['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie', 'chemie', 'brouseni_a_lesteni'].includes(kategorieId) && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground select-none">
-                <input 
-                  type="checkbox" 
-                  id="is_name_generated" 
-                  {...register("is_name_generated")}
-                  className="rounded border-zinc-800 bg-zinc-950 accent-primary size-3.5"
-                />
-                <label htmlFor="is_name_generated" className="cursor-pointer font-medium hover:text-white transition-colors">
-                  Generovat automaticky
-                </label>
-              </div>
-            )}
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Kategorie</Label>
+            <Select onValueChange={handleCategoryChange} value={kategorieId || ""}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Vyberte kategorii">
+                  {kategorieId === 'spotrebni_chemie' ? 'Čističe' : (lookups.categories.find(c => c.id === kategorieId)?.nazev)}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {lookups.categories
+                  .filter(c => !['prepregy', 'cores_standard', 'cores_active'].includes(c.id) || c.id === initialData?.kategorie_id)
+                  .map(c => (
+                    <SelectItem key={c.id} value={c.id}>{c.id === 'spotrebni_chemie' ? 'Čističe' : c.nazev}</SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            {errors.kategorie_id && <p className="text-xs text-destructive">{errors.kategorie_id.message}</p>}
           </div>
-          <Input 
-            id="nazev" 
-            placeholder="Název produktu" 
-            readOnly={isNameGenerated && ['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie', 'chemie', 'brouseni_a_lesteni'].includes(kategorieId)}
-            className={isNameGenerated && ['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie', 'chemie', 'brouseni_a_lesteni'].includes(kategorieId) ? "bg-muted text-muted-foreground cursor-not-allowed font-medium border-zinc-850" : "font-medium"}
-            {...register("nazev")} 
-          />
-          {errors.nazev && <p className="text-xs text-destructive">{errors.nazev.message}</p>}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <Label htmlFor="nazev">Název produktu (CS)</Label>
+              {['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie', 'chemie', 'brouseni_a_lesteni'].includes(kategorieId) && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground select-none">
+                  <input 
+                    type="checkbox" 
+                    id="is_name_generated" 
+                    {...register("is_name_generated")}
+                    className="rounded border-zinc-800 bg-zinc-950 accent-primary size-3.5"
+                  />
+                  <label htmlFor="is_name_generated" className="cursor-pointer font-medium hover:text-white transition-colors">
+                    Generovat automaticky
+                  </label>
+                </div>
+              )}
+            </div>
+            <Input 
+              id="nazev" 
+              placeholder="Název produktu (česky)" 
+              readOnly={isNameGenerated && ['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie', 'chemie', 'brouseni_a_lesteni'].includes(kategorieId)}
+              className={isNameGenerated && ['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie', 'chemie', 'brouseni_a_lesteni'].includes(kategorieId) ? "bg-muted text-muted-foreground cursor-not-allowed font-medium border-zinc-850" : "font-medium"}
+              {...register("nazev")} 
+            />
+            {errors.nazev && <p className="text-xs text-destructive">{errors.nazev.message}</p>}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2 col-start-2">
+            <Label htmlFor="nazev_en">Název produktu (EN)</Label>
+            <Input 
+              id="nazev_en" 
+              placeholder="Název produktu (anglicky)" 
+              readOnly={isNameGenerated && ['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie', 'chemie', 'brouseni_a_lesteni'].includes(kategorieId)}
+              className={isNameGenerated && ['vyztuzne_materialy', 'consumables', 'naradi', 'lepidla', 'pryskyrice', 'spotrebni_chemie', 'chemie', 'brouseni_a_lesteni'].includes(kategorieId) ? "bg-muted text-muted-foreground cursor-not-allowed font-medium border-zinc-850" : "font-medium"}
+              {...register("nazev_en")} 
+            />
+            {errors.nazev_en && <p className="text-xs text-destructive">{errors.nazev_en.message}</p>}
+          </div>
         </div>
       </div>
 
@@ -2669,55 +2736,16 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-2">
             <Label htmlFor="cilova_marze_retail_procenta">Retail Marže (B2C)</Label>
-            <Input id="cilova_marze_retail_procenta" type="number" step="0.1" {...register("cilova_marze_retail_procenta")} className="bg-zinc-950 border-zinc-800" />
+            <Input id="cilova_marze_retail_procenta" type="number" step="0.01" {...register("cilova_marze_retail_procenta")} className="bg-zinc-950 border-zinc-800" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="cilova_marze_partner_procenta">Partner Marže (B2B)</Label>
-            <Input id="cilova_marze_partner_procenta" type="number" step="0.1" {...register("cilova_marze_partner_procenta")} className="bg-zinc-950 border-zinc-800" />
+            <Input id="cilova_marze_partner_procenta" type="number" step="0.01" {...register("cilova_marze_partner_procenta")} className="bg-zinc-950 border-zinc-800" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="clo_procenta">Clo (Produkt)</Label>
-            <Input id="clo_procenta" type="number" step="0.1" {...register("clo_procenta")} className="bg-zinc-950 border-zinc-800" />
+            <Input id="clo_procenta" type="number" step="0.01" {...register("clo_procenta")} className="bg-zinc-950 border-zinc-800" />
             <p className="text-[10px] text-zinc-500 italic">Přebije globální clo.</p>
-          </div>
-        </div>
-      </div>
-
-      {/* 7b. Minimální prodejní množství (Sales MOQ) */}
-      <div className="p-4 bg-zinc-900/30 rounded-lg border border-zinc-800 space-y-3">
-        <div className="flex items-center gap-2 border-b border-zinc-800 pb-2">
-          <ShoppingCart className="h-4 w-4 text-amber-500" />
-          <h3 className="text-sm font-semibold text-zinc-300">Min. prodejní množství (Sales MOQ)</h3>
-          <span className="ml-auto text-[10px] text-zinc-500 italic">≠ Nákupní MOQ od dodavatele (v záložce Sourcing)</span>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="space-y-2">
-            <Label htmlFor="moq_prodejni">Min. množství pro zákazníka</Label>
-            <Input
-              id="moq_prodejni"
-              type="number"
-              step="1"
-              min="1"
-              placeholder="1"
-              {...register("moq_prodejni")}
-              className="bg-zinc-950 border-zinc-800"
-            />
-            <p className="text-[10px] text-zinc-500 italic">
-              Zákazník musí objednat alespoň toto množství v základní MJ.
-            </p>
-          </div>
-          <div className="col-span-2 space-y-2">
-            <Label htmlFor="moq_poznamka">Poznámka k MOQ (zobrazí se zákazníkovi)</Label>
-            <Input
-              id="moq_poznamka"
-              type="text"
-              placeholder='Např. "Prodáváme výhradně po 20 rolích (1 karton)"'
-              {...register("moq_poznamka")}
-              className="bg-zinc-950 border-zinc-800"
-            />
-            <p className="text-[10px] text-zinc-500 italic">
-              Volitelně vysvětlete důvod, zobrazí se v katalogu a na objednávce.
-            </p>
           </div>
         </div>
       </div>

@@ -86,28 +86,36 @@ function parseThicknessM(raw: string | number | null | undefined): number | null
 }
 
 /** Parse a volume string like "5L", "500 ml", "5", "500ml" — returns litres */
-function parseVolumeL(raw: string | number | null | undefined): number | null {
+function parseVolumeL(raw: string | number | null | undefined, assumeMl = false): number | null {
   if (raw == null) return null
-  const str = String(raw).trim().toLowerCase()
+  let str = String(raw).trim().toLowerCase()
+  if (/^0\d+/.test(str)) {
+    str = str.replace(/^(0)(\d+)/, "$1.$2")
+  }
   const num = parseFloat(str.replace(/[^0-9.]/g, ""))
   if (isNaN(num) || num <= 0) return null
-  if (str.includes("ml")) return num / 1000
+  if (str.includes("ml") || assumeMl) return num / 1000
+  if (str.includes("l")) return num
+  if (num >= 500) return num / 1000 // Heuristic: if >= 500 without unit, assume ml
   return num  // assume litres
 }
 
 /** Parse a weight string like "1 kg", "500 g", "1.5" — returns kg */
 function parseWeightKg(raw: string | number | null | undefined): number | null {
   if (raw == null) return null
-  const str = String(raw).trim().toLowerCase()
+  let str = String(raw).trim().toLowerCase()
+  if (/^0\d+/.test(str)) {
+    str = str.replace(/^(0)(\d+)/, "$1.$2")
+  }
   const num = parseFloat(str.replace(/[^0-9.]/g, ""))
   if (isNaN(num) || num <= 0) return null
   if (str.includes("g") && !str.includes("kg")) return num / 1000
   return num  // assume kg
 }
 
-/** Round to 3 decimal places */
+/** Round to 2 decimal places (retained name r3 to avoid refactoring of internal calls) */
 function r3(n: number): number {
-  return Math.round(n * 1000) / 1000
+  return Math.round(n * 100) / 100
 }
 
 // ---------------------------------------------------------------------------
@@ -217,7 +225,8 @@ export function calculateGrossWeight(
       const density = RESIN_DENSITY[chemie] ?? 1.15
       const tare = containerTareKg(objem)
       const net = r3(objem * density)
-      const total = r3(net + tare)
+      const qty = mnozstviVBaleni || 1
+      const total = r3((net + tare) * qty + (qty > 1 ? 0.20 : 0))
 
       let containerType = "kanystr"
       if (objem <= 5) containerType = "kanystr"
@@ -230,7 +239,7 @@ export function calculateGrossWeight(
       return {
         weightKg: total,
         confidence: chemie in RESIN_DENSITY ? "high" : "medium",
-        breakdown: `${objem}L × ${density} kg/L = ${net} kg + ${tare} kg (${containerType}) = ${total} kg`
+        breakdown: `${qty} ks × (${objem}L × ${density} kg/L + ${tare} kg obal) + ${qty > 1 ? "0.20 kg krabice" : "0 kg"} = ${total} kg`
       }
     }
 
@@ -239,7 +248,7 @@ export function calculateGrossWeight(
     // -----------------------------------------------------------------------
     case "lepidla": {
       const chemie = String(s.chemie ?? "EP").toUpperCase()
-      const objem = parseVolumeL(s.objem as string)
+      const objem = parseVolumeL(s.objem as string, true)
 
       if (!objem) {
         return { weightKg: null, confidence: "low", breakdown: "Chybí objem kartušy (objem)." }
@@ -248,11 +257,12 @@ export function calculateGrossWeight(
       const density = ADHESIVE_DENSITY[chemie] ?? 1.15
       const tare = 0.15  // cartridge body weight
       const net = r3(objem * density)
-      const total = r3(net + tare)
+      const qty = mnozstviVBaleni || 1
+      const total = r3((net + tare) * qty + (qty > 1 ? 0.15 : 0))
       return {
         weightKg: total,
         confidence: chemie in ADHESIVE_DENSITY ? "high" : "medium",
-        breakdown: `${objem * 1000}ml × ${density} kg/L = ${net} kg + ${tare} kg (kartuše) = ${total} kg`
+        breakdown: `${qty} ks × (${objem * 1000}ml × ${density} kg/L + ${tare} kg kartuše) + ${qty > 1 ? "0.15 kg krabice" : "0 kg"} = ${total} kg`
       }
     }
 
@@ -262,37 +272,38 @@ export function calculateGrossWeight(
     case "spotrebni_chemie": {
       const typ = String(s.typ ?? "CON").toUpperCase()
       const mnozstvi = s.mnozstvi as string
+      const qty = mnozstviVBaleni || 1
 
       if (typ === "WIP") {
         // Wipes — sold by piece count
         const n = parseFloat(String(mnozstvi).replace(/[^0-9]/g, "")) || 0
         if (!n) return { weightKg: null, confidence: "low", breakdown: "Chybí počet utěrek." }
-        const total = r3(n * 0.004 + 0.12)
+        const total = r3((n * 0.004 + 0.12) * qty)
         return {
           weightKg: total,
           confidence: "medium",
-          breakdown: `${n} ks × 4g + 0.12 kg (krabice) = ${total} kg`
+          breakdown: `${qty} ks × (${n} ks × 4g + 0.12 kg krabice) = ${total} kg`
         }
       } else if (typ === "SPR") {
         // Aerosol spray
-        const vol = parseVolumeL(mnozstvi)
+        const vol = parseVolumeL(mnozstvi, true)
         if (!vol) return { weightKg: null, confidence: "low", breakdown: "Chybí objem spreje." }
-        const total = r3(vol * 0.85 + 0.08)
+        const total = r3((vol * 0.85 + 0.08) * qty + (qty > 1 ? 0.15 : 0))
         return {
           weightKg: total,
           confidence: "high",
-          breakdown: `${vol * 1000}ml × 0.85 kg/L + 0.08 kg (plechovka) = ${total} kg`
+          breakdown: `${qty} ks × (${vol * 1000}ml × 0.85 kg/L + 0.08 kg plechovka) + ${qty > 1 ? "0.15 kg krabice" : "0 kg"} = ${total} kg`
         }
       } else {
         // CON — liquid concentrate
-        const vol = parseVolumeL(mnozstvi)
+        const vol = parseVolumeL(mnozstvi, false)
         if (!vol) return { weightKg: null, confidence: "low", breakdown: "Chybí objem kapaliny." }
         const tare = vol <= 1 ? 0.15 : vol <= 5 ? 0.35 : 0.80
-        const total = r3(vol * 0.95 + tare)
+        const total = r3((vol * 0.95 + tare) * qty + (qty > 1 ? 0.20 : 0))
         return {
           weightKg: total,
           confidence: "high",
-          breakdown: `${vol}L × 0.95 kg/L + ${tare} kg (obal) = ${total} kg`
+          breakdown: `${qty} ks × (${vol}L × 0.95 kg/L + ${tare} kg obal) + ${qty > 1 ? "0.20 kg krabice" : "0 kg"} = ${total} kg`
         }
       }
     }
@@ -303,27 +314,28 @@ export function calculateGrossWeight(
     case "chemie": {
       const podkat = String(s.podkategorie ?? "").toLowerCase()
       const objem = s.objem as string | number
+      const qty = mnozstviVBaleni || 1
 
       if (podkat === "lepidlo_ve_spreji" || podkat === "blinder") {
         // Aerosol spray — objem is in ml
         const volMl = parseFloat(String(objem).replace(/[^0-9.]/g, "")) || 0
         if (!volMl) return { weightKg: null, confidence: "low", breakdown: "Chybí objem spreje (ml)." }
-        const total = r3((volMl / 1000) * 0.85 + 0.08)
+        const total = r3(((volMl / 1000) * 0.85 + 0.08) * qty + (qty > 1 ? 0.15 : 0))
         return {
           weightKg: total,
           confidence: "high",
-          breakdown: `${volMl}ml × 0.85 kg/L + 0.08 kg (plechovka) = ${total} kg`
+          breakdown: `${qty} ks × (${volMl}ml × 0.85 kg/L + 0.08 kg plechovka) + ${qty > 1 ? "0.15 kg krabice" : "0 kg"} = ${total} kg`
         }
       } else {
         // sealer, release_agent — objem is in litres
-        const vol = parseVolumeL(objem)
+        const vol = parseVolumeL(objem, false)
         if (!vol) return { weightKg: null, confidence: "low", breakdown: "Chybí objem (L)." }
         const tare = containerTareKg(vol)
-        const total = r3(vol * 0.88 + tare)
+        const total = r3((vol * 0.88 + tare) * qty + (qty > 1 ? 0.20 : 0))
         return {
           weightKg: total,
           confidence: "high",
-          breakdown: `${vol}L × 0.88 kg/L + ${tare} kg (obal) = ${total} kg`
+          breakdown: `${qty} ks × (${vol}L × 0.88 kg/L + ${tare} kg obal) + ${qty > 1 ? "0.20 kg krabice" : "0 kg"} = ${total} kg`
         }
       }
     }
@@ -369,12 +381,13 @@ export function calculateGrossWeight(
       if (podkat === "pasty" || podkat === "vosk") {
         const netWeight = parseWeightKg((s.hmotnost || s.mnozstvi) as string) || 0
         if (!netWeight) return { weightKg: null, confidence: "low", breakdown: "Chybí hmotnost pasty/vosku." }
+        const qty = mnozstviVBaleni || 1
         const packaging = 0.15
-        const total = r3(netWeight + packaging)
+        const total = r3((netWeight + packaging) * qty + (qty > 1 ? 0.15 : 0))
         return {
           weightKg: total,
           confidence: "high",
-          breakdown: `${netWeight} kg netto + ${packaging} kg obal = ${total} kg`
+          breakdown: `${qty} ks × (${netWeight} kg netto + ${packaging} kg obal) + ${qty > 1 ? "0.15 kg krabice" : "0 kg"} = ${total} kg`
         }
       }
 
@@ -574,17 +587,22 @@ export function calculateGrossWeight(
       }
 
       if (podkat === "V") {
-        return { weightKg: 0.35, confidence: "medium", breakdown: "Vakuometr: 0.35 kg (standardní)" }
+        const qty = mnozstviVBaleni || 1
+        const total = r3(0.35 * qty + (qty > 1 ? 0.05 : 0))
+        return { weightKg: total, confidence: "medium", breakdown: `${qty} ks Vakuometr × 0.35 kg + ${qty > 1 ? "0.05 kg" : "0 kg"} = ${total} kg` }
       }
 
       if (podkat === "CU") {
         const vol = Number(s.objem_l ?? 5)
-        const total = r3(vol * 1.0 + 5.0)  // water + equipment
-        return { weightKg: total, confidence: "medium", breakdown: `${vol}L × 1.0 kg/L + 5.0 kg vybavení = ${total} kg` }
+        const qty = mnozstviVBaleni || 1
+        const total = r3((vol * 1.0 + 5.0) * qty)  // water + equipment
+        return { weightKg: total, confidence: "medium", breakdown: `${qty} ks × (${vol}L × 1.0 kg/L + 5.0 kg vybavení) = ${total} kg` }
       }
 
       if (podkat === "SU") {
-        return { weightKg: 2.5, confidence: "medium", breakdown: "Spin Unit RST5: 2.5 kg (standardní)" }
+        const qty = mnozstviVBaleni || 1
+        const total = r3(2.5 * qty)
+        return { weightKg: total, confidence: "medium", breakdown: `${qty} ks × Spin Unit RST5 (2.5 kg) = ${total} kg` }
       }
 
       return { weightKg: null, confidence: "low", breakdown: `Neznámá podkategorie nářadí: ${podkat}` }
