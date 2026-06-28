@@ -236,7 +236,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [chemCuringTime, setChemCuringTime] = useState(specs.cas_vytvrzeni || "")
   const [chemUse, setChemUse] = useState(specs.pouziti || "FOR")
   // Resins – purchase volume (IBC / drum size)
-  const [chemObjemNakup, setChemObjemNakup] = useState<number>(specs.objem_nakup_l ? Number(specs.objem_nakup_l) : 200)
+  const [chemObjemNakup, setChemObjemNakup] = useState<string>(specs.objem_nakup_l ? String(specs.objem_nakup_l) : "200")
   // Adhesives (Lepidla)
   const [adhChem, setAdhChem] = useState(specs.chemie || "EP")
   const [adhOpenTime, setAdhOpenTime] = useState(specs.open_time_min ? String(specs.open_time_min) : "45")
@@ -599,7 +599,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         break;
       case 'pryskyrice': {
         const cleanCuring = chemCuringTime.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
-        const isCuringType = chemType === 'RES' || chemType === 'HRD'
+        const isCuringType = chemType === 'HRD'
         const thirdSegment = isCuringType ? (cleanCuring || "NA") : chemTech
 
         generatedSku = `${chemType}-${chemBase}-${thirdSegment}-${chemUse}`
@@ -607,7 +607,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           typ: chemType,
           chemie: chemBase,
           pouziti: chemUse,
-          objem_nakup_l: chemObjemNakup,
+          objem_nakup_l: parseFloat(chemObjemNakup) || 0,
           ...(isCuringType ? { cas_vytvrzeni: chemCuringTime } : { technologie: chemTech })
         }
         break;
@@ -1289,8 +1289,16 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           sirka_cm: coreSirkaCm,
           delka_cm: coreDelkaCm,
         }
-      case 'pryskyrice':
-        return { chemie: chemBase, typ: chemType, objem_nakup_l: chemObjemNakup }
+      case 'pryskyrice': {
+        const isCuringType = chemType === 'HRD'
+        return {
+          typ: chemType,
+          chemie: chemBase,
+          pouziti: chemUse,
+          objem_nakup_l: parseFloat(chemObjemNakup) || 0,
+          ...(isCuringType ? { cas_vytvrzeni: chemCuringTime } : { technologie: chemTech })
+        }
+      }
       case 'lepidla':
         return { chemie: adhChem, objem: adhVolume }
       case 'consumables': {
@@ -1745,34 +1753,36 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             {val:"VE", label:"VE (Vinylester)"},
             {val:"PE", label:"PE (Polyester)"}
           ])}
-          {(chemType === 'FIL' || chemType === 'GEL' || chemType === 'COP') ? (
+          {(chemType === 'FIL' || chemType === 'GEL' || chemType === 'COP' || chemType === 'RES') ? (
             renderSelect("Technologie výroby", chemTech, setChemTech, [
               {val:"INF", label:"INF (Infuze / Infusion)"},
               {val:"WL", label:"WL (Ruční laminace / Wet layup)"}
             ])
-          ) : (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Čas vytvrzení</Label>
-              <Input 
-                value={chemCuringTime} 
-                onChange={(e) => setChemCuringTime(e.target.value)} 
-                className="h-8 bg-background" 
-                placeholder="Např. 120 min, 24h"
-              />
-            </div>
-          )}
+          ) : chemType === 'HRD' ? (
+            renderSelect("Čas vytvrzení", chemCuringTime, setChemCuringTime, [
+              {val:"slow", label:"Slow (Pomalé)"},
+              {val:"medium", label:"Medium (Střední)"},
+              {val:"fast", label:"Fast (Rychlé)"}
+            ])
+          ) : null}
           {renderSelect("Použití", chemUse, setChemUse, [
             {val:"FOR", label:"FOR (Formy / Molds)"},
             {val:"DIL", label:"Díly (Parts)"}
           ])}
-          {renderSelect("Nákupní objem balení (L)", String(chemObjemNakup), (val) => setChemObjemNakup(Number(val)), [
-            {val: "5", label: "5 L (Kanystr)"},
-            {val: "20", label: "20 L (Kanystr)"},
-            {val: "100", label: "100 L (Malý sud)"},
-            {val: "200", label: "200 L (Velký sud)"},
-            {val: "400", label: "400 L (Střední IBC)"},
-            {val: "1000", label: "1000 L (IBC)"}
-          ])}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Nákupní objem balení (L)</Label>
+            <div className="flex items-center gap-2">
+              <Input 
+                type="number"
+                step="any"
+                value={chemObjemNakup} 
+                onChange={(e) => setChemObjemNakup(e.target.value)} 
+                className="h-8 bg-background flex-1 text-sm" 
+                placeholder="Např. 5, 20, 200"
+              />
+              <span className="text-sm text-zinc-400 shrink-0">L</span>
+            </div>
+          </div>
         </>
       )) : kategorieId === 'lepidla' ? renderGeneratorWrapper("Lepidla", (
         <>

@@ -585,7 +585,7 @@ export function generateProductName(
 
     const extraParts: string[] = []
 
-    if (typ === "COP" || typ === "GEL" || typ === "FIL") {
+    if (typ === "COP" || typ === "GEL" || typ === "FIL" || typ === "RES") {
       const techMapCS: Record<string, string> = {
         INF: "pro infuzi",
         WL: "pro ruční laminaci"
@@ -611,8 +611,21 @@ export function generateProductName(
 
     let fullName = [baseName, ...extraParts].filter(Boolean).join(" ")
 
-    if ((typ === "RES" || typ === "HRD") && specs.cas_vytvrzeni) {
-      fullName += `, ${specs.cas_vytvrzeni}`
+    if (typ === "HRD" && specs.cas_vytvrzeni) {
+      const curingCS: Record<string, string> = {
+        slow: "pomalé",
+        medium: "střední",
+        fast: "rychlé"
+      }
+      const curingEN: Record<string, string> = {
+        slow: "slow",
+        medium: "medium",
+        fast: "fast"
+      }
+      const val = specs.cas_vytvrzeni.toLowerCase()
+      fullName += isCs
+        ? `, ${curingCS[val] || specs.cas_vytvrzeni}`
+        : `, ${curingEN[val] || specs.cas_vytvrzeni}`
     }
 
     return fullName
