@@ -307,17 +307,26 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       const storedSorting = sessionStorage.getItem("product_catalog_sorting")
 
       if (storedFilters) {
-        setColumnFilters(JSON.parse(storedFilters))
+        const parsed = JSON.parse(storedFilters)
+        if (Array.isArray(parsed)) {
+          setColumnFilters(parsed)
+        }
       }
-      if (storedSearch) {
+      if (storedSearch && typeof storedSearch === "string" && storedSearch !== "undefined" && storedSearch !== "null") {
         setGlobalFilter(storedSearch)
         setDebouncedSearch(storedSearch)
       }
       if (storedSpecs) {
-        setSpecFilters(JSON.parse(storedSpecs))
+        const parsed = JSON.parse(storedSpecs)
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          setSpecFilters(parsed)
+        }
       }
       if (storedSorting) {
-        setSorting(JSON.parse(storedSorting))
+        const parsed = JSON.parse(storedSorting)
+        if (Array.isArray(parsed)) {
+          setSorting(parsed)
+        }
       }
     } catch (e) {
       console.error("Error restoring filters from sessionStorage:", e)

@@ -101,25 +101,31 @@ export async function getProductsPaged({
     .is('deleted_at', null)
     .is('produkt_dodavatel.deleted_at', null)
 
-  if (search && search.trim()) {
-    query = query.or(`nazev.ilike.%${search.trim()}%,sku.ilike.%${search.trim()}%`)
+  const safeSearch = typeof search === 'string' ? search : ''
+  const safeCategories = Array.isArray(categories) ? categories : []
+  const safeStatuses = Array.isArray(statuses) ? statuses : []
+  const safeSubcategories = Array.isArray(subcategories) ? subcategories : []
+  const safeSpecs = (specs && typeof specs === 'object' && !Array.isArray(specs)) ? specs : {}
+
+  if (safeSearch && safeSearch.trim()) {
+    query = query.or(`nazev.ilike.%${safeSearch.trim()}%,sku.ilike.%${safeSearch.trim()}%`)
   }
 
-  if (categories && categories.length > 0) {
-    query = query.in('kategorie_id', categories)
+  if (safeCategories.length > 0) {
+    query = query.in('kategorie_id', safeCategories)
   }
 
-  if (statuses && statuses.length > 0) {
-    query = query.in('stav_katalogu_id', statuses)
+  if (safeStatuses.length > 0) {
+    query = query.in('stav_katalogu_id', safeStatuses)
   }
 
-  if (subcategories && subcategories.length > 0) {
-    query = query.in('specifikace->>podkategorie', subcategories)
+  if (safeSubcategories.length > 0) {
+    query = query.in('specifikace->>podkategorie', safeSubcategories)
   }
 
-  if (specs && Object.keys(specs).length > 0) {
-    for (const [key, values] of Object.entries(specs)) {
-      if (values && values.length > 0) {
+  if (Object.keys(safeSpecs).length > 0) {
+    for (const [key, values] of Object.entries(safeSpecs)) {
+      if (Array.isArray(values) && values.length > 0) {
         query = query.in(`specifikace->>${key}`, values)
       }
     }
