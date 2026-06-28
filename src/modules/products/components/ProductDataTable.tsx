@@ -295,6 +295,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
   const [isBulkSourcingOpen, setIsBulkSourcingOpen] = React.useState(false)
   const [isSpeedPricingOpen, setIsSpeedPricingOpen] = React.useState(false)
 
+  const [isRestoring, setIsRestoring] = React.useState(true)
   const observerTargetRef = React.useRef<HTMLDivElement>(null)
   const isFirstRender = React.useRef(true)
 
@@ -330,11 +331,14 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       }
     } catch (e) {
       console.error("Error restoring filters from sessionStorage:", e)
+    } finally {
+      setIsRestoring(false)
     }
   }, [])
 
   // Save filters to sessionStorage when they change
   React.useEffect(() => {
+    if (isRestoring) return
     try {
       sessionStorage.setItem("product_catalog_filters", JSON.stringify(columnFilters))
       sessionStorage.setItem("product_catalog_search", globalFilter)
@@ -343,7 +347,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     } catch (e) {
       console.error("Error saving filters to sessionStorage:", e)
     }
-  }, [columnFilters, globalFilter, specFilters, sorting])
+  }, [columnFilters, globalFilter, specFilters, sorting, isRestoring])
 
   // Memoized filters
   const selectedCategories = React.useMemo(() => {
@@ -356,6 +360,8 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
 
   // Load facets on category / search change
   React.useEffect(() => {
+    if (isRestoring) return
+
     const activeCategory = selectedCategories && selectedCategories.length === 1 ? selectedCategories[0] : null
     
     if (!activeCategory) {
@@ -397,7 +403,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     return () => {
       active = false
     }
-  }, [selectedCategories, debouncedSearch])
+  }, [selectedCategories, debouncedSearch, isRestoring])
 
   // Debounce search input to avoid database overload
   React.useEffect(() => {
@@ -570,6 +576,8 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
 
   // Fetch updated data when filters/sorting/search change
   React.useEffect(() => {
+    if (isRestoring) return
+
     let active = true
 
     async function loadInitialData() {
@@ -629,7 +637,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     return () => {
       active = false
     }
-  }, [debouncedSearch, selectedCategories, selectedStatuses, specFilters, sorting])
+  }, [debouncedSearch, selectedCategories, selectedStatuses, specFilters, sorting, isRestoring])
 
   const handleCloneProduct = async (product: Product) => {
     try {
