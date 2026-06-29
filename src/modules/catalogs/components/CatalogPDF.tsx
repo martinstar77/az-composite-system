@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     fontFamily:  'Roboto',
     fontSize:    8.5,
     color:       COLORS.text,
-    paddingTop:  30,
+    paddingTop:  78,      // Increased to leave room for the absolute running header on every page
     paddingBottom: 50,
     paddingLeft: 28,
     paddingRight: 28,
@@ -52,24 +52,29 @@ const styles = StyleSheet.create({
   },
   
   // ── Hlavička (branding) ──
+  // Container is absolute to serve as a running header on all pages without shifting layout content flow.
   headerContainer: {
-    position: 'relative',
-    width: '100%',
-    height: 65,
-    marginBottom: 12,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 595,           // full width of A4 page
+    height: 78,
   },
   headerImage: {
     position: 'absolute',
-    top: -15,
-    left: 0,
-    width: '100%',
-    height: 52,
+    top: 12,              // shifted down to leave a clean margin at the top of the page
+    left: -14,            // push left relative to container edge to crop the PNG white border
+    width: 609,           // covers right edge (-14 + 609 = 595)
+    height: 59,           // preserves original 10.266 aspect ratio
   },
   headerTextContainer: {
-    position: 'absolute',
-    top: 10,
-    right: 12,
     alignItems: 'flex-end',
+  },
+  firstPageHeaderInfo: {
+    width: '100%',
+    alignItems: 'flex-end',
+    marginTop: -32,       // Pulls the text up so it aligns nicely with the running purple logo bar on page 1
+    marginBottom: 20,
   },
   documentTypeLabel: {
     fontSize:   16,
@@ -636,8 +641,12 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
     >
       <Page size="A4" style={styles.page}>
         {/* Branding Hlavička */}
-        <View style={styles.headerContainer}>
+        <View style={styles.headerContainer} fixed>
           <Image src={headerImagePath} style={styles.headerImage} />
+        </View>
+
+        {/* Informace o ceníku - pouze na první straně, v normálním toku obsahu */}
+        <View style={styles.firstPageHeaderInfo}>
           <View style={styles.headerTextContainer}>
             <Text style={styles.documentTypeLabel}>{getTierLabel()}</Text>
             <Text style={styles.documentSubLabel}>
@@ -664,76 +673,129 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
               </Text>
             </View>
 
-            {cat.subgroups.map((sub) => (
-              <View key={sub.key} style={{ marginBottom: 10 }}>
-                {/* Nadpis podkategorie */}
-                {sub.key !== '_default' ? (
-                  <View style={styles.subgroupHeader}>
-                    <Text style={styles.subgroupTitle}>{sub.label}</Text>
-                  </View>
-                ) : (
-                  <View />
-                )}
+            {cat.subgroups.map((sub) => {
+              const firstProducts = sub.products.slice(0, 3)
+              const remainingProducts = sub.products.slice(3)
 
-                {/* Tabulka položek */}
-                <View style={styles.table}>
-                  {/* Table Header */}
-                  <View style={styles.tableHeader}>
-                    <Text style={[styles.thText, styles.colName]}>{isCs ? "Název produktu" : "Product Name"}</Text>
-                    <Text style={[styles.thText, styles.colSku]}>{isCs ? "Kód produktu" : "Product Code"}</Text>
-                    <Text style={[styles.thText, styles.colUnitPrice]}>{isCs ? "Cena / jedn." : "Price / Unit"}</Text>
-                    <Text style={[styles.thText, styles.colUnitCount]}>{isCs ? "Počet" : "Qty"}</Text>
-                    <Text style={[styles.thText, styles.colTotalPrice]}>{isCs ? "Cena celkem" : "Total Price"}</Text>
-                    <Text style={[styles.thText, styles.colPackSize]}>{isCs ? "Balení" : "Packaging"}</Text>
-                  </View>
-
-                  {/* Table Body */}
-                  {sub.products.map((p, idx) => {
-                    const pricePerUnit = getNumericPrice(p.pricing)
-                    // Počet kusů v prodejním balení (role, bal.) – toto je to co klient kupuje jako celek
-                    const packQty = p.mnozstvi_v_baleni && p.mnozstvi_v_baleni > 0 ? p.mnozstvi_v_baleni : 1
-                    const totalPriceVal = pricePerUnit * packQty
-                    const rawUnitAbbr = p.c_merne_jednotky_zakladni?.zkratka || ''
-                    const rawPackAbbr = p.c_merne_jednotky_baleni?.zkratka || 'bal.'
-                    
-                    const unitAbbr = translateUnit(rawUnitAbbr, lang)
-                    const packAbbr = translateUnit(rawPackAbbr, lang)
-                    const isAlt = idx % 2 === 1
-                    
-                    const onRequestText = isCs ? "Na dotaz" : "On request"
-                    const productName = isCs ? p.nazev : (p.nazev_en || '—')
-
-                    return (
-                      <View style={[styles.tableRow, isAlt ? styles.tableRowAlt : {}]} key={p.id} wrap={false}>
-                        <View style={styles.colName}>
-                          <Text style={styles.tdText}>{productName}</Text>
-                          {p.specifikace?.tloustka_um && (
-                            <Text style={[styles.tdText, styles.tdMuted, { fontSize: 6.5, marginTop: 1 }]}>
-                              {isCs ? `Tloušťka: ${p.specifikace.tloustka_um} µm` : `Thickness: ${p.specifikace.tloustka_um} µm`}
-                            </Text>
-                          )}
-                        </View>
-                        <Text style={[styles.tdText, styles.tdMuted, styles.colSku]}>
-                          {formatSkuForPdf(p.sku)}
-                        </Text>
-                        <Text style={[styles.tdText, styles.colUnitPrice]}>
-                          {pricePerUnit > 0 ? `${pricePerUnit.toFixed(2)} ${targetCurrency} / ${unitAbbr}` : onRequestText}
-                        </Text>
-                        <Text style={[styles.tdText, styles.colUnitCount]}>
-                          {`${packQty} ${unitAbbr}`}
-                        </Text>
-                        <Text style={[styles.tdBold, styles.colTotalPrice]}>
-                          {pricePerUnit > 0 ? `${totalPriceVal.toFixed(2)} ${targetCurrency}` : onRequestText}
-                        </Text>
-                        <Text style={[styles.tdText, styles.colPackSize]}>
-                          {`1 ${packAbbr}`}
-                        </Text>
+              return (
+                <View key={sub.key} style={{ marginBottom: 10 }}>
+                  {/* Společný blok nadpisu, hlavičky tabulky a prvních 3 řádků (nesmí se rozdělit) */}
+                  <View wrap={false}>
+                    {/* Nadpis podkategorie */}
+                    {sub.key !== '_default' && (
+                      <View style={styles.subgroupHeader}>
+                        <Text style={styles.subgroupTitle}>{sub.label}</Text>
                       </View>
-                    )
-                  })}
+                    )}
+
+                    {/* Tabulka položek */}
+                    <View style={styles.table}>
+                      {/* Table Header */}
+                      <View style={styles.tableHeader}>
+                        <Text style={[styles.thText, styles.colName]}>{isCs ? "Název produktu" : "Product Name"}</Text>
+                        <Text style={[styles.thText, styles.colSku]}>{isCs ? "Kód produktu" : "Product Code"}</Text>
+                        <Text style={[styles.thText, styles.colUnitPrice]}>{isCs ? "Cena / jedn." : "Price / Unit"}</Text>
+                        <Text style={[styles.thText, styles.colUnitCount]}>{isCs ? "Počet" : "Qty"}</Text>
+                        <Text style={[styles.thText, styles.colTotalPrice]}>{isCs ? "Cena celkem" : "Total Price"}</Text>
+                        <Text style={[styles.thText, styles.colPackSize]}>{isCs ? "Balení" : "Packaging"}</Text>
+                      </View>
+
+                      {/* První 3 řádky tabulky */}
+                      {firstProducts.map((p, idx) => {
+                        const pricePerUnit = getNumericPrice(p.pricing)
+                        const packQty = p.mnozstvi_v_baleni && p.mnozstvi_v_baleni > 0 ? p.mnozstvi_v_baleni : 1
+                        const totalPriceVal = pricePerUnit * packQty
+                        const rawUnitAbbr = p.c_merne_jednotky_zakladni?.zkratka || ''
+                        const rawPackAbbr = p.c_merne_jednotky_baleni?.zkratka || 'bal.'
+                        
+                        const unitAbbr = translateUnit(rawUnitAbbr, lang)
+                        const packAbbr = translateUnit(rawPackAbbr, lang)
+                        const isAlt = idx % 2 === 1
+                        
+                        const onRequestText = isCs ? "Na dotaz" : "On request"
+                        const productName = isCs ? p.nazev : (p.nazev_en || '—')
+
+                        return (
+                          <View style={[styles.tableRow, isAlt ? styles.tableRowAlt : {}]} key={p.id} wrap={false}>
+                            <View style={styles.colName}>
+                              <Text style={styles.tdText}>{productName}</Text>
+                              {p.specifikace?.tloustka_um && (
+                                <Text style={[styles.tdText, styles.tdMuted, { fontSize: 6.5, marginTop: 1 }]}>
+                                  {isCs ? `Tloušťka: ${p.specifikace.tloustka_um} µm` : `Thickness: ${p.specifikace.tloustka_um} µm`}
+                                </Text>
+                              )}
+                            </View>
+                            <Text style={[styles.tdText, styles.tdMuted, styles.colSku]}>
+                              {formatSkuForPdf(p.sku)}
+                            </Text>
+                            <Text style={[styles.tdText, styles.colUnitPrice]}>
+                              {pricePerUnit > 0 ? `${pricePerUnit.toFixed(2)} ${targetCurrency} / ${unitAbbr}` : onRequestText}
+                            </Text>
+                            <Text style={[styles.tdText, styles.colUnitCount]}>
+                              {`${packQty} ${unitAbbr}`}
+                            </Text>
+                            <Text style={[styles.tdBold, styles.colTotalPrice]}>
+                              {pricePerUnit > 0 ? `${totalPriceVal.toFixed(2)} ${targetCurrency}` : onRequestText}
+                            </Text>
+                            <Text style={[styles.tdText, styles.colPackSize]}>
+                              {`1 ${packAbbr}`}
+                            </Text>
+                          </View>
+                        )
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Zbývající řádky tabulky (mohou se zalomit na další strany) */}
+                  {remainingProducts.length > 0 && (
+                    <View style={styles.table}>
+                      {remainingProducts.map((p, idx) => {
+                        const pricePerUnit = getNumericPrice(p.pricing)
+                        const packQty = p.mnozstvi_v_baleni && p.mnozstvi_v_baleni > 0 ? p.mnozstvi_v_baleni : 1
+                        const totalPriceVal = pricePerUnit * packQty
+                        const rawUnitAbbr = p.c_merne_jednotky_zakladni?.zkratka || ''
+                        const rawPackAbbr = p.c_merne_jednotky_baleni?.zkratka || 'bal.'
+                        
+                        const unitAbbr = translateUnit(rawUnitAbbr, lang)
+                        const packAbbr = translateUnit(rawPackAbbr, lang)
+                        const isAlt = (idx + 3) % 2 === 1 // maintain alternating row color correctly
+                        
+                        const onRequestText = isCs ? "Na dotaz" : "On request"
+                        const productName = isCs ? p.nazev : (p.nazev_en || '—')
+
+                        return (
+                          <View style={[styles.tableRow, isAlt ? styles.tableRowAlt : {}]} key={p.id} wrap={false}>
+                            <View style={styles.colName}>
+                              <Text style={styles.tdText}>{productName}</Text>
+                              {p.specifikace?.tloustka_um && (
+                                <Text style={[styles.tdText, styles.tdMuted, { fontSize: 6.5, marginTop: 1 }]}>
+                                  {isCs ? `Tloušťka: ${p.specifikace.tloustka_um} µm` : `Thickness: ${p.specifikace.tloustka_um} µm`}
+                                </Text>
+                              )}
+                            </View>
+                            <Text style={[styles.tdText, styles.tdMuted, styles.colSku]}>
+                              {formatSkuForPdf(p.sku)}
+                            </Text>
+                            <Text style={[styles.tdText, styles.colUnitPrice]}>
+                              {pricePerUnit > 0 ? `${pricePerUnit.toFixed(2)} ${targetCurrency} / ${unitAbbr}` : onRequestText}
+                            </Text>
+                            <Text style={[styles.tdText, styles.colUnitCount]}>
+                              {`${packQty} ${unitAbbr}`}
+                            </Text>
+                            <Text style={[styles.tdBold, styles.colTotalPrice]}>
+                              {pricePerUnit > 0 ? `${totalPriceVal.toFixed(2)} ${targetCurrency}` : onRequestText}
+                            </Text>
+                            <Text style={[styles.tdText, styles.colPackSize]}>
+                              {`1 ${packAbbr}`}
+                            </Text>
+                          </View>
+                        )
+                      })}
+                    </View>
+                  )}
                 </View>
-              </View>
-            ))}
+              )
+            })}
           </View>
         ))}
 

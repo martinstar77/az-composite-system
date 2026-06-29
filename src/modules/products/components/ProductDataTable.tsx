@@ -326,7 +326,13 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       if (storedSorting) {
         const parsed = JSON.parse(storedSorting)
         if (Array.isArray(parsed)) {
-          setSorting(parsed)
+          const allowedDbSortingFields = ["nazev", "sku", "kategorie_id", "stav_katalogu_id", "vytvoril_id", "upravil_id"]
+          const validSorting = parsed.filter((item: any) => allowedDbSortingFields.includes(item?.id))
+          if (validSorting.length > 0) {
+            setSorting(validSorting)
+          } else {
+            setSorting([{ id: "nazev", desc: false }])
+          }
         }
       }
     } catch (e) {
@@ -491,9 +497,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
 
       if (res.error) {
         toast.error("Chyba při načítání dalších produktů: " + res.error.message)
-        if (res.error.code === 'PGRST103' || String(res.error.message).includes('satisfiable')) {
-          setHasMore(false)
-        }
+        setHasMore(false)
         return
       }
 
@@ -514,6 +518,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       setPage(nextPage)
     } catch (e: any) {
       toast.error("Chyba při načítání: " + e.message)
+      setHasMore(false)
     } finally {
       setIsLoading(false)
     }
@@ -601,6 +606,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
 
         if (res.error) {
           toast.error("Chyba při načítání produktů: " + res.error.message)
+          setHasMore(false)
           return
         }
 
@@ -612,6 +618,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       } catch (e: any) {
         if (active) {
           toast.error("Neočekávaná chyba při načítání: " + e.message)
+          setHasMore(false)
         }
       } finally {
         if (active) setIsLoading(false)
@@ -848,6 +855,39 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       },
     },
     {
+      id: "packaging_qty",
+      header: "Balení",
+      cell: ({ row }) => {
+        const p = row.original
+        return (
+          <div className="flex flex-col text-xs font-mono text-zinc-300">
+            <span>
+              {p.mnozstvi_v_baleni}{" "}
+              <span className="text-zinc-500">
+                {p.c_merne_jednotky_baleni?.zkratka || p.jednotka_baleni_id}
+              </span>
+            </span>
+          </div>
+        )
+      }
+    },
+    {
+      id: "weight",
+      header: "Hmotnost",
+      cell: ({ row }) => {
+        const p = row.original
+        return (
+          <div className="flex flex-col text-xs font-mono text-zinc-300">
+            {p.hmotnost_baliku_kg !== null && p.hmotnost_baliku_kg !== undefined ? (
+              <span>{p.hmotnost_baliku_kg.toFixed(2)} kg</span>
+            ) : (
+              <span className="text-zinc-600 italic">-</span>
+            )}
+          </div>
+        )
+      }
+    },
+    {
       id: "audit",
       header: "Autor / Změna",
       cell: ({ row }) => {
@@ -1075,6 +1115,8 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
                          column.id === 'logistika' ? 'Logistika' :
                          column.id === 'margins' ? 'Cílové marže' :
                          column.id === 'stock' ? 'Skladem' :
+                         column.id === 'packaging_qty' ? 'Balení' :
+                         column.id === 'weight' ? 'Hmotnost' :
                          column.id === 'audit' ? 'Autor / Změna' :
                          column.id}
                       </label>
@@ -1174,6 +1216,8 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
                         cid === "logistika" && "min-w-[90px] w-[90px] max-w-[90px]",
                         cid === "margins" && "min-w-[115px] w-[115px] max-w-[115px]",
                         cid === "stock" && "min-w-[80px] w-[80px] max-w-[80px]",
+                        cid === "packaging_qty" && "min-w-[80px] w-[80px] max-w-[80px]",
+                        cid === "weight" && "min-w-[80px] w-[80px] max-w-[80px]",
                         cid === "audit" && "min-w-[160px] w-[160px] max-w-[160px]",
                         cid === "actions" && "min-w-[36px] w-[36px] max-w-[36px] text-center"
                       )}
@@ -1213,6 +1257,8 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
                           cid === "logistika" && "min-w-[90px] w-[90px] max-w-[90px]",
                           cid === "margins" && "min-w-[115px] w-[115px] max-w-[115px]",
                           cid === "stock" && "min-w-[80px] w-[80px] max-w-[80px]",
+                          cid === "packaging_qty" && "min-w-[80px] w-[80px] max-w-[80px]",
+                          cid === "weight" && "min-w-[80px] w-[80px] max-w-[80px]",
                           cid === "audit" && "min-w-[160px] w-[160px] max-w-[160px]",
                           cid === "actions" && "min-w-[36px] w-[36px] max-w-[36px] text-center"
                         )}

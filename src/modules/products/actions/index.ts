@@ -858,3 +858,49 @@ export async function bulkRegenerateProductNames(): Promise<{ success: boolean, 
   revalidatePath('/katalogy')
   return { success: true, updatedCount }
 }
+
+export async function bulkRecalculateProductWeights() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  const { data: products, error: fetchError } = await supabase
+    .from('produkty')
+    .select('id, kategorie_id, specifikace, mnozstvi_v_baleni')
+    .is('deleted_at', null)
+
+  if (fetchError) {
+    return { success: false, error: fetchError }
+  }
+  if (!products || products.length === 0) {
+    return { success: true, updatedCount: 0 }
+  }
+
+  const { calculateGrossWeight } = await import('../utils/logisticsCalculator')
+
+  let updatedCount = 0
+  for (const product of products) {
+    const specs = (product.specifikace as Record<string, unknown>) || {}
+    const categoryId = product.kategorie_id
+    const qtyInPack = product.mnozstvi_v_baleni || 1
+
+    const weightEst = calculateGrossWeight(categoryId, specs, qtyInPack)
+    if (weightEst && weightEst.weightKg !== null) {
+      const { error: updateError } = await supabase
+        .from('produkty')
+        .update({
+          hmotnost_baliku_kg: weightEst.weightKg,
+          upravil_id: user?.id,
+          aktualizovano_at: new Date().toISOString()
+        })
+        .eq('id', product.id)
+      
+      if (!updateError) {
+        updatedCount++
+      }
+    }
+  }
+
+  revalidatePath('/produkty')
+  revalidatePath('/katalogy')
+  return { success: true, updatedCount }
+}

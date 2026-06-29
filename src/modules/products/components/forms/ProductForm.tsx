@@ -146,6 +146,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     return resolvePackageDimensions(w, activeProfile, overrides)
   }, [hmotnostBaliku, activeProfile, overrideDelka, overrideSirka, overrideVyska])
 
+
   // Live Validation State
   const [skuExists, setSkuExists] = useState(false)
 
@@ -424,6 +425,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [conKpTvar, setConKpTvar] = useState(specs.tvar || "O")
   const [conKpPrumer, setConKpPrumer] = useState(specs.prumer_mm ? String(specs.prumer_mm) : "12")
 
+  const isPackagingLocked = useMemo(() => {
+    if (!kategorieId) return false
+    if (kategorieId === "lepidla") return false
+    if (kategorieId === "brouseni_a_lesteni") {
+      return polSub === "pasty" || polSub === "vosk"
+    }
+    return ["vyztuzne_materialy", "consumables", "pryskyrice", "spotrebni_chemie", "chemie"].includes(kategorieId)
+  }, [kategorieId, polSub])
+
   // Auto-map packaging profile based on category and package type defaults
   useEffect(() => {
     if (initialData) return // Don't override existing product data on edit
@@ -629,9 +639,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         break;
       }
       case 'lepidla': {
-        setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-        setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        if (!dirtyFields.zakladni_mj_id && !initialData) {
+          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+        }
+        if (!dirtyFields.jednotka_baleni_id && !initialData) {
+          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        }
+        if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
+          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        }
         
         const colorMap: Record<string, string> = {
           black: "BLK",
@@ -760,7 +776,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         }
         break;
       case 'brouseni_a_lesteni': {
-        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        if (!dirtyFields.jednotka_baleni_id && !initialData) {
+          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        }
 
         if (polSub === 'vosk') {
           setValue("zakladni_mj_id", "kg", { shouldValidate: true })
@@ -816,8 +834,12 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             hmotnost: `${normalizedWeight} kg`
           }
         } else {
-          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+          if (!dirtyFields.zakladni_mj_id && !initialData) {
+            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+          }
+          if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
+            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+          }
 
           if (polSub === 'brusne_kotouce') {
             const typeCodeMap: Record<string, string> = {
@@ -2789,8 +2811,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             id="mnozstvi_v_baleni" 
             type="number" 
             step="0.01" 
-            readOnly={["vyztuzne_materialy", "consumables", "pryskyrice", "lepidla", "spotrebni_chemie", "chemie", "brouseni_a_lesteni"].includes(kategorieId)}
-            className={["vyztuzne_materialy", "consumables", "pryskyrice", "lepidla", "spotrebni_chemie", "chemie", "brouseni_a_lesteni"].includes(kategorieId) ? "bg-muted text-muted-foreground border-zinc-850" : ""}
+            readOnly={isPackagingLocked}
+            className={isPackagingLocked ? "bg-muted text-muted-foreground border-zinc-850" : ""}
             {...register("mnozstvi_v_baleni")} 
           />
         </div>
@@ -2799,9 +2821,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           <Select 
             onValueChange={(val: string | null) => setValue("jednotka_baleni_id", val || "")} 
             value={jednotkaBaleniId || ""}
-            disabled={["vyztuzne_materialy", "consumables", "pryskyrice", "lepidla", "spotrebni_chemie", "chemie", "brouseni_a_lesteni"].includes(kategorieId)}
+            disabled={isPackagingLocked}
           >
-            <SelectTrigger className={`w-full ${["vyztuzne_materialy", "consumables", "pryskyrice", "lepidla", "spotrebni_chemie", "chemie", "brouseni_a_lesteni"].includes(kategorieId) ? "bg-muted text-muted-foreground opacity-90 cursor-not-allowed" : ""}`}>
+            <SelectTrigger className={`w-full ${isPackagingLocked ? "bg-muted text-muted-foreground opacity-90 cursor-not-allowed" : ""}`}>
               <SelectValue placeholder="Vyberte jednotku">
                 {lookups.units.find(u => u.id === jednotkaBaleniId)?.zkratka}
               </SelectValue>

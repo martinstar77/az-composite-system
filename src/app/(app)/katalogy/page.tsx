@@ -23,7 +23,7 @@ export default async function KatalogyPage() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto space-y-8">
+    <div className="w-full space-y-8">
       <div>
         <h1 className="text-3xl font-bold text-white tracking-tight">Katalogy a Price Matrix</h1>
         <p className="text-muted-foreground mt-1">Interní přehled ziskovosti a generování firemních B2B/B2C ceníků.</p>
