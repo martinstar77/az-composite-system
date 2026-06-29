@@ -153,11 +153,11 @@ describe("logisticsCalculator - resolvePackagingProfile", () => {
     expect(profile?.id).toBe("p-krabice-dl")
   })
 
-  it("should select paleta for resins > 25L", () => {
+  it("should select paleta for resins > 25L, otherwise null", () => {
     const profile = resolvePackagingProfile("pryskyrice", { objem_nakup_l: 200 }, dummyProfiles)
     expect(profile?.id).toBe("p-paleta")
 
     const profileSmall = resolvePackagingProfile("pryskyrice", { objem_nakup_l: 5 }, dummyProfiles)
-    expect(profileSmall?.id).toBe("p-krabice-std")
+    expect(profileSmall).toBeNull()
   })
 })

@@ -689,29 +689,23 @@ export function resolvePackagingProfile(
     case "pryskyrice": {
       const objem = Number(specs.objem_nakup_l ?? 5)
       if (objem > 25) return findByType("paleta")
-      return findByType("krabice_standard")
+      return null // Ignore volumetric for buckets/cans
     }
 
     case "lepidla": {
-      return findByType("krabice_standard")
+      return null
     }
 
     case "spotrebni_chemie": {
-      return findByType("krabice_standard")
+      return null
     }
 
     case "chemie": {
-      const podkat = String(specs.podkategorie ?? "")
-      if (podkat === "lepidlo_ve_spreji" || podkat === "blinder") {
-        return findByType("sacek") ?? findByType("krabice_standard")
-      }
-      return findByType("krabice_standard")
+      return null
     }
 
     case "brouseni_a_lesteni": {
-      const podkat = String(specs.podkategorie ?? "pasty")
-      if (podkat === "pasty" || podkat === "vosk") return findByType("krabice_standard")
-      return findByType("sacek") ?? findByType("krabice_standard")
+      return null
     }
 
     case "consumables": {
@@ -721,19 +715,19 @@ export function resolvePackagingProfile(
         const sirka_cm = Number(specs.sirka_cm ?? 100)
         return findRollByWidth(sirka_cm)
       }
-      if (podkat === "ST") return findByType("krabice_standard")
-      if (podkat === "FT") return findByType("sacek") ?? findByType("krabice_standard")
+      if (podkat === "ST") return null
+      if (podkat === "FT") return null
       if (podkat === "FCH") {
         const podtyp = String(specs.podtyp_fch ?? "TAPE")
         if (podtyp === "SPRL" || podtyp === "OMEGA" || podtyp === "TUBE" || podtyp === "TTUBE") {
           return findByType("krabice_dlouha") ?? findByType("krabice_standard")
         }
-        return findByType("sacek") ?? findByType("krabice_standard")
+        return null
       }
       if (podkat === "K" || podkat === "KP" || podkat === "MTI") {
-        return findByType("sacek") ?? findByType("krabice_standard")
+        return null
       }
-      return findByType("krabice_standard")
+      return null
     }
 
     case "naradi": {
@@ -741,12 +735,11 @@ export function resolvePackagingProfile(
       if (podkat === "CU" || podkat === "SU") {
         return findByType("paleta") ?? findByType("krabice_standard")
       }
-      if (podkat === "V") return findByType("krabice_standard")
-      return findByType("sacek") ?? findByType("krabice_standard")
+      return null
     }
 
     case "spojovaci_material": {
-      return findByType("sacek") ?? findByType("krabice_standard")
+      return null
     }
 
     default:
