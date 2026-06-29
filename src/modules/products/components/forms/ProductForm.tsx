@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
@@ -125,6 +125,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const overrideVyska = watch("balik_vyska_cm_override")
   const hmotnostBaliku = watch("hmotnost_baliku_kg")
   const mnozstviVBaleni = watch("mnozstvi_v_baleni")
+
 
   // Override tracking — true when the user has manually typed a value
   const [isWeightOverridden, setIsWeightOverridden] = useState(
@@ -551,8 +552,16 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           uom = "ks"
         }
 
-        setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
-        setValue("jednotka_baleni_id", uom, { shouldValidate: true })
+        const origPackType = specs.typ_baleni || "role"
+        const origWidth = specs.sirka_cm !== undefined ? String(specs.sirka_cm) : (specs.sirka_m !== undefined ? String(specs.sirka_m * 100) : "100")
+        const origLength = specs.delka_m !== undefined ? String(specs.delka_m) : "100"
+        const origPieces = specs.pocet_kusu !== undefined ? String(specs.pocet_kusu) : "10"
+        const hasFabSpecsChanged = fabPackType !== origPackType || fabWidth !== origWidth || fabLength !== origLength || fabPieces !== origPieces
+
+        if (!initialData || hasFabSpecsChanged) {
+          setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
+          setValue("jednotka_baleni_id", uom, { shouldValidate: true })
+        }
 
         const w_cm = Math.round(w)
         const lenSuffix = (fabPackType === "role" && l > 0) ? `-R${Math.round(l)}` : ""
@@ -622,9 +631,16 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         const volL = parseFloat(chemObjemNakup) || 0
         const calculatedWeight = volL * density
 
-        setValue("zakladni_mj_id", "kg", { shouldValidate: true })
-        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-        setValue("mnozstvi_v_baleni", parseFloat(calculatedWeight.toFixed(2)), { shouldValidate: true })
+        const origTyp = specs.typ || "RES"
+        const origChemie = specs.chemie || "EP"
+        const origObjem = specs.objem_nakup_l ? String(specs.objem_nakup_l) : "200"
+        const hasResinSpecsChanged = chemType !== origTyp || chemBase !== origChemie || chemObjemNakup !== origObjem
+
+        if (!initialData || hasResinSpecsChanged) {
+          setValue("zakladni_mj_id", "kg", { shouldValidate: true })
+          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+          setValue("mnozstvi_v_baleni", parseFloat(calculatedWeight.toFixed(2)), { shouldValidate: true })
+        }
 
         generatedSku = `${chemType}-${chemBase}-${thirdSegment}-${chemUse}`
         generatedSpecs = {
@@ -667,7 +683,14 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         break;
       }
       case 'spotrebni_chemie': {
-        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        const origSub = specs.podkategorie || "standard"
+        const origType = specs.typ || "WIP"
+        const origQty = specs.mnozstvi ? String(specs.mnozstvi) : ""
+        const hasClnSpecsChanged = clnSub !== origSub || clnType !== origType || clnQty !== origQty
+
+        if (!initialData || hasClnSpecsChanged) {
+          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        }
 
         if (clnSub === 'standard') {
           const cleanQty = clnQty.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
@@ -686,12 +709,16 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           }
 
           if (clnType === 'CON') {
-            setValue("zakladni_mj_id", "l", { shouldValidate: true })
-            const parsedVol = parseFloat(clnQty.replace(/[^0-9.]/g, '')) || 1
-            setValue("mnozstvi_v_baleni", parsedVol, { shouldValidate: true })
+            if (!initialData || hasClnSpecsChanged) {
+              setValue("zakladni_mj_id", "l", { shouldValidate: true })
+              const parsedVol = parseFloat(clnQty.replace(/[^0-9.]/g, '')) || 1
+              setValue("mnozstvi_v_baleni", parsedVol, { shouldValidate: true })
+            }
           } else {
-            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            if (!initialData || hasClnSpecsChanged) {
+              setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+              setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            }
           }
         } else if (clnSub === 'pmp') {
           const cleanQty = clnPmpQty.trim().toUpperCase().replace(/[^0-9]/g, '')
@@ -701,8 +728,10 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             typ: 'liquid',
             mnozstvi: `${cleanQty} ml`
           }
-          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+          if (!initialData || hasClnSpecsChanged) {
+            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+          }
         }
         break;
       }
@@ -711,14 +740,20 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         const cleanVol = normalizedVol.replace(/[^0-9]/g, '')
         const volL = parseFloat(normalizedVol) || 1
 
-        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        const origSub = specs.podkategorie || "lepidlo_ve_spreji"
+        const origVol = specs.objem ? String(specs.objem).replace(/ ml| L/g, '') : "500"
+        const hasChemSpecsChanged = chemSub !== origSub || chemVol !== origVol
 
-        if (chemSub === 'lepidlo_ve_spreji' || chemSub === 'blinder') {
-          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
-        } else {
-          setValue("zakladni_mj_id", "l", { shouldValidate: true })
-          setValue("mnozstvi_v_baleni", volL, { shouldValidate: true })
+        if (!initialData || hasChemSpecsChanged) {
+          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+
+          if (chemSub === 'lepidlo_ve_spreji' || chemSub === 'blinder') {
+            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+          } else {
+            setValue("zakladni_mj_id", "l", { shouldValidate: true })
+            setValue("mnozstvi_v_baleni", volL, { shouldValidate: true })
+          }
         }
 
         if (chemSub === 'lepidlo_ve_spreji') {
