@@ -1030,7 +1030,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             generatedSpecs = {
               podkategorie: "BF",
               format: conBfFormat,
-              tloustka_um: parseInt(conBfTloustka) || 0,
+              tloustka_um: parseFloat(conBfTloustka) || 0,
               teplotni_odolnost: conBfTemp,
               vhodne_do_autoklavu: conBfTemp === 'HT',
               sirka_cm: w_cm,
@@ -1050,7 +1050,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             generatedSpecs = {
               podkategorie: "RF",
               perforace: conRfPerf,
-              tloustka_um: parseInt(conRfTloustka) || 0,
+              tloustka_um: parseFloat(conRfTloustka) || 0,
               teplotni_odolnost: conRfTemp,
               sirka_cm: w_cm,
               delka_m: rL
@@ -1089,7 +1089,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               polymer: "PTFE",
               je_teflon: true,
               je_lepici: conPtfeAdhesive === "ADH",
-              tloustka_um: parseInt(conPtfeTloustka) || 0,
+              tloustka_um: parseFloat(conPtfeTloustka) || 0,
               sirka_cm: w_cm,
               delka_m: rL
             }
