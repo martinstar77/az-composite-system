@@ -381,7 +381,7 @@ export function calculateGrossWeight(
       if (podkat === "pasty" || podkat === "vosk") {
         const netWeight = parseWeightKg((s.hmotnost || s.mnozstvi) as string) || 0
         if (!netWeight) return { weightKg: null, confidence: "low", breakdown: "Chybí hmotnost pasty/vosku." }
-        const qty = 1
+        const qty = mnozstviVBaleni || 1
         const packaging = 0.15
         const total = r3((netWeight + packaging) * qty)
         return {

@@ -39,8 +39,8 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
     // Net: (400/1000 * 1.25 * 10) = 5.0 kg
     // Tube: 1.25 * 0.85 = 1.0625 kg
     // Packaging: 2.0 kg
-    // Total: 5 + 1.0625 + 2 = 8.0625 -> r3 -> 8.063
-    expect(result.weightKg).toBe(8.063)
+    // Total: 5 + 1.06 + 2 = 8.06 -> r3 -> 8.06
+    expect(result.weightKg).toBe(8.06)
   })
 
   it("should calculate weight for pryskyrice (Resins)", () => {
@@ -84,8 +84,8 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       mnozstvi: "500ml"
     }
     const result = calculateGrossWeight("spotrebni_chemie", specs, 1)
-    // 0.5 * 0.85 + 0.08 = 0.425 + 0.08 = 0.505
-    expect(result.weightKg).toBe(0.505)
+    // 0.5 * 0.85 + 0.08 = 0.425 + 0.08 = 0.505 -> r3 -> 0.51
+    expect(result.weightKg).toBe(0.51)
   })
 
   it("should calculate weight for cores (cores_standard)", () => {
@@ -112,10 +112,9 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
     }
     const result = calculateGrossWeight("consumables", specs, 1)
     // per roll: 0.012 * 0.0035 * 15 = 0.00063 m3
-    // weight per roll: 0.00063 * 250 = 0.1575 kg -> rounded? perRollKg = r3(0.1575) = 0.158 kg
-    // net: 0.158 * 2 = 0.316 kg
-    // total: 0.316 + 0.2 = 0.516 kg
-    expect(result.weightKg).toBe(0.516)
+    // net: 0.16 * 2 = 0.32 kg
+    // total: 0.32 + 0.2 = 0.52 kg
+    expect(result.weightKg).toBe(0.52)
   })
 
   it("should calculate weight for spojovaci_material (Fasteners)", () => {

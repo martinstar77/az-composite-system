@@ -428,11 +428,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const isPackagingLocked = useMemo(() => {
     if (!kategorieId) return false
     if (kategorieId === "lepidla") return false
-    if (kategorieId === "brouseni_a_lesteni") {
-      return polSub === "pasty" || polSub === "vosk"
-    }
+    if (kategorieId === "brouseni_a_lesteni") return false
     return ["vyztuzne_materialy", "consumables", "pryskyrice", "spotrebni_chemie", "chemie"].includes(kategorieId)
-  }, [kategorieId, polSub])
+  }, [kategorieId])
 
   // Auto-map packaging profile based on category and package type defaults
   useEffect(() => {
@@ -780,11 +778,14 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
         }
 
-        if (polSub === 'vosk') {
-          setValue("zakladni_mj_id", "kg", { shouldValidate: true })
-          const parsedQty = parseFloat(polWaxQty.replace(',', '.').replace(/[^0-9.]/g, '')) || 1
-          setValue("mnozstvi_v_baleni", parsedQty, { shouldValidate: true })
+        if (!dirtyFields.zakladni_mj_id && !initialData) {
+          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+        }
+        if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
+          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        }
 
+        if (polSub === 'vosk') {
           const waxNameCodeMap: Record<string, string> = {
             uv_shield: 'UV',
             flash_touch: 'FT'
@@ -807,10 +808,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             mnozstvi: `${normalizedQty} kg`
           }
         } else if (polSub === 'pasty') {
-          setValue("zakladni_mj_id", "kg", { shouldValidate: true })
-          const parsedWeight = parseFloat(polPasteWeight.replace(',', '.').replace(/[^0-9.]/g, '')) || 1
-          setValue("mnozstvi_v_baleni", parsedWeight, { shouldValidate: true })
-
           const typeCodeMap: Record<string, string> = {
             rex: 'REX',
             perla15: 'PER15',
