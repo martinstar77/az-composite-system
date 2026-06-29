@@ -146,6 +146,45 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     return resolvePackageDimensions(w, activeProfile, overrides)
   }, [hmotnostBaliku, activeProfile, overrideDelka, overrideSirka, overrideVyska])
 
+  const estimatedNetWeight = useMemo(() => {
+    if (!kategorieId) return 0
+    
+    if (kategorieId === 'pryskyrice' && zakladniMjId === 'kg') {
+      const objem = parseFloat(String(currentSpecs.objem_nakup_l || ""))
+      if (objem && !isNaN(objem)) {
+        const typ = String(currentSpecs.typ || "RES")
+        const chem = String(currentSpecs.chemie || "EP")
+        const density = typ === 'HRD' ? 0.95 : (chem === 'EP' ? 1.15 : (chem === 'VE' ? 1.12 : (chem === 'PE' ? 1.13 : (chem === 'GEL' ? 1.20 : 1.0))))
+        return objem * density
+      }
+    }
+    if ((kategorieId === 'chemie' || kategorieId === 'spotrebni_chemie') && zakladniMjId === 'l') {
+      const rawVol = currentSpecs.objem || currentSpecs.mnozstvi
+      if (rawVol) {
+        const str = String(rawVol).trim().toLowerCase()
+        const num = parseFloat(str.replace(/[^0-9.]/g, ""))
+        if (!isNaN(num) && num > 0) {
+          const vol = str.includes("ml") ? num / 1000 : num
+          const density = currentSpecs.vlastnost === "EP" ? 1.15 : 1.0
+          return vol * density
+        }
+      }
+    }
+    if (kategorieId === 'brouseni_a_lesteni') {
+      const weightStr = currentSpecs.hmotnost_pasty || currentSpecs.hmotnost_vosku
+      if (weightStr) {
+        const parsedWeight = parseFloat(String(weightStr).replace(/[^0-9.]/g, ""))
+        if (!isNaN(parsedWeight)) {
+          const num = String(weightStr).toLowerCase().includes("g") && !String(weightStr).toLowerCase().includes("kg") 
+            ? parsedWeight / 1000
+            : parsedWeight
+          return num * (Number(mnozstviVBaleni) || 1)
+        }
+      }
+    }
+    return 0
+  }, [kategorieId, zakladniMjId, currentSpecs, mnozstviVBaleni])
+
 
   // Live Validation State
   const [skuExists, setSkuExists] = useState(false)
@@ -1563,8 +1602,28 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
   const isChemicalCategory = kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie' || kategorieId === 'chemie';
 
+  const handleFormSubmit = async (data: ProductFormValues) => {
+    // 1. Roll-based packaging profile validation
+    if (["vyztuzne_materialy", "consumables"].includes(kategorieId)) {
+      const packType = currentSpecs.typ_baleni || 'role'
+      const podkat = currentSpecs.podkategorie || ''
+      const podtyp_fch = currentSpecs.podtyp_fch || ''
+      
+      const isRoll = (packType === 'role') 
+                     || ['BF', 'RF', 'PP', 'PP-PTFE', 'BC', 'FM'].includes(podkat)
+                     || (podkat === 'FCH' && ['SPRL', 'OMEGA', 'TUBE', 'TTUBE'].includes(podtyp_fch))
+                     
+      if (isRoll && !data.balici_profil_id) {
+        toast.error("Role nebo metráž musí mít vybraný balicí profil pro výpočet dopravy!")
+        return
+      }
+    }
+    
+    await onSubmit(data)
+  }
+
   return (
-    <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
       
       {/* 1. Hlavní klasifikace (Kategorie a Název) */}
       <div className="space-y-4">
@@ -2866,6 +2925,11 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               setIsWeightOverridden(true)
             }}
           />
+          {estimatedNetWeight > 0 && Number(hmotnostBaliku) > 0 && Number(hmotnostBaliku) < (estimatedNetWeight - 0.05) && (
+            <p className="text-[11px] text-red-400 font-medium mt-1 flex items-center gap-1">
+              ⚠️ Fyzikální paradox: Váha balíku ({Number(hmotnostBaliku).toFixed(2)} kg) je nižší než čistá váha produktu ({estimatedNetWeight.toFixed(2)} kg)!
+            </p>
+          )}
           {autoWeight.weightKg !== null && (
             <div className="text-[10px] text-zinc-500 space-y-0.5">
               <p className="text-zinc-400">💡 {autoWeight.breakdown}</p>
