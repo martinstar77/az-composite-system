@@ -631,17 +631,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         const volL = parseFloat(chemObjemNakup) || 0
         const calculatedWeight = volL * density
 
-        const origTyp = specs.typ || "RES"
-        const origChemie = specs.chemie || "EP"
-        const origObjem = specs.objem_nakup_l ? String(specs.objem_nakup_l) : "200"
-        const hasResinSpecsChanged = chemType !== origTyp || chemBase !== origChemie || chemObjemNakup !== origObjem
-
-        if (!initialData || hasResinSpecsChanged) {
-          setValue("zakladni_mj_id", "kg", { shouldValidate: true })
-          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-          setValue("mnozstvi_v_baleni", parseFloat(calculatedWeight.toFixed(2)), { shouldValidate: true })
-        }
-
         generatedSku = `${chemType}-${chemBase}-${thirdSegment}-${chemUse}`
         generatedSpecs = {
           typ: chemType,
@@ -649,6 +638,13 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           pouziti: chemUse,
           objem_nakup_l: parseFloat(chemObjemNakup) || 0,
           ...(isCuringType ? { cas_vytvrzeni: chemCuringTime } : { technologie: chemTech })
+        }
+
+        const specsEqual = initialData?.specifikace && areSpecsEqual(generatedSpecs, initialData.specifikace)
+        if (!initialData || !specsEqual) {
+          setValue("zakladni_mj_id", "kg", { shouldValidate: true })
+          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+          setValue("mnozstvi_v_baleni", parseFloat(calculatedWeight.toFixed(2)), { shouldValidate: true })
         }
         break;
       }
@@ -683,15 +679,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         break;
       }
       case 'spotrebni_chemie': {
-        const origSub = specs.podkategorie || "standard"
-        const origType = specs.typ || "WIP"
-        const origQty = specs.mnozstvi ? String(specs.mnozstvi) : ""
-        const hasClnSpecsChanged = clnSub !== origSub || clnType !== origType || clnQty !== origQty
-
-        if (!initialData || hasClnSpecsChanged) {
-          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-        }
-
         if (clnSub === 'standard') {
           const cleanQty = clnQty.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
           const unitSuffixMap: Record<string, string> = {
@@ -707,19 +694,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             typ: clnType,
             mnozstvi: clnQty
           }
-
-          if (clnType === 'CON') {
-            if (!initialData || hasClnSpecsChanged) {
-              setValue("zakladni_mj_id", "l", { shouldValidate: true })
-              const parsedVol = parseFloat(clnQty.replace(/[^0-9.]/g, '')) || 1
-              setValue("mnozstvi_v_baleni", parsedVol, { shouldValidate: true })
-            }
-          } else {
-            if (!initialData || hasClnSpecsChanged) {
-              setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-              setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
-            }
-          }
         } else if (clnSub === 'pmp') {
           const cleanQty = clnPmpQty.trim().toUpperCase().replace(/[^0-9]/g, '')
           generatedSku = `CLN-PMP-LIQ-${cleanQty}ML`
@@ -728,7 +702,22 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             typ: 'liquid',
             mnozstvi: `${cleanQty} ml`
           }
-          if (!initialData || hasClnSpecsChanged) {
+        }
+
+        const specsEqual = initialData?.specifikace && areSpecsEqual(generatedSpecs, initialData.specifikace)
+        if (!initialData || !specsEqual) {
+          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+
+          if (clnSub === 'standard') {
+            if (clnType === 'CON') {
+              setValue("zakladni_mj_id", "l", { shouldValidate: true })
+              const parsedVol = parseFloat(clnQty.replace(/[^0-9.]/g, '')) || 1
+              setValue("mnozstvi_v_baleni", parsedVol, { shouldValidate: true })
+            } else {
+              setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+              setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            }
+          } else if (clnSub === 'pmp') {
             setValue("zakladni_mj_id", "ks", { shouldValidate: true })
             setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
           }
@@ -739,22 +728,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         const normalizedVol = chemVol.trim().replace(',', '.')
         const cleanVol = normalizedVol.replace(/[^0-9]/g, '')
         const volL = parseFloat(normalizedVol) || 1
-
-        const origSub = specs.podkategorie || "lepidlo_ve_spreji"
-        const origVol = specs.objem ? String(specs.objem).replace(/ ml| L/g, '') : "500"
-        const hasChemSpecsChanged = chemSub !== origSub || chemVol !== origVol
-
-        if (!initialData || hasChemSpecsChanged) {
-          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-
-          if (chemSub === 'lepidlo_ve_spreji' || chemSub === 'blinder') {
-            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
-          } else {
-            setValue("zakladni_mj_id", "l", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", volL, { shouldValidate: true })
-          }
-        }
 
         if (chemSub === 'lepidlo_ve_spreji') {
           const vlastnostCode = chemAdhProp === 'visual' ? 'VIS' : 'IND'
@@ -791,6 +764,19 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             chemie: chemBaseType,
             vlastnost: chemSealerProp,
             objem: `${normalizedVol} l`
+          }
+        }
+
+        const specsEqual = initialData?.specifikace && areSpecsEqual(generatedSpecs, initialData.specifikace)
+        if (!initialData || !specsEqual) {
+          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+
+          if (chemSub === 'lepidlo_ve_spreji' || chemSub === 'blinder') {
+            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+          } else {
+            setValue("zakladni_mj_id", "l", { shouldValidate: true })
+            setValue("mnozstvi_v_baleni", volL, { shouldValidate: true })
           }
         }
         break;
@@ -996,12 +982,16 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         const rW = parseFloat(conRollWidth) || 0
         const rL = parseFloat(conRollLength) || 0
         
+        let targetMj = ""
+        let targetUom = ""
+        let targetQty: number | undefined = undefined
+
         switch (conSub) {
           case 'BF': {
             const area = (rW / 100) * rL
-            setValue("zakladni_mj_id", "m2", { shouldValidate: true })
-            setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
+            targetMj = "m2"
+            targetUom = "role"
+            targetQty = parseFloat(area.toFixed(2))
             
             const w_cm = Math.round(rW)
             const lenSuffix = rL > 0 ? `-R${Math.round(rL)}` : ""
@@ -1019,9 +1009,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           }
           case 'RF': {
             const area = (rW / 100) * rL
-            setValue("zakladni_mj_id", "m2", { shouldValidate: true })
-            setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
+            targetMj = "m2"
+            targetUom = "role"
+            targetQty = parseFloat(area.toFixed(2))
             
             const w_cm = Math.round(rW)
             const lenSuffix = rL > 0 ? `-R${Math.round(rL)}` : ""
@@ -1038,9 +1028,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           }
           case 'PP': {
             const area = (rW / 100) * rL
-            setValue("zakladni_mj_id", "m2", { shouldValidate: true })
-            setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
+            targetMj = "m2"
+            targetUom = "role"
+            targetQty = parseFloat(area.toFixed(2))
             
             const w_cm = Math.round(rW)
             const lenSuffix = rL > 0 ? `-R${Math.round(rL)}` : ""
@@ -1056,9 +1046,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           }
           case 'PP-PTFE': {
             const area = (rW / 100) * rL
-            setValue("zakladni_mj_id", "m2", { shouldValidate: true })
-            setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
+            targetMj = "m2"
+            targetUom = "role"
+            targetQty = parseFloat(area.toFixed(2))
             
             const w_cm = Math.round(rW)
             const lenSuffix = rL > 0 ? `-R${Math.round(rL)}` : ""
@@ -1076,9 +1066,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           }
           case 'BC': {
             const area = (rW / 100) * rL
-            setValue("zakladni_mj_id", "m2", { shouldValidate: true })
-            setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
+            targetMj = "m2"
+            targetUom = "role"
+            targetQty = parseFloat(area.toFixed(2))
             
             const w_cm = Math.round(rW)
             const lenSuffix = rL > 0 ? `-R${Math.round(rL)}` : ""
@@ -1093,10 +1083,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           }
           case 'ST': {
             const len = parseFloat(conStDelka) || 0
-            setValue("zakladni_mj_id", "bm", { shouldValidate: true })
-            setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-            // Total lineal meters in the package = 1 roll length × number of rolls
-            setValue("mnozstvi_v_baleni", parseFloat((len * conStPocetRoli).toFixed(2)), { shouldValidate: true })
+            targetMj = "bm"
+            targetUom = "role"
+            targetQty = parseFloat((len * conStPocetRoli).toFixed(2))
             
             const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
             generatedSku = `ST-${conStTemp}-${conStSirka}${lenSuffix}`
@@ -1112,10 +1101,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           }
           case 'FT': {
             const len = parseFloat(conFtDelka) || 0
-            setValue("zakladni_mj_id", "bm", { shouldValidate: true })
-            setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-            // Total lineal meters in the package = 1 roll length × number of rolls
-            setValue("mnozstvi_v_baleni", parseFloat((len * conFtPocetRoli).toFixed(2)), { shouldValidate: true })
+            targetMj = "bm"
+            targetUom = "role"
+            targetQty = parseFloat((len * conFtPocetRoli).toFixed(2))
             
             const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
             generatedSku = `FT-${conFtSirka}-${conFtTemp}${lenSuffix}`
@@ -1130,9 +1118,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           }
           case 'FM': {
             const area = (rW / 100) * rL
-            setValue("zakladni_mj_id", "m2", { shouldValidate: true })
-            setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
+            targetMj = "m2"
+            targetUom = "role"
+            targetQty = parseFloat(area.toFixed(2))
             
             const lenSuffix = rL > 0 ? `-R${Math.round(rL)}` : ""
             const speedMap: Record<string, string> = {
@@ -1165,9 +1153,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             switch (conFchSubtyp) {
               case 'TAPE': {
                 const len = parseFloat(conFchDelka) || 0
-                setValue("zakladni_mj_id", "bm", { shouldValidate: true })
-                setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-                setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
+                targetMj = "bm"
+                targetUom = "role"
+                targetQty = parseFloat(len.toFixed(2))
                 
                 const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
                 generatedSku = `FCH-TAPE-${conFchMaterial}-${conFchSirka}${lenSuffix}`
@@ -1184,9 +1172,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               }
               case 'SPRL': {
                 const len = parseFloat(conFchDelka) || 0
-                setValue("zakladni_mj_id", "bm", { shouldValidate: true })
-                setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-                setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
+                targetMj = "bm"
+                targetUom = "role"
+                targetQty = parseFloat(len.toFixed(2))
                 
                 const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
                 generatedSku = `FCH-SPRL-${conFchMaterial}-${conFchPrumer}${lenSuffix}`
@@ -1202,9 +1190,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               }
               case 'OMEGA': {
                 const len = parseFloat(conFchDelka) || 0
-                setValue("zakladni_mj_id", "bm", { shouldValidate: true })
-                setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-                setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
+                targetMj = "bm"
+                targetUom = "role"
+                targetQty = parseFloat(len.toFixed(2))
                 
                 const lenSuffix = len > 0 ? `-R${Math.round(len)}` : ""
                 generatedSku = `FCH-OMEGA-${conFchPrumer}${lenSuffix}`
@@ -1222,9 +1210,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           }
           case 'TUBE': {
             const len = parseFloat(conFchDelka) || 0
-            setValue("zakladni_mj_id", "bm", { shouldValidate: true })
-            setValue("jednotka_baleni_id", "role", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", parseFloat(len.toFixed(2)), { shouldValidate: true })
+            targetMj = "bm"
+            targetUom = "role"
+            targetQty = parseFloat(len.toFixed(2))
             
             const tempVal = parseInt(conFchTemp) || 120
             const prefix = tempVal <= 120 ? "LT" : tempVal <= 150 ? "MT" : "HT"
@@ -1301,6 +1289,13 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             }
             break
           }
+        }
+
+        const specsEqual = initialData?.specifikace && areSpecsEqual(generatedSpecs, initialData.specifikace)
+        if (!initialData || !specsEqual) {
+          if (targetMj) setValue("zakladni_mj_id", targetMj, { shouldValidate: true })
+          if (targetUom) setValue("jednotka_baleni_id", targetUom, { shouldValidate: true })
+          if (targetQty !== undefined) setValue("mnozstvi_v_baleni", targetQty, { shouldValidate: true })
         }
         break;
       }
@@ -3129,4 +3124,32 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       </div>
     </form>
   )
+}
+
+function areSpecsEqual(a: any, b: any): boolean {
+  if (!a || !b) return false
+  const keysA = Object.keys(a)
+  const keysB = Object.keys(b)
+  if (keysA.length !== keysB.length) return false
+
+  const normalize = (val: any) => {
+    if (typeof val === 'string') {
+      return val.toLowerCase().replace(/\s+/g, '').replace(/(ml|l|kg|ks|m|cm|mm|role|bm)$/i, '')
+    }
+    if (typeof val === 'number') {
+      return String(val)
+    }
+    return val
+  }
+
+  for (const key of keysA) {
+    if (Array.isArray(a[key]) && Array.isArray(b[key])) {
+      const normA = a[key].map(normalize)
+      const normB = b[key].map(normalize)
+      if (JSON.stringify(normA) !== JSON.stringify(normB)) return false
+    } else {
+      if (normalize(a[key]) !== normalize(b[key])) return false
+    }
+  }
+  return true
 }
