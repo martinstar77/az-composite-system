@@ -35,8 +35,15 @@ async function run() {
   console.log('Fetching active products...')
   const { data: products, error } = await supabase
     .from('produkty')
-    .select('id, sku, nazev, kategorie_id, specifikace, mnozstvi_v_baleni, hmotnost_baliku_kg')
+    .select(`
+      id, sku, nazev, kategorie_id, specifikace, mnozstvi_v_baleni, hmotnost_baliku_kg, hmotnost_zafixovana,
+      produkt_dodavatel (
+        is_primary,
+        logisticke_sablony ( typ_vypoctu_dopravy )
+      )
+    `)
     .is('deleted_at', null)
+    .is('produkt_dodavatel.deleted_at', null)
 
   if (error) {
     console.error('Error fetching products:', error)
@@ -47,6 +54,14 @@ async function run() {
   let updatedCount = 0
 
   for (const product of products) {
+    const primarySourcing = (product.produkt_dodavatel as any[])?.find(s => s.is_primary) || (product.produkt_dodavatel as any[])?.[0]
+    const hasFixedShipping = primarySourcing?.logisticke_sablony?.typ_vypoctu_dopravy === 'fixni'
+    
+    if (product.hmotnost_zafixovana || hasFixedShipping) {
+      console.log(`Product: ${product.sku} - SKIPPED (Weight is locked 🔒 or has fixed shipping 🚚)`)
+      continue
+    }
+
     const specs = product.specifikace as Record<string, unknown> || {}
     const qty = product.mnozstvi_v_baleni || 1
     const category = product.kategorie_id || ''
