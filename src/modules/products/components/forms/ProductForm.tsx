@@ -1519,12 +1519,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     }
   }, [autoWeight, isWeightOverridden, setValue])
 
-  // Sync auto-profile into form field when not overridden
-  useEffect(() => {
-    if (!isProfileOverridden) {
-      setValue("balici_profil_id", autoProfile?.id || "", { shouldDirty: false })
-    }
-  }, [autoProfile, isProfileOverridden, setValue])
+
 
   // handle category select & dynamic defaults
   const handleCategoryChange = (val: string | null) => {
@@ -2989,56 +2984,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           <h4 className="text-sm font-bold text-zinc-200">Balicí profil a rozměry zásilky</h4>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Přiřazený Balicí profil</Label>
-              <div className="flex items-center gap-1.5">
-                {isProfileOverridden ? (
-                  <>
-                    <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-medium">Přepsáno ⚠️</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsProfileOverridden(false)
-                        if (autoProfile?.id) setValue("balici_profil_id", autoProfile.id)
-                      }}
-                      className="text-[10px] text-zinc-400 hover:text-primary flex items-center gap-1"
-                    >
-                      <RotateCcw className="h-3 w-3" /> Reset
-                    </button>
-                  </>
-                ) : (
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded font-medium flex items-center gap-1">
-                    <Sparkles className="h-2.5 w-2.5" /> Auto
-                  </span>
-                )}
-              </div>
-            </div>
-            <Select
-              value={baliciProfilId || "none"}
-              onValueChange={(val) => {
-                setValue("balici_profil_id", val === "none" ? "" : val, { shouldDirty: true })
-                setIsProfileOverridden(true)
-              }}
-            >
-              <SelectTrigger className="bg-zinc-900 border-zinc-800 text-zinc-200">
-                <SelectValue placeholder="Vyberte profil..." />
-              </SelectTrigger>
-              <SelectContent className="bg-zinc-950 border-zinc-800 text-white">
-                <SelectItem value="none">Žádný profil (Legacy výpočet)</SelectItem>
-                {((lookups as any).profiles || []).map((p: any) => (
-                  <SelectItem key={p.id} value={p.id}>{p.nazev} ({OBAL_TYPES[p.typ_obalu] || p.typ_obalu})</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[10px] text-zinc-500 italic">
-              Profil definuje typ balení (role, krabice, paleta) a způsob výpočtu objemové hmotnosti.
-            </p>
-          </div>
-
-          {activeProfile && (
-            <div className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg space-y-2 text-xs">
+        <div className="flex flex-col gap-4">
+          {(activeProfile || (overrideDelka && overrideSirka && overrideVyska)) && (
+            <div className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg space-y-2 text-xs max-w-md">
               <span className="font-bold text-zinc-300 block">Vypočtené rozměry (Live):</span>
               <div className="grid grid-cols-3 gap-2 font-mono text-center text-white">
                 <div className="bg-zinc-950 p-1.5 rounded border border-zinc-850">

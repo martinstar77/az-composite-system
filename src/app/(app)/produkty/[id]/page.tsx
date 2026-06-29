@@ -519,65 +519,50 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                 </div>
                 
                 <div className="space-y-4 text-sm">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Balicí profil</p>
-                      <p className="font-semibold text-zinc-200 mt-0.5">
-                        {product.c_balici_profily?.nazev || "Žádný profil (Legacy výpočet)"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Typ obalu</p>
-                      <p className="font-semibold text-zinc-200 mt-0.5 capitalize">
-                        {product.c_balici_profily?.typ_obalu 
-                          ? (OBAL_TYPES[product.c_balici_profily.typ_obalu] || product.c_balici_profily.typ_obalu)
-                          : "Legacy / Custom"}
-                      </p>
-                    </div>
-                  </div>
-
                   {/* Calculated Package Dimensions */}
-                  <div className="p-4 bg-zinc-950/40 border border-zinc-850 rounded-lg space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Vypočtené rozměry zásilky</span>
-                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-primary/5 text-primary border-primary/20">
-                        {calculatedDims.resolvedBy === 'override' ? 'Manuální Override' :
-                         calculatedDims.resolvedBy === 'profile_fixed' ? 'Fixní z profilu' :
-                         calculatedDims.resolvedBy === 'profile_roll_calc' ? 'Kalkulace role' :
-                         calculatedDims.resolvedBy === 'profile_box_lookup' ? 'Hmotnostní lookup' : 'Výchozí rozměry'}
-                      </Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-3 gap-2 text-center py-1">
-                      <div className="bg-zinc-900/60 p-2 rounded border border-zinc-850">
-                        <span className="block text-[9px] text-zinc-500 uppercase">Délka</span>
-                        <span className="text-sm font-semibold font-mono text-zinc-200">{calculatedDims.delka_cm} cm</span>
+                  {((calculatedDims.delka_cm > 0) || (calculatedDims.sirka_cm > 0) || (calculatedDims.vyska_cm > 0)) && (
+                    <div className="p-4 bg-zinc-950/40 border border-zinc-850 rounded-lg space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Vypočtené rozměry zásilky</span>
+                        <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-primary/5 text-primary border-primary/20">
+                          {calculatedDims.resolvedBy === 'override' ? 'Manuální Override' :
+                           calculatedDims.resolvedBy === 'profile_fixed' ? 'Fixní z profilu' :
+                           calculatedDims.resolvedBy === 'profile_roll_calc' ? 'Kalkulace role' :
+                           calculatedDims.resolvedBy === 'profile_box_lookup' ? 'Hmotnostní lookup' : 'Výchozí rozměry'}
+                        </Badge>
                       </div>
-                      <div className="bg-zinc-900/60 p-2 rounded border border-zinc-850">
-                        <span className="block text-[9px] text-zinc-500 uppercase">Šířka</span>
-                        <span className="text-sm font-semibold font-mono text-zinc-200">{calculatedDims.sirka_cm} cm</span>
+                      
+                      <div className="grid grid-cols-3 gap-2 text-center py-1">
+                        <div className="bg-zinc-900/60 p-2 rounded border border-zinc-850">
+                          <span className="block text-[9px] text-zinc-500 uppercase">Délka</span>
+                          <span className="text-sm font-semibold font-mono text-zinc-200">{calculatedDims.delka_cm} cm</span>
+                        </div>
+                        <div className="bg-zinc-900/60 p-2 rounded border border-zinc-850">
+                          <span className="block text-[9px] text-zinc-500 uppercase">Šířka</span>
+                          <span className="text-sm font-semibold font-mono text-zinc-200">{calculatedDims.sirka_cm} cm</span>
+                        </div>
+                        <div className="bg-zinc-900/60 p-2 rounded border border-zinc-850">
+                          <span className="block text-[9px] text-zinc-500 uppercase">Výška</span>
+                          <span className="text-sm font-semibold font-mono text-zinc-200">{calculatedDims.vyska_cm} cm</span>
+                        </div>
                       </div>
-                      <div className="bg-zinc-900/60 p-2 rounded border border-zinc-850">
-                        <span className="block text-[9px] text-zinc-500 uppercase">Výška</span>
-                        <span className="text-sm font-semibold font-mono text-zinc-200">{calculatedDims.vyska_cm} cm</span>
-                      </div>
-                    </div>
 
-                    <div className="border-t border-zinc-900 pt-2 space-y-1.5 text-xs">
-                      <div className="flex justify-between text-zinc-400">
-                        <span>Reálná hmotnost:</span>
-                        <span className="font-semibold text-zinc-200">{product.hmotnost_baliku_kg || 0} kg</span>
-                      </div>
-                      <div className="flex justify-between text-zinc-400">
-                        <span>Objemová hmotnost:</span>
-                        <span className="font-semibold text-zinc-200">{calculatedDims.volumetricWeight_kg} kg</span>
-                      </div>
-                      <div className="flex justify-between text-zinc-300 font-bold border-t border-zinc-900/55 pt-1.5">
-                        <span>Účtovaná hmotnost:</span>
-                        <span className="text-primary">{calculatedDims.billedWeight_kg} kg</span>
+                      <div className="border-t border-zinc-900 pt-2 space-y-1.5 text-xs">
+                        <div className="flex justify-between text-zinc-400">
+                          <span>Reálná hmotnost:</span>
+                          <span className="font-semibold text-zinc-200">{product.hmotnost_baliku_kg || 0} kg</span>
+                        </div>
+                        <div className="flex justify-between text-zinc-400">
+                          <span>Objemová hmotnost:</span>
+                          <span className="font-semibold text-zinc-200">{calculatedDims.volumetricWeight_kg} kg</span>
+                        </div>
+                        <div className="flex justify-between text-zinc-300 font-bold border-t border-zinc-900/55 pt-1.5">
+                          <span>Účtovaná hmotnost:</span>
+                          <span className="text-primary">{calculatedDims.billedWeight_kg} kg</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
