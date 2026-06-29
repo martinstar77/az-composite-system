@@ -1319,6 +1319,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           baseSpecs.gramaz_gm2 = parseInt(conBcGramaz || conPpGramaz || conFmGramaz || '0') || 0
           baseSpecs.sirka_cm = parseFloat(conRollWidth) || 0
           baseSpecs.delka_m = parseFloat(conRollLength) || 0
+          if (conSub === 'FM') {
+            baseSpecs.typ_vyroby = conFmTyp
+            baseSpecs.material = conFmMaterial
+            baseSpecs.barva = conFmBarva
+            baseSpecs.rychlost_proudeni = conFmRychlost
+            baseSpecs.tloustka_mm = parseFloat(conFmTloustka) || 0
+            baseSpecs.teplotni_odolnost = conFmTeplota
+            baseSpecs.flexibilita = conFmFlexibilita
+          }
         } else if (conSub === 'ST') {
           baseSpecs.sirka_mm = parseInt(conStSirka) || 12
           baseSpecs.tloustka_mm = 3.5

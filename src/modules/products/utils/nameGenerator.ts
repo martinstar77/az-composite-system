@@ -331,9 +331,33 @@ export function generateProductName(
           ? (speedMapCS[specs.rychlost_proudeni] || specs.rychlost_proudeni || "")
           : (speedMapEN[specs.rychlost_proudeni] || specs.rychlost_proudeni || "")
         const colorStr = isCs ? (colorMapCS[specs.barva] || "") : (colorMapEN[specs.barva] || "")
+        
+        const flexMapCS: Record<string, string> = {
+          velka: "vysoká flexibilita",
+          mala: "nízká flexibilita",
+          zadna: "bez flexibility",
+          true: "vysoká flexibilita",
+          false: "bez flexibility",
+          ANO: "vysoká flexibilita",
+          NE: "bez flexibility"
+        }
+        const flexMapEN: Record<string, string> = {
+          velka: "high flexibility",
+          mala: "low flexibility",
+          zadna: "no flexibility",
+          true: "high flexibility",
+          false: "no flexibility",
+          ANO: "high flexibility",
+          NE: "no flexibility"
+        }
+        const rawFlex = specs.flexibilita !== undefined && specs.flexibilita !== null ? String(specs.flexibilita) : ""
+        const flexStr = rawFlex 
+          ? (isCs ? (flexMapCS[rawFlex] || `flexibilita: ${rawFlex}`) : (flexMapEN[rawFlex] || `flexibility: ${rawFlex}`))
+          : ""
+
         const widthStr = specs.sirka_cm ? `${specs.sirka_cm}cm` : ""
         const baseName = isCs ? "Distribuční síťka" : "Resin distribution mesh"
-        return [baseName, typeStr, matStr, speedStr, colorStr, widthStr].filter(Boolean).join(" ")
+        return [baseName, typeStr, matStr, speedStr, colorStr, flexStr, widthStr].filter(Boolean).join(" ")
       }
       case 'FCH': {
         const subMapCS: Record<string, string> = {
