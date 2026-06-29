@@ -44,7 +44,8 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
     ? templates.find(t => t.id === primarySourcing.logisticka_sablona_id)
     : null
 
-  const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === product.zakladni_mj_id
+  const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === product.zakladni_mj_id &&
+    (!primarySourcing?.prevodni_pomer_na_zakladni || primarySourcing.prevodni_pomer_na_zakladni === 1)
   const isRatioFallbackUsed = !primarySourcing?.prevodni_pomer_na_zakladni || primarySourcing.prevodni_pomer_na_zakladni === 1
   const totalUnits = primarySourcing
     ? ((primarySourcing.prevodni_pomer_na_zakladni && primarySourcing.prevodni_pomer_na_zakladni !== 1)
