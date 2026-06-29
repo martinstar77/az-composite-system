@@ -1507,30 +1507,32 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     chemBaseType, chemAdhProp, chemSealerProp
   ])
 
-  const packageExplanation = useMemo(() => {
-    const qty = parseFloat(String(mnozstviVBaleni)) || 0
-    if (qty <= 0) return null
+  const packagingMultiplier = useMemo(() => {
     const specs = (currentSpecs as any) || {}
     const podkat = specs.podkategorie
+    const uomZkratka = lookups.units.find(u => u.id === jednotkaBaleniId)?.zkratka
 
-    if (kategorieId === "vyztuzne_materialy" || kategorieId === "prepregy") {
-      const sirka_cm = Number(specs.sirka_cm ?? 0)
-      const delka_m = Number(specs.delka_m ?? 0)
-      const rollArea = (sirka_cm / 100) * delka_m
-      if (rollArea > 0) {
-        const numRolls = qty / rollArea
-        return `Odpovídá ${numRolls.toFixed(2).replace(/\.00$/, "")} rolím (1 role = ${rollArea.toFixed(2).replace(/\.00$/, "")} m²)`
+    if (uomZkratka === "role" || uomZkratka === "rol.") {
+      if (kategorieId === "vyztuzne_materialy" || kategorieId === "prepregy") {
+        const sirka_cm = Number(specs.sirka_cm ?? 0)
+        const delka_m = Number(specs.delka_m ?? 0)
+        const rollArea = (sirka_cm / 100) * delka_m
+        return rollArea > 0 ? rollArea : 1
+      }
+      if (podkat === "FCH" || podkat === "TUBE") {
+        const rollLen = Number(specs.delka_m ?? 0)
+        return rollLen > 0 ? rollLen : 1
       }
     }
-    if (podkat === "FCH" || podkat === "TUBE") {
-      const rollLen = Number(specs.delka_m ?? 0)
-      if (rollLen > 0) {
-        const numRolls = qty / rollLen
-        return `Odpovídá ${numRolls.toFixed(2).replace(/\.00$/, "")} rolím/ks (1 role/ks = ${rollLen} m)`
-      }
-    }
-    return null
-  }, [mnozstviVBaleni, currentSpecs, kategorieId])
+    return 1
+  }, [jednotkaBaleniId, currentSpecs, kategorieId, lookups.units])
+
+  const packageExplanation = useMemo(() => {
+    const qty = parseFloat(String(mnozstviVBaleni)) || 0
+    if (qty <= 0 || packagingMultiplier <= 1) return null
+    const basicUnitZkratka = lookups.units.find(u => u.id === zakladniMjId)?.zkratka || "bm"
+    return `Celkem: ${qty.toFixed(2).replace(/\.00$/, "")} ${basicUnitZkratka} (přepočteno z počtu rolí)`
+  }, [mnozstviVBaleni, packagingMultiplier, zakladniMjId, lookups.units])
 
   const autoWeight = useMemo(() =>
     calculateGrossWeight(kategorieId, currentSpecs, Number(mnozstviVBaleni) || 1),
@@ -2917,13 +2919,23 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             <Input 
               id="mnozstvi_v_baleni" 
               type="number" 
-              step="0.01" 
+              step="any" 
               readOnly={isPackagingLocked}
               className={isPackagingLocked ? "bg-muted text-muted-foreground border-zinc-850" : ""}
-              {...register("mnozstvi_v_baleni")} 
+              value={(() => {
+                const val = parseFloat(String(mnozstviVBaleni)) || 0
+                return packagingMultiplier > 1 ? Number((val / packagingMultiplier).toFixed(2)) : val
+              })()}
+              onChange={(e) => {
+                const displayVal = parseFloat(e.target.value) || 0
+                const dbVal = displayVal * packagingMultiplier
+                setValue("mnozstvi_v_baleni", dbVal, { shouldValidate: true, shouldDirty: true })
+              }}
             />
             <span className="text-xs font-semibold text-zinc-400 min-w-[24px]">
-              {lookups.units.find(u => u.id === zakladniMjId)?.zkratka}
+              {packagingMultiplier > 1 
+                ? lookups.units.find(u => u.id === jednotkaBaleniId)?.zkratka 
+                : lookups.units.find(u => u.id === zakladniMjId)?.zkratka}
             </span>
           </div>
           {packageExplanation && (
