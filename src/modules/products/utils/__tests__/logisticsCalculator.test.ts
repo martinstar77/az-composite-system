@@ -234,6 +234,23 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
     // Gross = 2.24 + 0.43 + 0.3 = 2.97 kg
     expect(result.weightKg).toBe(2.97)
   })
+
+  it("should calculate weight for PP-PTFE self-adhesive by computing grammage from thickness map", () => {
+    const specs = {
+      podkategorie: "PP-PTFE",
+      je_lepici: true,
+      tloustka_um: 120,
+      sirka_cm: 100,
+      delka_m: 30
+    }
+    const result = calculateGrossWeight("consumables", specs, 1)
+    // Grammage mapped: 120 -> 225 g/m2
+    // Net: 225 / 1000 * 1.0 * 30 = 6.75 kg
+    // Tube: 1.0 * 0.35 = 0.35 kg
+    // Packaging: 0.3 kg
+    // Gross = 6.75 + 0.35 + 0.3 = 7.40 kg
+    expect(result.weightKg).toBe(7.40)
+  })
 })
 
 describe("logisticsCalculator - resolvePackagingProfile", () => {

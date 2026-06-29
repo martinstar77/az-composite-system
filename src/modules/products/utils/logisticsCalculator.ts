@@ -500,8 +500,18 @@ export function calculateGrossWeight(
         const delka_m = Number(s.delka_m ?? 0)
 
         if (!gramaz && s.tloustka_um && ["BF", "RF", "PP-PTFE"].includes(podkat)) {
-          const rawGramaz = Number(s.tloustka_um) * 0.95
-          gramaz = Math.round(rawGramaz * 2) / 2
+          if (podkat === "PP-PTFE" && (s.je_lepici === true || s.je_lepici === "true")) {
+            const t = Number(s.tloustka_um)
+            if (t === 120) gramaz = 225
+            else if (t === 175) gramaz = 330
+            else if (t === 280) gramaz = 530
+            else {
+              gramaz = Math.round(t * 1.9 - 2.5)
+            }
+          } else {
+            const rawGramaz = Number(s.tloustka_um) * 0.95
+            gramaz = Math.round(rawGramaz * 2) / 2
+          }
         }
 
         if (!gramaz || !sirka_cm || !delka_m) {
