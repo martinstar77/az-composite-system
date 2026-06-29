@@ -1444,8 +1444,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
   // Sync auto-profile into form field when not overridden
   useEffect(() => {
-    if (!isProfileOverridden && autoProfile?.id) {
-      setValue("balici_profil_id", autoProfile.id, { shouldDirty: false })
+    if (!isProfileOverridden) {
+      setValue("balici_profil_id", autoProfile?.id || "", { shouldDirty: false })
     }
   }, [autoProfile, isProfileOverridden, setValue])
 
