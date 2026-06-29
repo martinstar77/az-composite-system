@@ -218,6 +218,22 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
     // Gross = 1.34 + 0.05 = 1.39
     expect(result.weightKg).toBe(1.39)
   })
+
+  it("should calculate weight for Release Film (RF) by computing grammage from thickness", () => {
+    const specs = {
+      podkategorie: "RF",
+      tloustka_um: 12.5,
+      sirka_cm: 122,
+      delka_m: 153
+    }
+    const result = calculateGrossWeight("consumables", specs, 1)
+    // Grammage calculated: Math.round(12.5 * 0.95 * 2) / 2 = 12.0 g/m2
+    // Net: 12 / 1000 * 1.22 * 153 = 2.2399 -> r3 -> 2.24 kg
+    // Tube: 1.22 * 0.35 = 0.427 -> r3 -> 0.43 kg
+    // Packaging: 0.3 kg
+    // Gross = 2.24 + 0.43 + 0.3 = 2.97 kg
+    expect(result.weightKg).toBe(2.97)
+  })
 })
 
 describe("logisticsCalculator - resolvePackagingProfile", () => {

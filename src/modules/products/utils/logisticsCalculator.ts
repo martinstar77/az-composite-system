@@ -495,9 +495,14 @@ export function calculateGrossWeight(
       const podkat = String(s.podkategorie ?? "BF")
 
       if (["BF", "RF", "PP", "PP-PTFE", "BC", "FM"].includes(podkat)) {
-        const gramaz = Number(s.gramaz_gm2 ?? s.gramáž ?? 0)
+        let gramaz = Number(s.gramaz_gm2 ?? s.gramáž ?? 0)
         const sirka_cm = Number(s.sirka_cm ?? 0)
         const delka_m = Number(s.delka_m ?? 0)
+
+        if (!gramaz && s.tloustka_um && ["BF", "RF", "PP-PTFE"].includes(podkat)) {
+          const rawGramaz = Number(s.tloustka_um) * 0.95
+          gramaz = Math.round(rawGramaz * 2) / 2
+        }
 
         if (!gramaz || !sirka_cm || !delka_m) {
           return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí gramáž, šířka nebo délka." }
