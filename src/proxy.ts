@@ -155,16 +155,22 @@ export async function proxy(request: NextRequest) {
   const ip = getClientIp(request)
   const pathname = request.nextUrl.pathname
 
+  const isDev = process.env.NODE_ENV === 'development' || ip === '127.0.0.1' || ip === '::1'
+  if (isDev) {
+    return await updateSession(request)
+  }
+
   // 2. Identify if route is sensitive
+  const isAction = request.headers.get('next-action') !== null
   const isSensitive = 
-    request.method === 'POST' || 
+    (request.method === 'POST' && !isAction) || 
     pathname.startsWith('/api') || 
     pathname === '/login'
 
   const isJson = 
     pathname.startsWith('/api') || 
     request.headers.get('accept')?.includes('application/json') ||
-    request.headers.get('next-action') !== null
+    isAction
 
   const now = Date.now()
 
