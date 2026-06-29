@@ -427,9 +427,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
   const isPackagingLocked = useMemo(() => {
     if (!kategorieId) return false
-    if (kategorieId === "lepidla") return false
-    if (kategorieId === "brouseni_a_lesteni") return false
-    return ["vyztuzne_materialy", "consumables", "pryskyrice", "spotrebni_chemie", "chemie"].includes(kategorieId)
+    return ["vyztuzne_materialy", "consumables"].includes(kategorieId)
   }, [kategorieId])
 
   // Auto-map packaging profile based on category and package type defaults
