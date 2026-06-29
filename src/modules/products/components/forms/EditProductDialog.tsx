@@ -59,6 +59,7 @@ export function EditProductDialog({ product, open, onOpenChange, onSuccess, look
         </DialogHeader>
         <div className="mt-4">
           <ProductForm 
+            key={product.id}
             initialData={product}
             lookups={lookups} 
             onSubmit={handleUpdate} 
