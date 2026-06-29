@@ -355,19 +355,23 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
                         )}
                       </div>
 
-                      {(isWeightOverridden || (breakdown.packagingDimensions && breakdown.packagingDimensions.delka_cm > 0)) && (
+                      {(isWeightOverridden || product.hmotnost_zafixovana || (breakdown.packagingDimensions && breakdown.packagingDimensions.delka_cm > 0)) && (
                         <div className="text-[10px] text-zinc-500 px-5 flex flex-wrap gap-x-4 gap-y-1 mt-0.5 pb-2">
                           {breakdown.packagingDimensions && breakdown.packagingDimensions.delka_cm > 0 && (
                             <span>Rozměry: <strong className="text-zinc-400">{breakdown.packagingDimensions.delka_cm}×{breakdown.packagingDimensions.sirka_cm}×{breakdown.packagingDimensions.vyska_cm} cm</strong></span>
                           )}
                           <span>Hmotnost balíku: <strong className="text-zinc-400">reálná {product.hmotnost_baliku_kg || 0} kg / účtovaná {breakdown.packagingDimensions?.billedWeight_kg || product.hmotnost_baliku_kg || 0} kg</strong></span>
-                          {isWeightOverridden && (
+                          {product.hmotnost_zafixovana ? (
+                            <span className="text-emerald-400 font-bold" title={`Hmotnost je ručně zafixována uživatelem a ochráněna před hromadným přepočtem (automatický odhad by byl ${autoWeight.weightKg?.toFixed(2)} kg).`}>
+                              🔒 Hmotnost zafixována (Ochráněno)
+                            </span>
+                          ) : isWeightOverridden && (
                             isFixedShipping ? (
                               <span className="text-emerald-400 font-bold" title={`Hmotnost byla ručně přepsána (automatický odhad by byl ${autoWeight.weightKg?.toFixed(2)} kg). Hromadný přepočet ji nepřepíše, protože používáte šablonu s fixní dopravou.`}>
                                 ⚠️ Ručně upraveno (Ochráněno ⚓)
                               </span>
                             ) : (
-                              <span className="text-amber-500 font-bold" title={`Hmotnost byla ručně přepsána (automatický odhad by byl ${autoWeight.weightKg?.toFixed(2)} kg). UPOZORNĚNÍ: Při spuštění hromadného přepočtu hmotností bude tato hodnota přepsána! Pro její ochranu přiřaďte šablonu s fixní dopravou.`}>
+                              <span className="text-amber-500 font-bold" title={`Hmotnost byla ručně přepsána (automatický odhad by byl ${autoWeight.weightKg?.toFixed(2)} kg). UPOZORNĚNÍ: Při spuštění hromadného přepočtu hmotností bude tato hodnota přepsána! Pro její ochranu ji zafixujte ve formuláři produktu.`}>
                                 ⚠️ Ručně upraveno (Hrozí přepsání!)
                               </span>
                             )

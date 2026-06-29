@@ -892,13 +892,29 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
             ) : (
               <span className="text-zinc-600 italic">-</span>
             )}
-            {isWeightOverridden && (
+            {p.hmotnost_zafixovana ? (
               <span 
-                className="text-amber-500 font-bold cursor-help" 
-                title={`Hmotnost byla ručně upravena (automatický odhad: ${autoWeight.weightKg?.toFixed(2)} kg)`}
+                className="text-emerald-400 font-bold cursor-help" 
+                title={`Hmotnost je ručně zafixována uživatelem a ochráněna před hromadným přepočtem (automatický odhad: ${autoWeight.weightKg?.toFixed(2)} kg)`}
               >
-                ⚠️
+                🔒
               </span>
+            ) : isWeightOverridden && (
+              isFixedShipping ? (
+                <span 
+                  className="text-emerald-400 font-bold cursor-help" 
+                  title={`Hmotnost byla ručně upravena a je ochráněna šablonou s fixní dopravou (automatický odhad: ${autoWeight.weightKg?.toFixed(2)} kg)`}
+                >
+                  ⚠️
+                </span>
+              ) : (
+                <span 
+                  className="text-amber-500 font-bold cursor-help" 
+                  title={`Hmotnost byla ručně upravena (automatický odhad: ${autoWeight.weightKg?.toFixed(2)} kg). Upozornění: Hrozí přepsání hromadným přepočtem!`}
+                >
+                  ⚠️
+                </span>
+              )
             )}
             {isFixedShipping && (
               <span 

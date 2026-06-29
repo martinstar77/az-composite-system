@@ -13,6 +13,7 @@ export const productFormSchema = z.object({
   mnozstvi_v_baleni: z.coerce.number().min(0.01, { message: "Množství musí být větší než 0." }),
   jednotka_baleni_id: z.string().min(1, { message: "Vyberte jednotku balení." }),
   hmotnost_baliku_kg: z.coerce.number().min(0),
+  hmotnost_zafixovana: z.boolean().default(false),
   shelf_life_mesice: z.coerce.number().int().min(0).default(0),
   
   // Workflow Defaults

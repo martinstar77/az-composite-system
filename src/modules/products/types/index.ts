@@ -17,6 +17,7 @@ export interface Product {
   c_merne_jednotky_baleni?: { nazev: string, zkratka: string }
   
   hmotnost_baliku_kg: number | null
+  hmotnost_zafixovana: boolean
   shelf_life_mesice: number | null
   
   // Defaults

@@ -215,6 +215,7 @@ export async function createProduct(formData: ProductFormValues) {
     balik_vyska_cm_override: formData.balik_vyska_cm_override || null,
 
     is_name_generated: formData.is_name_generated,
+    hmotnost_zafixovana: formData.hmotnost_zafixovana,
 
     vytvoril_id: user?.id,
     upravil_id: user?.id
@@ -272,6 +273,7 @@ export async function updateProduct(id: string, formData: ProductFormValues) {
     balik_vyska_cm_override: formData.balik_vyska_cm_override || null,
 
     is_name_generated: formData.is_name_generated,
+    hmotnost_zafixovana: formData.hmotnost_zafixovana,
 
     upravil_id: user?.id,
     aktualizovano_at: new Date().toISOString()
@@ -866,7 +868,7 @@ export async function bulkRecalculateProductWeights() {
   const { data: products, error: fetchError } = await supabase
     .from('produkty')
     .select(`
-      id, kategorie_id, specifikace, mnozstvi_v_baleni,
+      id, kategorie_id, specifikace, mnozstvi_v_baleni, hmotnost_zafixovana,
       produkt_dodavatel (
         is_primary,
         logisticke_sablony ( typ_vypoctu_dopravy )
@@ -886,11 +888,11 @@ export async function bulkRecalculateProductWeights() {
 
   let updatedCount = 0
   for (const product of products) {
-    // Ochrana atypických produktů: pokud produkt využívá šablonu s fixní dopravou,
-    // nepřepisujeme jeho hmotnost a zachováváme ručně zadané hodnoty.
+    // Ochrana atypických produktů: pokud produkt využívá šablonu s fixní dopravou nebo
+    // je jeho hmotnost ručně zafixována uživatelem, nepřepisujeme ji.
     const primarySourcing = (product.produkt_dodavatel as any[])?.find(s => s.is_primary) || (product.produkt_dodavatel as any[])?.[0]
     const hasFixedShipping = primarySourcing?.logisticke_sablony?.typ_vypoctu_dopravy === 'fixni'
-    if (hasFixedShipping) {
+    if (product.hmotnost_zafixovana || hasFixedShipping) {
       continue
     }
 

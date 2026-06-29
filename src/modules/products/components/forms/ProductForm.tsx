@@ -85,6 +85,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       def_typ_skladovani: initialData?.def_typ_skladovani || "sklad",
       mnozstvi_v_baleni: initialData?.mnozstvi_v_baleni || 1,
       hmotnost_baliku_kg: initialData?.hmotnost_baliku_kg || 0,
+      hmotnost_zafixovana: initialData?.hmotnost_zafixovana || false,
       shelf_life_mesice: initialData?.shelf_life_mesice || 0,
       def_proces_odeslani_id: initialData?.def_proces_odeslani_id || "",
       def_typ_labelu_id: initialData?.def_typ_labelu_id || "",
@@ -2898,6 +2899,17 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               setIsWeightOverridden(true)
             }}
           />
+          <div className="flex items-center space-x-2 mt-1">
+            <input
+              type="checkbox"
+              id="hmotnost_zafixovana"
+              {...register("hmotnost_zafixovana")}
+              className="h-3.5 w-3.5 rounded border-zinc-700 bg-zinc-800 text-primary focus:ring-primary cursor-pointer"
+            />
+            <Label htmlFor="hmotnost_zafixovana" className="text-[11px] text-zinc-400 cursor-pointer select-none flex items-center gap-1 hover:text-zinc-300">
+              Zafixovat hmotnost (chránit před hromadným přepočtem) 🔒
+            </Label>
+          </div>
           {estimatedNetWeight > 0 && Number(hmotnostBaliku) > 0 && Number(hmotnostBaliku) < (estimatedNetWeight - 0.05) && (
             <p className="text-[11px] text-red-400 font-medium mt-1 flex items-center gap-1">
               ⚠️ Fyzikální paradox: Váha balíku ({Number(hmotnostBaliku).toFixed(2)} kg) je nižší než čistá váha produktu ({estimatedNetWeight.toFixed(2)} kg)!
