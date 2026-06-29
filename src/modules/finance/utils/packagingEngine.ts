@@ -41,8 +41,8 @@ export function resolvePackageDimensions(
       delka_cm: overrides.delka,
       sirka_cm: overrides.sirka,
       vyska_cm: overrides.vyska,
-      volumetricWeight_kg: Number(vol.toFixed(3)),
-      billedWeight_kg: Number(Math.max(realWeightKg, vol).toFixed(3)),
+      volumetricWeight_kg: 0,
+      billedWeight_kg: Number(realWeightKg.toFixed(3)),
       resolvedBy: 'override'
     }
   }
@@ -153,8 +153,8 @@ export function resolvePackageDimensions(
     delka_cm: Number(delka.toFixed(1)),
     sirka_cm: Number(sirka.toFixed(1)),
     vyska_cm: Number(vyska.toFixed(1)),
-    volumetricWeight_kg: Number(vol.toFixed(3)),
-    billedWeight_kg: Number(Math.max(realWeightKg, vol).toFixed(3)),
+    volumetricWeight_kg: 0,
+    billedWeight_kg: Number(realWeightKg.toFixed(3)),
     resolvedBy
   }
 }

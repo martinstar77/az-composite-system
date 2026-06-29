@@ -25,6 +25,8 @@ export interface WeightEstimate {
   confidence: WeightConfidence
   /** Human-readable breakdown for display in the form tooltip */
   breakdown: string
+  /** Computed net weight of product contents in kg (optional) */
+  netWeightKg?: number | null
 }
 
 // ---------------------------------------------------------------------------
@@ -151,7 +153,7 @@ export function calculateGrossWeight(
       const qty = Number(s.pocet_kusu ?? 1)
 
       if (!gramaz || !sirka_cm || !delka_m) {
-        return { weightKg: null, confidence: "low", breakdown: "Chybí gramáž, šířka nebo délka." }
+        return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí gramáž, šířka nebo délka." }
       }
 
       const sirka_m = sirka_cm / 100
@@ -163,6 +165,7 @@ export function calculateGrossWeight(
         const total = r3(netTotal + packaging)
         return {
           weightKg: total,
+          netWeightKg: r3(netTotal),
           confidence: "high",
           breakdown: `${r3(netTotal)} kg materiál (${qty} ks) + ${packaging} kg krabice = ${total} kg`
         }
@@ -171,6 +174,7 @@ export function calculateGrossWeight(
         const total = r3(net + 0.05)
         return {
           weightKg: total,
+          netWeightKg: r3(net),
           confidence: "high",
           breakdown: `${r3(net)} kg materiál + 0.05 kg balení = ${total} kg`
         }
@@ -181,6 +185,7 @@ export function calculateGrossWeight(
         const total = r3(net + tubeWeight + packaging)
         return {
           weightKg: total,
+          netWeightKg: r3(net),
           confidence: "high",
           breakdown: `${r3(net)} kg net + ${tubeWeight} kg jádro + ${packaging} kg obal = ${total} kg`
         }
@@ -196,7 +201,7 @@ export function calculateGrossWeight(
       const delka_m = Number(s.delka_m ?? 0)
 
       if (!gramaz || !sirka_cm || !delka_m) {
-        return { weightKg: null, confidence: "low", breakdown: "Chybí gramáž, šířka nebo délka." }
+        return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí gramáž, šířka nebo délka." }
       }
 
       const sirka_m = sirka_cm / 100
@@ -206,6 +211,7 @@ export function calculateGrossWeight(
       const total = r3(net + tubeWeight + packaging)
       return {
         weightKg: total,
+        netWeightKg: net,
         confidence: "high",
         breakdown: `${net} kg net + ${tubeWeight} kg jádro + ${packaging} kg obal/gelpacky = ${total} kg`
       }
@@ -219,14 +225,16 @@ export function calculateGrossWeight(
       const objem = Number(s.objem_nakup_l ?? 0)
 
       if (!objem) {
-        return { weightKg: null, confidence: "low", breakdown: "Chybí objem nákupu (objem_nakup_l)." }
+        return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí objem nákupu (objem_nakup_l)." }
       }
 
       const density = RESIN_DENSITY[chemie] ?? 1.15
       const tare = containerTareKg(objem)
       const net = r3(objem * density)
-      const qty = 1
+      // Resolve actual quantity as mnozstviVBaleni (number of canisters/pieces)
+      const qty = mnozstviVBaleni || 1
       const total = r3((net + tare) * qty)
+      const netTotal = r3(net * qty)
 
       let containerType = "kanystr"
       if (objem <= 5) containerType = "kanystr"
@@ -238,6 +246,7 @@ export function calculateGrossWeight(
 
       return {
         weightKg: total,
+        netWeightKg: netTotal,
         confidence: chemie in RESIN_DENSITY ? "high" : "medium",
         breakdown: `${qty} ks × (${objem}L × ${density} kg/L + ${tare} kg obal) = ${total} kg`
       }
@@ -251,7 +260,7 @@ export function calculateGrossWeight(
       const objem = parseVolumeL(s.objem as string, true)
 
       if (!objem) {
-        return { weightKg: null, confidence: "low", breakdown: "Chybí objem kartušy (objem)." }
+        return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí objem kartušy (objem)." }
       }
 
       const density = ADHESIVE_DENSITY[chemie] ?? 1.15
@@ -259,8 +268,10 @@ export function calculateGrossWeight(
       const net = r3(objem * density)
       const qty = mnozstviVBaleni || 1
       const total = r3((net + tare) * qty + (qty > 1 ? 0.15 : 0))
+      const netTotal = r3(net * qty)
       return {
         weightKg: total,
+        netWeightKg: netTotal,
         confidence: chemie in ADHESIVE_DENSITY ? "high" : "medium",
         breakdown: `${qty} ks × (${objem * 1000}ml × ${density} kg/L + ${tare} kg kartuše) + ${qty > 1 ? "0.15 kg krabice" : "0 kg"} = ${total} kg`
       }
@@ -272,36 +283,45 @@ export function calculateGrossWeight(
     case "spotrebni_chemie": {
       const typ = String(s.typ ?? "CON").toUpperCase()
       const mnozstvi = s.mnozstvi as string
-      const qty = 1
 
       if (typ === "WIP") {
         // Wipes — sold by piece count
         const n = parseFloat(String(mnozstvi).replace(/[^0-9]/g, "")) || 0
-        if (!n) return { weightKg: null, confidence: "low", breakdown: "Chybí počet utěrek." }
+        if (!n) return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí počet utěrek." }
+        const qty = mnozstviVBaleni || 1
         const total = r3((n * 0.004 + 0.12) * qty)
+        const netTotal = r3(n * 0.004 * qty)
         return {
           weightKg: total,
+          netWeightKg: netTotal,
           confidence: "medium",
           breakdown: `${qty} ks × (${n} ks × 4g + 0.12 kg krabice) = ${total} kg`
         }
       } else if (typ === "SPR") {
         // Aerosol spray
         const vol = parseVolumeL(mnozstvi, true)
-        if (!vol) return { weightKg: null, confidence: "low", breakdown: "Chybí objem spreje." }
+        if (!vol) return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí objem spreje." }
+        const qty = mnozstviVBaleni || 1
         const total = r3((vol * 0.85 + 0.08) * qty)
+        const netTotal = r3(vol * 0.85 * qty)
         return {
           weightKg: total,
+          netWeightKg: netTotal,
           confidence: "high",
           breakdown: `${qty} ks × (${vol * 1000}ml × 0.85 kg/L + 0.08 kg plechovka) = ${total} kg`
         }
       } else {
         // CON — liquid concentrate
         const vol = parseVolumeL(mnozstvi, false)
-        if (!vol) return { weightKg: null, confidence: "low", breakdown: "Chybí objem kapaliny." }
+        if (!vol) return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí objem kapaliny." }
         const tare = vol <= 1 ? 0.15 : vol <= 5 ? 0.35 : 0.80
-        const total = r3((vol * 0.95 + tare) * qty)
+        const qty = mnozstviVBaleni || 1
+        const net = r3(vol * 0.95)
+        const total = r3((net + tare) * qty)
+        const netTotal = r3(net * qty)
         return {
           weightKg: total,
+          netWeightKg: netTotal,
           confidence: "high",
           breakdown: `${qty} ks × (${vol}L × 0.95 kg/L + ${tare} kg obal) = ${total} kg`
         }
@@ -314,26 +334,33 @@ export function calculateGrossWeight(
     case "chemie": {
       const podkat = String(s.podkategorie ?? "").toLowerCase()
       const objem = s.objem as string | number
-      const qty = 1
 
       if (podkat === "lepidlo_ve_spreji" || podkat === "blinder") {
         // Aerosol spray — objem is in ml
         const volMl = parseFloat(String(objem).replace(/[^0-9.]/g, "")) || 0
-        if (!volMl) return { weightKg: null, confidence: "low", breakdown: "Chybí objem spreje (ml)." }
-        const total = r3(((volMl / 1000) * 0.85 + 0.08) * qty)
+        if (!volMl) return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí objem spreje (ml)." }
+        const qty = mnozstviVBaleni || 1
+        const net = r3((volMl / 1000) * 0.85)
+        const total = r3((net + 0.08) * qty)
+        const netTotal = r3(net * qty)
         return {
           weightKg: total,
+          netWeightKg: netTotal,
           confidence: "high",
           breakdown: `${qty} ks × (${volMl}ml × 0.85 kg/L + 0.08 kg plechovka) = ${total} kg`
         }
       } else {
         // sealer, release_agent — objem is in litres
         const vol = parseVolumeL(objem, false)
-        if (!vol) return { weightKg: null, confidence: "low", breakdown: "Chybí objem (L)." }
+        if (!vol) return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí objem (L)." }
         const tare = containerTareKg(vol)
-        const total = r3((vol * 0.88 + tare) * qty)
+        const qty = mnozstviVBaleni || 1
+        const net = r3(vol * 0.88)
+        const total = r3((net + tare) * qty)
+        const netTotal = r3(net * qty)
         return {
           weightKg: total,
+          netWeightKg: netTotal,
           confidence: "high",
           breakdown: `${qty} ks × (${vol}L × 0.88 kg/L + ${tare} kg obal) = ${total} kg`
         }
@@ -354,6 +381,7 @@ export function calculateGrossWeight(
       if (!hustota || !sirka_cm || !delka_cm || !tloušťka_m) {
         return {
           weightKg: null,
+          netWeightKg: null,
           confidence: "low",
           breakdown: "Chybí hustota, rozměry desky nebo tloušťka."
         }
@@ -367,6 +395,7 @@ export function calculateGrossWeight(
       const total = r3(net + packaging)
       return {
         weightKg: total,
+        netWeightKg: net,
         confidence: "high",
         breakdown: `${hustota} kg/m³ × (${sirka_cm}×${delka_cm}cm × ${r3(tloušťka_m * 1000)}mm) × ${qty} ks = ${net} kg + ${packaging} kg obal = ${total} kg`
       }
@@ -380,12 +409,14 @@ export function calculateGrossWeight(
 
       if (podkat === "pasty" || podkat === "vosk") {
         const netWeight = parseWeightKg((s.hmotnost || s.mnozstvi) as string) || 0
-        if (!netWeight) return { weightKg: null, confidence: "low", breakdown: "Chybí hmotnost pasty/vosku." }
+        if (!netWeight) return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí hmotnost pasty/vosku." }
         const qty = mnozstviVBaleni || 1
         const packaging = 0.15
         const total = r3((netWeight + packaging) * qty)
+        const netTotal = r3(netWeight * qty)
         return {
           weightKg: total,
+          netWeightKg: netTotal,
           confidence: "high",
           breakdown: `${qty} ks × (${netWeight} kg netto + ${packaging} kg obal) = ${total} kg`
         }
@@ -400,34 +431,36 @@ export function calculateGrossWeight(
           vlnove_koule: { 75: 0.12, 85: 0.15 },
         }
         const sizes = lookupMap[typ] ?? lookupMap.vlneny
-        // Find closest size
         const keys = Object.keys(sizes).map(Number).sort((a, b) => a - b)
         const matched = keys.find(k => prumer <= k) ?? keys[keys.length - 1]
         const unit_kg = sizes[matched] ?? 0.18
         const qty = mnozstviVBaleni || 1
         const packaging = 0.1
         const total = r3(unit_kg * qty + packaging)
+        const netTotal = r3(unit_kg * qty)
         return {
           weightKg: total,
+          netWeightKg: netTotal,
           confidence: "medium",
           breakdown: `${qty} ks × ${unit_kg} kg (${typ} D${prumer}) + ${packaging} kg obal = ${total} kg`
         }
       }
 
       if (podkat === "prislusenstvi") {
-        // Backplate accessories
         const prumer = Number(s.prumer ?? 150)
         const unit_kg = prumer >= 150 ? 0.08 : 0.05
         const qty = mnozstviVBaleni || 1
         const total = r3(unit_kg * qty + 0.05)
+        const netTotal = r3(unit_kg * qty)
         return {
           weightKg: total,
+          netWeightKg: netTotal,
           confidence: "medium",
           breakdown: `${qty} ks × ${unit_kg} kg (D${prumer}) + 0.05 kg = ${total} kg`
         }
       }
 
-      return { weightKg: null, confidence: "low", breakdown: "Neznámá podkategorie broušení." }
+      return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Neznámá podkategorie broušení." }
     }
 
     // -----------------------------------------------------------------------
@@ -436,29 +469,28 @@ export function calculateGrossWeight(
     case "consumables": {
       const podkat = String(s.podkategorie ?? "BF")
 
-      // --- Films: BF, RF, PP, PP-PTFE, BC, FM ---
       if (["BF", "RF", "PP", "PP-PTFE", "BC", "FM"].includes(podkat)) {
-        const gramaz = Number(s.gramaz_gm2 ?? s.gramáž ?? 0)  // g/m²
+        const gramaz = Number(s.gramaz_gm2 ?? s.gramáž ?? 0)
         const sirka_cm = Number(s.sirka_cm ?? 0)
         const delka_m = Number(s.delka_m ?? 0)
 
         if (!gramaz || !sirka_cm || !delka_m) {
-          return { weightKg: null, confidence: "low", breakdown: "Chybí gramáž, šířka nebo délka." }
+          return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí gramáž, šířka nebo délka." }
         }
 
         const sirka_m = sirka_cm / 100
         const net = r3((gramaz / 1000) * sirka_m * delka_m)
-        const tubeWeight = r3(sirka_m * 0.35)  // thin plastic core
+        const tubeWeight = r3(sirka_m * 0.35)
         const packaging = 0.3
         const total = r3(net + tubeWeight + packaging)
         return {
           weightKg: total,
+          netWeightKg: net,
           confidence: "high",
           breakdown: `${net} kg net (${gramaz} g/m²) + ${tubeWeight} kg jádro + ${packaging} kg obal = ${total} kg`
         }
       }
 
-      // --- Sealing Tape: ST ---
       if (podkat === "ST") {
         const sirka_mm = Number(s.sirka_mm ?? 12)
         const delka_m = Number(s.delka_m ?? 15)
@@ -466,52 +498,50 @@ export function calculateGrossWeight(
         const pocet_roli = Number(s.pocet_roli_v_baleni ?? 1)
 
         const perRollVolumeM3 = (sirka_mm / 1000) * (tloustka_mm / 1000) * delka_m
-        const perRollKg = r3(perRollVolumeM3 * 250)  // PVC foam density ~250 kg/m³
+        const perRollKg = r3(perRollVolumeM3 * 250)
         const net = r3(perRollKg * pocet_roli)
         const packaging = 0.2
         const total = r3(net + packaging)
         return {
           weightKg: total,
+          netWeightKg: net,
           confidence: "high",
           breakdown: `${pocet_roli} rolí × ${perRollKg} kg (${sirka_mm}mm × ${tloustka_mm}mm × ${delka_m}m) + ${packaging} kg obal = ${total} kg`
         }
       }
 
-      // --- Flash Tape: FT ---
       if (podkat === "FT") {
         const sirka_mm = Number(s.sirka_mm ?? 25)
         const delka_m = Number(s.delka_m ?? 66)
         const pocet_roli = Number(s.pocet_roli_v_baleni ?? 1)
 
-        // Aluminium + silicone tape: ~70 g/m²
         const perRollKg = r3((sirka_mm / 1000) * delka_m * 0.070)
         const net = r3(perRollKg * pocet_roli)
         const packaging = 0.1
         const total = r3(net + packaging)
         return {
           weightKg: total,
+          netWeightKg: net,
           confidence: "medium",
           breakdown: `${pocet_roli} rolí × ${perRollKg} kg (${sirka_mm}mm × ${delka_m}m @70 g/m²) + ${packaging} kg = ${total} kg`
         }
       }
 
-      // --- Flow Channel: FCH ---
       if (podkat === "FCH") {
         const podtyp = String(s.podtyp_fch ?? "TAPE")
         const delka_m = Number(s.delka_m ?? 100)
 
         if (podtyp === "TAPE") {
           const sirka_mm = Number(s.sirka_mm ?? 15)
-          // Flat flow mesh tape ~200 g/m linear
           const net = r3((sirka_mm / 1000) * delka_m * 200 * 0.001)
           const total = r3(net + 0.05)
           return {
             weightKg: total,
+            netWeightKg: net,
             confidence: "medium",
             breakdown: `${sirka_mm}mm × ${delka_m}m × 200 g/m² = ${net} kg + 0.05 kg = ${total} kg`
           }
         } else {
-          // SPRL, OMEGA, TUBE — cylindrical plastic profile (HDPE density ~1100 kg/m³)
           const prumer_mm = Number(s.vnitrni_prumer_mm ?? s.prumer_mm ?? 10)
           const prumer_m = prumer_mm / 1000
           const volume_m3 = Math.PI * Math.pow(prumer_m / 2, 2) * delka_m
@@ -519,38 +549,41 @@ export function calculateGrossWeight(
           const total = r3(net + 0.1)
           return {
             weightKg: total,
+            netWeightKg: net,
             confidence: "medium",
             breakdown: `π × (${prumer_mm}mm/2)² × ${delka_m}m × 1100 kg/m³ = ${net} kg + 0.1 kg = ${total} kg`
           }
         }
       }
 
-      // --- Connectors: K, KP ---
       if (podkat === "K" || podkat === "KP") {
         const prumer = Number(s.vnejsi_prumer_mm ?? s.prumer_mm ?? 20)
         const qty = mnozstviVBaleni || 1
         const unit_kg = connectorWeightKg(prumer)
         const total = r3(unit_kg * qty + 0.05)
+        const netTotal = r3(unit_kg * qty)
         return {
           weightKg: total,
+          netWeightKg: netTotal,
           confidence: "medium",
           breakdown: `${qty} ks × ${unit_kg} kg (Ø${prumer}mm) + 0.05 kg = ${total} kg`
         }
       }
 
-      // --- MTI ---
       if (podkat === "MTI") {
         const qty = mnozstviVBaleni || 1
-        const unit_kg = 0.05  // Small hose fittings
+        const unit_kg = 0.05
         const total = r3(unit_kg * qty + 0.05)
+        const netTotal = r3(unit_kg * qty)
         return {
           weightKg: total,
+          netWeightKg: netTotal,
           confidence: "medium",
           breakdown: `${qty} ks × ${unit_kg} kg + 0.05 kg = ${total} kg`
         }
       }
 
-      return { weightKg: null, confidence: "low", breakdown: `Neznámá podkategorie spotřebního materiálu: ${podkat}` }
+      return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: `Neznámá podkategorie spotřebního materiálu: ${podkat}` }
     }
 
     // -----------------------------------------------------------------------
@@ -567,15 +600,17 @@ export function calculateGrossWeight(
         const unit_kg = lookupMap[matched]
         const qty = mnozstviVBaleni || 1
         const total = r3(unit_kg * qty + 0.05)
-        return { weightKg: total, confidence: "medium", breakdown: `${qty} ks BU Ø${prumer}mm × ${unit_kg} kg + 0.05 kg = ${total} kg` }
+        const netTotal = r3(unit_kg * qty)
+        return { weightKg: total, netWeightKg: netTotal, confidence: "medium", breakdown: `${qty} ks BU Ø${prumer}mm × ${unit_kg} kg + 0.05 kg = ${total} kg` }
       }
 
       if (podkat === "QR") {
         const mat = String(s.material ?? "SS").toUpperCase()
-        const unit_kg = mat === "SS" ? 0.12 : 0.05  // SS vs plastic
+        const unit_kg = mat === "SS" ? 0.12 : 0.05
         const qty = mnozstviVBaleni || 1
         const total = r3(unit_kg * qty + 0.05)
-        return { weightKg: total, confidence: "medium", breakdown: `${qty} ks QR (${mat}) × ${unit_kg} kg + 0.05 kg = ${total} kg` }
+        const netTotal = r3(unit_kg * qty)
+        return { weightKg: total, netWeightKg: netTotal, confidence: "medium", breakdown: `${qty} ks QR (${mat}) × ${unit_kg} kg + 0.05 kg = ${total} kg` }
       }
 
       if (podkat === "SQ") {
@@ -583,29 +618,35 @@ export function calculateGrossWeight(
         const unit_kg = prumer <= 25 ? 0.18 : 0.30
         const qty = mnozstviVBaleni || 1
         const total = r3(unit_kg * qty + 0.05)
-        return { weightKg: total, confidence: "medium", breakdown: `${qty} ks SQ Ø${prumer}mm × ${unit_kg} kg + 0.05 kg = ${total} kg` }
+        const netTotal = r3(unit_kg * qty)
+        return { weightKg: total, netWeightKg: netTotal, confidence: "medium", breakdown: `${qty} ks SQ Ø${prumer}mm × ${unit_kg} kg + 0.05 kg = ${total} kg` }
       }
 
       if (podkat === "V") {
         const qty = mnozstviVBaleni || 1
         const total = r3(0.35 * qty + (qty > 1 ? 0.05 : 0))
-        return { weightKg: total, confidence: "medium", breakdown: `${qty} ks Vakuometr × 0.35 kg + ${qty > 1 ? "0.05 kg" : "0 kg"} = ${total} kg` }
+        const netTotal = r3(0.35 * qty)
+        return { weightKg: total, netWeightKg: netTotal, confidence: "medium", breakdown: `${qty} ks Vakuometr × 0.35 kg + ${qty > 1 ? "0.05 kg" : "0 kg"} = ${total} kg` }
       }
 
       if (podkat === "CU") {
         const vol = Number(s.objem_l ?? 5)
         const qty = mnozstviVBaleni || 1
-        const total = r3((vol * 1.0 + 5.0) * qty)  // water + equipment
-        return { weightKg: total, confidence: "medium", breakdown: `${qty} ks × (${vol}L × 1.0 kg/L + 5.0 kg vybavení) = ${total} kg` }
+        const dryUnitWeight = vol === 400 ? 75.0 : 25.0
+        const dryUnitNet = vol === 400 ? 70.0 : 20.0
+        const total = r3(dryUnitWeight * qty)
+        const netTotal = r3(dryUnitNet * qty)
+        return { weightKg: total, netWeightKg: netTotal, confidence: "medium", breakdown: `${qty} ks × prázdná mycí stanice (${dryUnitWeight} kg) = ${total} kg` }
       }
 
       if (podkat === "SU") {
         const qty = mnozstviVBaleni || 1
         const total = r3(2.5 * qty)
-        return { weightKg: total, confidence: "medium", breakdown: `${qty} ks × Spin Unit RST5 (2.5 kg) = ${total} kg` }
+        const netTotal = r3(2.3 * qty)
+        return { weightKg: total, netWeightKg: netTotal, confidence: "medium", breakdown: `${qty} ks × Spin Unit RST5 (2.5 kg) = ${total} kg` }
       }
 
-      return { weightKg: null, confidence: "low", breakdown: `Neznámá podkategorie nářadí: ${podkat}` }
+      return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: `Neznámá podkategorie nářadí: ${podkat}` }
     }
 
     // -----------------------------------------------------------------------
@@ -616,10 +657,11 @@ export function calculateGrossWeight(
       const qty = mnozstviVBaleni || 1
       const g_per_piece = fastenerWeightG(zavit)
       const net = r3(g_per_piece * qty / 1000)
-      const packaging = 0.1  // plastic bag / small box
+      const packaging = 0.1
       const total = r3(net + packaging)
       return {
         weightKg: total,
+        netWeightKg: net,
         confidence: "medium",
         breakdown: `${qty} ks ${zavit} × ${g_per_piece}g + ${packaging} kg obal = ${total} kg`
       }
@@ -628,6 +670,7 @@ export function calculateGrossWeight(
     default:
       return {
         weightKg: null,
+        netWeightKg: null,
         confidence: "low",
         breakdown: `Neznámá kategorie: ${kategorieId}`
       }

@@ -1405,7 +1405,12 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       case 'spotrebni_chemie':
         return { typ: clnType, mnozstvi: clnQty }
       case 'chemie':
-        return { podkategorie: chemSub, objem: chemVol }
+        return {
+          podkategorie: chemSub,
+          objem: chemSub === 'lepidlo_ve_spreji' || chemSub === 'blinder' ? `${chemVol} ml` : `${chemVol} l`,
+          chemie: chemBaseType,
+          vlastnost: chemSub === 'lepidlo_ve_spreji' ? chemAdhProp : chemSealerProp
+        }
       default:
         return {}
     }
@@ -1421,7 +1426,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     conKPrumer, conKpPrumer,
     polSub, polPasteWeight, polDiscType, polDiscDia,
     toolSub, toolBuPrumer, toolQrMat, toolCuVolume,
-    fasSize, clnType, clnQty, chemSub, chemVol
+    fasSize, clnType, clnQty, chemSub, chemVol,
+    chemBaseType, chemAdhProp, chemSealerProp
   ])
 
   const autoWeight = useMemo(() =>
@@ -1435,44 +1441,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   )
 
   const estimatedNetWeight = useMemo(() => {
-    if (!kategorieId) return 0
-    
-    const specs = currentSpecs as any
-    if (kategorieId === 'pryskyrice' && zakladniMjId === 'kg') {
-      const objem = parseFloat(String(specs.objem_nakup_l || ""))
-      if (objem && !isNaN(objem)) {
-        const typ = String(specs.typ || "RES")
-        const chem = String(specs.chemie || "EP")
-        const density = typ === 'HRD' ? 0.95 : (chem === 'EP' ? 1.15 : (chem === 'VE' ? 1.12 : (chem === 'PE' ? 1.13 : (chem === 'GEL' ? 1.20 : 1.0))))
-        return objem * density
-      }
-    }
-    if ((kategorieId === 'chemie' || kategorieId === 'spotrebni_chemie') && zakladniMjId === 'l') {
-      const rawVol = specs.objem || specs.mnozstvi
-      if (rawVol) {
-        const str = String(rawVol).trim().toLowerCase()
-        const num = parseFloat(str.replace(/[^0-9.]/g, ""))
-        if (!isNaN(num) && num > 0) {
-          const vol = str.includes("ml") ? num / 1000 : num
-          const density = specs.vlastnost === "EP" ? 1.15 : 1.0
-          return vol * density
-        }
-      }
-    }
-    if (kategorieId === 'brouseni_a_lesteni') {
-      const weightStr = specs.hmotnost_pasty || specs.hmotnost_vosku
-      if (weightStr) {
-        const parsedWeight = parseFloat(String(weightStr).replace(/[^0-9.]/g, ""))
-        if (!isNaN(parsedWeight)) {
-          const num = String(weightStr).toLowerCase().includes("g") && !String(weightStr).toLowerCase().includes("kg") 
-            ? parsedWeight / 1000
-            : parsedWeight
-          return num * (Number(mnozstviVBaleni) || 1)
-        }
-      }
-    }
-    return 0
-  }, [kategorieId, zakladniMjId, currentSpecs, mnozstviVBaleni])
+    return autoWeight.netWeightKg || 0
+  }, [autoWeight.netWeightKg])
 
   // Sync auto-weight into form field when not overridden
   useEffect(() => {

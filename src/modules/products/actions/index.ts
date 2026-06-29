@@ -30,7 +30,7 @@ export async function getProducts(): Promise<{ data: Product[] | null, error: an
         nakupni_mj_id,
         prevodni_pomer_na_zakladni,
         moq,
-        logisticke_sablony ( nazev )
+        logisticke_sablony ( id, nazev, typ_vypoctu_dopravy )
       ),
       produkt_mnozstevni_slevy (
         id,
@@ -90,7 +90,7 @@ export async function getProductsPaged({
         nakupni_mj_id,
         prevodni_pomer_na_zakladni,
         moq,
-        logisticke_sablony ( nazev ),
+        logisticke_sablony ( id, nazev, typ_vypoctu_dopravy ),
         dodavatele ( nazev_spolecnosti )
       ),
       produkt_mnozstevni_slevy (
@@ -405,7 +405,7 @@ export async function cloneProduct(id: string) {
         nakupni_mj_id,
         prevodni_pomer_na_zakladni,
         moq,
-        logisticke_sablony ( nazev )
+        logisticke_sablony ( id, nazev, typ_vypoctu_dopravy )
       ),
       produkt_mnozstevni_slevy (
         id,
@@ -865,8 +865,15 @@ export async function bulkRecalculateProductWeights() {
 
   const { data: products, error: fetchError } = await supabase
     .from('produkty')
-    .select('id, kategorie_id, specifikace, mnozstvi_v_baleni')
+    .select(`
+      id, kategorie_id, specifikace, mnozstvi_v_baleni,
+      produkt_dodavatel (
+        is_primary,
+        logisticke_sablony ( typ_vypoctu_dopravy )
+      )
+    `)
     .is('deleted_at', null)
+    .is('produkt_dodavatel.deleted_at', null)
 
   if (fetchError) {
     return { success: false, error: fetchError }
@@ -879,6 +886,14 @@ export async function bulkRecalculateProductWeights() {
 
   let updatedCount = 0
   for (const product of products) {
+    // Ochrana atypických produktů: pokud produkt využívá šablonu s fixní dopravou,
+    // nepřepisujeme jeho hmotnost a zachováváme ručně zadané hodnoty.
+    const primarySourcing = (product.produkt_dodavatel as any[])?.find(s => s.is_primary) || (product.produkt_dodavatel as any[])?.[0]
+    const hasFixedShipping = primarySourcing?.logisticke_sablony?.typ_vypoctu_dopravy === 'fixni'
+    if (hasFixedShipping) {
+      continue
+    }
+
     const specs = (product.specifikace as Record<string, unknown>) || {}
     const categoryId = product.kategorie_id
     const qtyInPack = product.mnozstvi_v_baleni || 1
@@ -891,7 +906,7 @@ export async function bulkRecalculateProductWeights() {
           hmotnost_baliku_kg: weightEst.weightKg,
           upravil_id: user?.id,
           aktualizovano_at: new Date().toISOString()
-        })
+         })
         .eq('id', product.id)
       
       if (!updateError) {

@@ -13,6 +13,7 @@ import {
 import Link from "next/link"
 import { ArrowUpDown, MoreHorizontal, FileEdit, Search, FilterX, ExternalLink, Settings2, Copy, Trash2, Building2, Zap } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
+import { calculateGrossWeight } from "../utils/logisticsCalculator"
 
 import {
   Table,
@@ -876,12 +877,36 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       header: "Hmotnost",
       cell: ({ row }) => {
         const p = row.original
+        
+        // Calculate auto-weight to check for manual override
+        const autoWeight = calculateGrossWeight(p.kategorie_id, p.specifikace || {}, p.mnozstvi_v_baleni || 1)
+        const isWeightOverridden = autoWeight.weightKg !== null && p.hmotnost_baliku_kg !== null && Math.abs((p.hmotnost_baliku_kg || 0) - (autoWeight.weightKg || 0)) > 0.01
+
+        const primarySourcing = p.produkt_dodavatel?.find(s => s.is_primary) || p.produkt_dodavatel?.[0]
+        const isFixedShipping = primarySourcing?.logisticke_sablony?.typ_vypoctu_dopravy === 'fixni'
+
         return (
-          <div className="flex flex-col text-xs font-mono text-zinc-300">
+          <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-300">
             {p.hmotnost_baliku_kg !== null && p.hmotnost_baliku_kg !== undefined ? (
               <span>{p.hmotnost_baliku_kg.toFixed(2)} kg</span>
             ) : (
               <span className="text-zinc-600 italic">-</span>
+            )}
+            {isWeightOverridden && (
+              <span 
+                className="text-amber-500 font-bold cursor-help" 
+                title={`Hmotnost byla ručně upravena (automatický odhad: ${autoWeight.weightKg?.toFixed(2)} kg)`}
+              >
+                ⚠️
+              </span>
+            )}
+            {isFixedShipping && (
+              <span 
+                className="text-blue-400 font-bold cursor-help" 
+                title={`Produkt používá šablonu s fixní dopravou (${primarySourcing?.logisticke_sablony?.nazev})`}
+              >
+                🚚
+              </span>
             )}
           </div>
         )

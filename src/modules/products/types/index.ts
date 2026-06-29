@@ -94,7 +94,7 @@ export interface Product {
     nakupni_mj_id?: string | null
     prevodni_pomer_na_zakladni?: number | null
     moq?: number | null
-    logisticke_sablony?: { nazev: string } | null
+    logisticke_sablony?: { id: string, nazev: string, typ_vypoctu_dopravy: string } | null
     dodavatele?: { nazev_spolecnosti: string } | null
   }[]
   produkt_mnozstevni_slevy?: {

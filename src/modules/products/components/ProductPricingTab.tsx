@@ -20,6 +20,7 @@ import { ExchangeRate, GlobalFinanceSettings } from "@/modules/finance/types"
 import { calculateProductPricing, PricingBreakdown } from "@/modules/finance/utils/calculations"
 import { LogisticsTemplate } from "@/modules/finance/types/logistics"
 import { updateProductMargins, getProductQuantityBreaks, saveProductQuantityBreaks } from "../actions"
+import { calculateGrossWeight } from "../utils/logisticsCalculator"
 
 interface ProductPricingTabProps {
   product: Product
@@ -56,6 +57,10 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
   const showRatioFallbackWarning = !!(primarySourcing && isRatioFallbackUsed && !isBuyingInBasicUnit && (product.mnozstvi_v_baleni || 1) > 1)
 
   const defaultQty = isBuyingInBasicUnit ? (product.mnozstvi_v_baleni || 1) : 1
+
+  const autoWeight = calculateGrossWeight(product.kategorie_id, product.specifikace || {}, product.mnozstvi_v_baleni || 1)
+  const isWeightOverridden = autoWeight.weightKg !== null && product.hmotnost_baliku_kg !== null && Math.abs((product.hmotnost_baliku_kg || 0) - (autoWeight.weightKg || 0)) > 0.01
+  const isFixedShipping = template?.typ_vypoctu_dopravy === 'fixni'
 
   const breakdown = primarySourcing 
     ? calculateProductPricing(
@@ -288,169 +293,245 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
              </div>
 
              <div className="space-y-3">
-                <div className="grid grid-cols-3 gap-2 pb-2 border-b border-zinc-800">
-                  <div className="col-span-1 text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Nákladová položka</div>
-                  {breakdown.totalUnits > 1 ? (
+                {/* Dynamic column system */}
+                {(() => {
+                  const simBasicUnits = isBuyingInBasicUnit ? defaultQty : (defaultQty * totalUnits)
+                  const showBatch = defaultQty > 1
+                  const showBasic = breakdown ? breakdown.totalUnits > 1 : false
+                  const colCount = 1 + (showBatch ? 1 : 0) + 1 + (showBasic ? 1 : 0)
+                  const gridClass = 
+                    colCount === 4 ? 'grid-cols-4' :
+                    colCount === 3 ? 'grid-cols-3' :
+                    'grid-cols-2'
+
+                  return (
                     <>
-                      <div className="text-right text-[10px] font-bold text-zinc-500 uppercase">
-                        Za nákupní MJ ({primarySourcing.c_merne_jednotky?.zkratka || 'bal.'})
+                      <div className={`grid ${gridClass} gap-2 pb-2 border-b border-zinc-800`}>
+                        <div className="col-span-1 text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Nákladová položka</div>
+                        {showBatch && (
+                          <div className="text-right text-[10px] font-bold text-amber-500 uppercase">
+                            Celý batch ({defaultQty} {primarySourcing.c_merne_jednotky?.zkratka || 'ks'})
+                          </div>
+                        )}
+                        <div className="text-right text-[10px] font-bold text-zinc-500 uppercase">
+                          Za 1 {primarySourcing.c_merne_jednotky?.zkratka || 'ks'}
+                        </div>
+                        {showBasic && (
+                          <div className="text-right text-[10px] font-bold text-primary uppercase">
+                            Za 1 {product.c_merne_jednotky_zakladni?.zkratka || 'ks'} (Základní MJ)
+                          </div>
+                        )}
                       </div>
-                      <div className="text-right text-[10px] font-bold text-primary uppercase">
-                        Za 1 {product.c_merne_jednotky_zakladni?.zkratka || 'ks'} (Základní MJ)
+
+                      <div className={`grid ${gridClass} items-center text-sm group p-1 hover:bg-zinc-800/30 rounded transition-colors`}>
+                        <span className="text-zinc-500 col-span-1">Nákupní cena</span>
+                        {showBatch && (
+                          <span className="font-mono text-amber-500 text-right">{formatCzk(breakdown.unitPurchasePriceCzk * simBasicUnits)}</span>
+                        )}
+                        <span className="font-mono text-zinc-400 text-right">{formatCzk(breakdown.unitPurchasePriceCzk * totalUnits)}</span>
+                        {showBasic && (
+                          <span className="font-mono text-white font-bold text-right">{formatCzk(breakdown.unitPurchasePriceCzk)}</span>
+                        )}
+                      </div>
+                      
+                      <div className={`grid ${gridClass} items-center text-sm group p-1 hover:bg-zinc-800/30 rounded transition-colors`}>
+                        <div className="flex items-center gap-2 col-span-1">
+                          <Truck className="h-3 w-3 text-zinc-600" />
+                          <span className="text-zinc-500">
+                            Doprava
+                            {isFixedShipping && (
+                              <span className="text-[10px] bg-blue-500/20 text-blue-400 border border-blue-500/30 px-1 py-0.5 rounded font-medium ml-1.5 inline-flex items-center gap-0.5">
+                                Fixní 🚚
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        {showBatch && (
+                          <span className="font-mono text-amber-500 text-right">{formatCzk(breakdown.unitShippingCostCzk * simBasicUnits)}</span>
+                        )}
+                        <span className="font-mono text-zinc-300 text-right">{formatCzk(breakdown.unitShippingCostCzk * totalUnits)}</span>
+                        {showBasic && (
+                          <span className="font-mono text-zinc-300 text-right">{formatCzk(breakdown.unitShippingCostCzk)}</span>
+                        )}
+                      </div>
+
+                      {(isWeightOverridden || (breakdown.packagingDimensions && breakdown.packagingDimensions.delka_cm > 0)) && (
+                        <div className="text-[10px] text-zinc-500 px-5 flex flex-wrap gap-x-4 gap-y-1 mt-0.5 pb-2">
+                          {breakdown.packagingDimensions && breakdown.packagingDimensions.delka_cm > 0 && (
+                            <span>Rozměry: <strong className="text-zinc-400">{breakdown.packagingDimensions.delka_cm}×{breakdown.packagingDimensions.sirka_cm}×{breakdown.packagingDimensions.vyska_cm} cm</strong></span>
+                          )}
+                          <span>Hmotnost balíku: <strong className="text-zinc-400">reálná {product.hmotnost_baliku_kg || 0} kg / účtovaná {breakdown.packagingDimensions?.billedWeight_kg || product.hmotnost_baliku_kg || 0} kg</strong></span>
+                          {isWeightOverridden && (
+                            isFixedShipping ? (
+                              <span className="text-emerald-400 font-bold" title={`Hmotnost byla ručně přepsána (automatický odhad by byl ${autoWeight.weightKg?.toFixed(2)} kg). Hromadný přepočet ji nepřepíše, protože používáte šablonu s fixní dopravou.`}>
+                                ⚠️ Ručně upraveno (Ochráněno ⚓)
+                              </span>
+                            ) : (
+                              <span className="text-amber-500 font-bold" title={`Hmotnost byla ručně přepsána (automatický odhad by byl ${autoWeight.weightKg?.toFixed(2)} kg). UPOZORNĚNÍ: Při spuštění hromadného přepočtu hmotností bude tato hodnota přepsána! Pro její ochranu přiřaďte šablonu s fixní dopravou.`}>
+                                ⚠️ Ručně upraveno (Hrozí přepsání!)
+                              </span>
+                            )
+                          )}
+                          {breakdown.packagingDimensions && breakdown.packagingDimensions.volumetricWeight_kg && breakdown.packagingDimensions.volumetricWeight_kg > (product.hmotnost_baliku_kg || 0) && (
+                            <span className="text-amber-500 font-bold">Aplikována objemová hmotnost ({breakdown.packagingDimensions.volumetricWeight_kg} kg)</span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className={`grid ${gridClass} items-center text-sm group p-1 hover:bg-zinc-800/30 rounded transition-colors`}>
+                        <div className="flex items-center gap-2 col-span-1">
+                          <ShieldCheck className="h-3 w-3 text-zinc-600" />
+                          <span className="text-zinc-500">Clo</span>
+                        </div>
+                        {showBatch && (
+                          <span className="font-mono text-amber-500 text-right">{formatCzk(breakdown.unitCustomsCostCzk * simBasicUnits)}</span>
+                        )}
+                        <span className="font-mono text-zinc-300 text-right">{formatCzk(breakdown.unitCustomsCostCzk * totalUnits)}</span>
+                        {showBasic && (
+                          <span className="font-mono text-zinc-300 text-right">{formatCzk(breakdown.unitCustomsCostCzk)}</span>
+                        )}
+                      </div>
+
+                      <div className="pt-2 mt-2 border-t border-zinc-800/50 space-y-2">
+                        <div className={`grid ${gridClass} items-center text-[11px] text-zinc-500 italic px-1`}>
+                          <span className="col-span-1">SWIFT & Banka</span>
+                          {showBatch && (
+                            <span className="text-amber-600/80 text-right">{formatCzk(breakdown.unitBankFeesCzk * simBasicUnits)}</span>
+                          )}
+                          <span className="text-right">{formatCzk(breakdown.unitBankFeesCzk * totalUnits)}</span>
+                          {showBasic && (
+                            <span className="text-right">{formatCzk(breakdown.unitBankFeesCzk)}</span>
+                          )}
+                        </div>
+                        {breakdown.currency !== 'CZK' && (
+                          <div className="pl-4 space-y-0.5 border-l border-zinc-800 ml-2">
+                            {breakdown.swiftRoklenFeeCzk !== undefined && breakdown.swiftRoklenFeeCzk > 0 && (
+                              <div className={`grid ${gridClass} items-center text-[10px] text-zinc-650 italic`}>
+                                <span className="col-span-1">↳ SWIFT Poplatek Roklen</span>
+                                {showBatch && (
+                                  <span className="text-right text-zinc-600">{formatCzk((breakdown.swiftRoklenFeeCzk / breakdown.totalUnits) * simBasicUnits)}</span>
+                                )}
+                                <span className="text-right">{formatCzk(breakdown.swiftRoklenFeeCzk)}</span>
+                                {showBasic && (
+                                  <span className="text-right">
+                                    {formatCzk(breakdown.swiftRoklenFeeCzk / breakdown.totalUnits)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {breakdown.swiftOurFeeCzk !== undefined && breakdown.swiftOurFeeCzk > 0 && (
+                              <div className={`grid ${gridClass} items-center text-[10px] text-zinc-650 italic`}>
+                                <span className="col-span-1">↳ SWIFT OUR Transfer</span>
+                                {showBatch && (
+                                  <span className="text-right text-zinc-600">{formatCzk((breakdown.swiftOurFeeCzk / breakdown.totalUnits) * simBasicUnits)}</span>
+                                )}
+                                <span className="text-right">{formatCzk(breakdown.swiftOurFeeCzk)}</span>
+                                {showBasic && (
+                                  <span className="text-right">
+                                    {formatCzk(breakdown.swiftOurFeeCzk / breakdown.totalUnits)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div className={`grid ${gridClass} items-center text-[11px] text-zinc-550 italic px-1`}>
+                          <span className="col-span-1">Proclení & Dokumenty</span>
+                          {showBatch && (
+                            <span className="text-right text-zinc-600">{formatCzk(breakdown.unitClearingFeesCzk * simBasicUnits)}</span>
+                          )}
+                          <span className="text-right">{formatCzk(breakdown.unitClearingFeesCzk * totalUnits)}</span>
+                          {showBasic && (
+                            <span className="text-right">{formatCzk(breakdown.unitClearingFeesCzk)}</span>
+                          )}
+                        </div>
+                        <div className={`grid ${gridClass} items-center text-[11px] text-zinc-550 italic px-1`}>
+                          <span className="col-span-1">Odpady</span>
+                          {showBatch && (
+                            <span className="text-right text-zinc-600">{formatCzk(breakdown.unitWasteFeesCzk * simBasicUnits)}</span>
+                          )}
+                          <span className="text-right">{formatCzk(breakdown.unitWasteFeesCzk * totalUnits)}</span>
+                          {showBasic && (
+                            <span className="text-right">{formatCzk(breakdown.unitWasteFeesCzk)}</span>
+                          )}
+                        </div>
+                        <div className={`grid ${gridClass} items-center text-[11px] text-zinc-550 italic px-1`}>
+                          <span className="col-span-1">Balné</span>
+                          {showBatch && (
+                            <span className="text-right text-zinc-600">{formatCzk(breakdown.unitPackagingFeesCzk * simBasicUnits)}</span>
+                          )}
+                          <span className="text-right">{formatCzk(breakdown.unitPackagingFeesCzk * totalUnits)}</span>
+                          {showBasic && (
+                            <span className="text-right">{formatCzk(breakdown.unitPackagingFeesCzk)}</span>
+                          )}
+                        </div>
+                        {breakdown.shippingSafetyBufferCzk !== undefined && breakdown.shippingSafetyBufferCzk > 0 && (
+                          <div className={`grid ${gridClass} items-center text-[11px] text-zinc-550 italic px-1`}>
+                            <span className="col-span-1">Rezerva dopravy (bezpečnostní)</span>
+                            {showBatch && (
+                              <span className="text-right text-zinc-600">+{formatCzk((breakdown.shippingSafetyBufferCzk / breakdown.totalUnits) * simBasicUnits)}</span>
+                            )}
+                            <span className="text-right">+{formatCzk(breakdown.shippingSafetyBufferCzk)}</span>
+                            {showBasic && (
+                              <span className="text-right">+{formatCzk(breakdown.shippingSafetyBufferCzk / breakdown.totalUnits)}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className={`grid ${gridClass} pt-4 border-t border-zinc-800 items-center`}>
+                        <div className="flex flex-col col-span-1">
+                          <span className="text-zinc-400 font-bold">Základní Pořizovací cena</span>
+                          <span className="text-[10px] text-zinc-500 italic">Landed Cost bez rezervy</span>
+                        </div>
+                        {showBatch && (
+                          <span className="text-lg font-mono text-amber-500 text-right">{formatCzk(breakdown.unitLandedCostBase * simBasicUnits)}</span>
+                        )}
+                        <span className="text-lg font-mono text-zinc-500 text-right">{formatCzk(breakdown.unitLandedCostBase * totalUnits)}</span>
+                        {showBasic && (
+                          <span className="text-xl font-mono text-zinc-300 text-right">{formatCzk(breakdown.unitLandedCostBase)}</span>
+                        )}
+                      </div>
+
+                      <div className={`grid ${gridClass} items-center text-xs italic text-zinc-500 px-1 mt-2`}>
+                        <div className="flex items-center gap-1 col-span-1">
+                          <Info className="h-3 w-3" />
+                          <span>Rezerva marže ({settings.marze_rezerva_procenta}%)</span>
+                        </div>
+                        {showBatch && (
+                          <span className="text-right text-zinc-600">+{formatCzk(breakdown.unitBufferAmount * simBasicUnits)}</span>
+                        )}
+                        <span className="text-right">+{formatCzk(breakdown.unitBufferAmount * totalUnits)}</span>
+                        {showBasic && (
+                          <span className="text-right">+{formatCzk(breakdown.unitBufferAmount)}</span>
+                        )}
+                      </div>
+
+                      <div className="mt-4 p-4 bg-primary/10 border border-primary/20 rounded-lg flex justify-between items-center shadow-inner">
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-primary tracking-widest">Finální nákladová cena za 1 jednotku</p>
+                          <p className="text-xs text-zinc-500 italic">Základ pro výpočet prodejních cen</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-3xl font-black text-primary">{formatCzk(breakdown.unitLandedCostWithBuffer)}</span>
+                          {showBatch && (
+                            <p className="text-[10px] text-amber-500 font-bold italic mt-0.5">
+                              Celý batch: {formatCzk(breakdown.unitLandedCostWithBuffer * simBasicUnits)}
+                            </p>
+                          )}
+                          <p className="text-[10px] font-mono text-primary/60">
+                            ~ {(breakdown.unitLandedCostWithBuffer / breakdown.exchangeRateUsed).toFixed(2)} {breakdown.currency}
+                          </p>
+                          {breakdown.currency !== 'CZK' && breakdown.roklenMarginApplied !== undefined && breakdown.roklenMarginApplied > 0 && (
+                            <p className="text-[9px] text-zinc-500 italic mt-0.5" title={`Základní kurz: ${breakdown.exchangeRateRaw?.toFixed(4)} + ${((breakdown.roklenMarginApplied || 0) * 100).toFixed(2)}% marže RoklenFX`}>
+                              vč. marže RoklenFX {((breakdown.roklenMarginApplied || 0) * 100).toFixed(2)}%
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </>
-                  ) : (
-                    <div className="col-span-2 text-right text-[10px] font-bold text-primary uppercase">
-                      Za 1 {product.c_merne_jednotky_zakladni?.zkratka || 'ks'} (Základní MJ)
-                    </div>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-3 items-center text-sm group p-1 hover:bg-zinc-800/30 rounded transition-colors">
-                  <span className="text-zinc-500 col-span-1">Nákupní cena</span>
-                  {breakdown.totalUnits > 1 && (
-                    <span className="font-mono text-zinc-400 text-right">{formatCzk(breakdown.totalPurchasePriceCzk)}</span>
-                  )}
-                  <span className={`font-mono text-white font-bold text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>{formatCzk(breakdown.unitPurchasePriceCzk)}</span>
-                </div>
-                
-                 <div className="grid grid-cols-3 items-center text-sm group p-1 hover:bg-zinc-800/30 rounded transition-colors">
-                  <div className="flex items-center gap-2 col-span-1">
-                    <Truck className="h-3 w-3 text-zinc-600" />
-                    <span className="text-zinc-500">Doprava</span>
-                  </div>
-                  {breakdown.totalUnits > 1 && (
-                    <span className="font-mono text-zinc-400 text-right">{formatCzk(breakdown.totalShippingCostCzk)}</span>
-                  )}
-                  <span className={`font-mono text-zinc-300 text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>{formatCzk(breakdown.unitShippingCostCzk)}</span>
-                </div>
-
-                {breakdown.packagingDimensions && breakdown.packagingDimensions.delka_cm > 0 && (
-                  <div className="text-[10px] text-zinc-500 px-5 flex flex-wrap gap-x-4 gap-y-1 mt-0.5 pb-2">
-                    <span>Rozměry: <strong className="text-zinc-400">{breakdown.packagingDimensions.delka_cm}×{breakdown.packagingDimensions.sirka_cm}×{breakdown.packagingDimensions.vyska_cm} cm</strong></span>
-                    <span>Hmotnost balíku: <strong className="text-zinc-400">reálná {product.hmotnost_baliku_kg || 0} kg / účtovaná {breakdown.packagingDimensions.billedWeight_kg || 0} kg</strong></span>
-                    {breakdown.packagingDimensions.volumetricWeight_kg && breakdown.packagingDimensions.volumetricWeight_kg > (product.hmotnost_baliku_kg || 0) && (
-                      <span className="text-amber-500 font-bold">Aplikována objemová hmotnost ({breakdown.packagingDimensions.volumetricWeight_kg} kg)</span>
-                    )}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-3 items-center text-sm group p-1 hover:bg-zinc-800/30 rounded transition-colors">
-                  <div className="flex items-center gap-2 col-span-1">
-                    <ShieldCheck className="h-3 w-3 text-zinc-600" />
-                    <span className="text-zinc-500">Clo</span>
-                  </div>
-                  {breakdown.totalUnits > 1 && (
-                    <span className="font-mono text-zinc-400 text-right">{formatCzk(breakdown.totalCustomsCostCzk)}</span>
-                  )}
-                  <span className={`font-mono text-zinc-300 text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>{formatCzk(breakdown.unitCustomsCostCzk)}</span>
-                </div>
-
-                <div className="pt-2 mt-2 border-t border-zinc-800/50 space-y-2">
-                  <div className="grid grid-cols-3 items-center text-[11px] text-zinc-500 italic px-1">
-                    <span className="col-span-1">SWIFT & Banka</span>
-                    {breakdown.totalUnits > 1 && (
-                      <span className="text-right">{formatCzk(breakdown.totalBankFeesCzk)}</span>
-                    )}
-                    <span className={`text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>{formatCzk(breakdown.unitBankFeesCzk)}</span>
-                  </div>
-                  {breakdown.currency !== 'CZK' && (
-                    <div className="pl-4 space-y-0.5 border-l border-zinc-800 ml-2">
-                      {breakdown.swiftRoklenFeeCzk !== undefined && breakdown.swiftRoklenFeeCzk > 0 && (
-                        <div className="grid grid-cols-3 items-center text-[10px] text-zinc-650 italic">
-                          <span className="col-span-1">↳ SWIFT Poplatek Roklen</span>
-                          {breakdown.totalUnits > 1 && (
-                            <span className="text-right">{formatCzk(breakdown.swiftRoklenFeeCzk)}</span>
-                          )}
-                          <span className={`text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>
-                            {formatCzk(breakdown.swiftRoklenFeeCzk / breakdown.totalUnits)}
-                          </span>
-                        </div>
-                      )}
-                      {breakdown.swiftOurFeeCzk !== undefined && breakdown.swiftOurFeeCzk > 0 && (
-                        <div className="grid grid-cols-3 items-center text-[10px] text-zinc-650 italic">
-                          <span className="col-span-1">↳ SWIFT OUR Transfer</span>
-                          {breakdown.totalUnits > 1 && (
-                            <span className="text-right">{formatCzk(breakdown.swiftOurFeeCzk)}</span>
-                          )}
-                          <span className={`text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>
-                            {formatCzk(breakdown.swiftOurFeeCzk / breakdown.totalUnits)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <div className="grid grid-cols-3 items-center text-[11px] text-zinc-500 italic px-1">
-                    <span className="col-span-1">Proclení & Dokumenty</span>
-                    {breakdown.totalUnits > 1 && (
-                      <span className="text-right">{formatCzk(breakdown.totalClearingFeesCzk)}</span>
-                    )}
-                    <span className={`text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>{formatCzk(breakdown.unitClearingFeesCzk)}</span>
-                  </div>
-                  <div className="grid grid-cols-3 items-center text-[11px] text-zinc-500 italic px-1">
-                    <span className="col-span-1">Odpady</span>
-                    {breakdown.totalUnits > 1 && (
-                      <span className="text-right">{formatCzk(breakdown.totalWasteFeesCzk)}</span>
-                    )}
-                    <span className={`text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>{formatCzk(breakdown.unitWasteFeesCzk)}</span>
-                  </div>
-                  <div className="grid grid-cols-3 items-center text-[11px] text-zinc-500 italic px-1">
-                    <span className="col-span-1">Balné</span>
-                    {breakdown.totalUnits > 1 && (
-                      <span className="text-right">{formatCzk(breakdown.totalPackagingFeesCzk)}</span>
-                    )}
-                    <span className={`text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>{formatCzk(breakdown.unitPackagingFeesCzk)}</span>
-                  </div>
-                  {breakdown.shippingSafetyBufferCzk !== undefined && breakdown.shippingSafetyBufferCzk > 0 && (
-                    <div className="grid grid-cols-3 items-center text-[11px] text-zinc-550 italic px-1">
-                      <span className="col-span-1">Rezerva dopravy (bezpečnostní)</span>
-                      {breakdown.totalUnits > 1 && (
-                        <span className="text-right">+{formatCzk(breakdown.shippingSafetyBufferCzk)}</span>
-                      )}
-                      <span className={`text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>+{formatCzk(breakdown.shippingSafetyBufferCzk / breakdown.totalUnits)}</span>
-                    </div>
-                  )}
-                </div>
-                
-                <div className="pt-4 border-t border-zinc-800 grid grid-cols-3 items-center">
-                  <div className="flex flex-col col-span-1">
-                    <span className="text-zinc-400 font-bold">Základní Pořizovací cena</span>
-                    <span className="text-[10px] text-zinc-500 italic">Landed Cost bez rezervy</span>
-                  </div>
-                  {breakdown.totalUnits > 1 && (
-                    <span className="text-lg font-mono text-zinc-500 text-right">{formatCzk(breakdown.totalLandedCostBase)}</span>
-                  )}
-                  <span className={`text-xl font-mono text-zinc-300 text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>{formatCzk(breakdown.unitLandedCostBase)}</span>
-                </div>
-
-                <div className="grid grid-cols-3 items-center text-xs italic text-zinc-500 px-1 mt-2">
-                  <div className="flex items-center gap-1 col-span-1">
-                    <Info className="h-3 w-3" />
-                    <span>Rezerva marže ({settings.marze_rezerva_procenta}%)</span>
-                  </div>
-                  {breakdown.totalUnits > 1 && (
-                    <span className="text-right">+{formatCzk(breakdown.totalBufferAmount)}</span>
-                  )}
-                  <span className={`text-right ${breakdown.totalUnits === 1 ? 'col-span-2' : ''}`}>+{formatCzk(breakdown.unitBufferAmount)}</span>
-                </div>
-
-                <div className="mt-4 p-4 bg-primary/10 border border-primary/20 rounded-lg flex justify-between items-center shadow-inner">
-                  <div>
-                    <p className="text-[10px] uppercase font-bold text-primary tracking-widest">Finální nákladová cena za 1 jednotku</p>
-                    <p className="text-xs text-zinc-500 italic">Základ pro výpočet prodejních cen</p>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-3xl font-black text-primary">{formatCzk(breakdown.unitLandedCostWithBuffer)}</span>
-                    <p className="text-[10px] font-mono text-primary/60">
-                      ~ {(breakdown.unitLandedCostWithBuffer / breakdown.exchangeRateUsed).toFixed(2)} {breakdown.currency}
-                    </p>
-                    {breakdown.currency !== 'CZK' && breakdown.roklenMarginApplied !== undefined && breakdown.roklenMarginApplied > 0 && (
-                      <p className="text-[9px] text-zinc-500 italic mt-0.5" title={`Základní kurz: ${breakdown.exchangeRateRaw?.toFixed(4)} + ${((breakdown.roklenMarginApplied || 0) * 100).toFixed(2)}% marže RoklenFX`}>
-                        vč. marže RoklenFX {((breakdown.roklenMarginApplied || 0) * 100).toFixed(2)}%
-                      </p>
-                    )}
-                  </div>
-                </div>
+                  )
+                })()}
              </div>
           </div>
 
