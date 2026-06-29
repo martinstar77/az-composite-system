@@ -191,6 +191,21 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
     expect(result.weightKg).toBe(1.44)
   })
 
+  it("should calculate weight for hollow cylinder TUBE Hadice with boundary ID=12 mapping to OD=14", () => {
+    const specs = {
+      podkategorie: "TUBE",
+      vnitrni_prumer_mm: 12,
+      delka_m: 50,
+      material: "HDPE"
+    }
+    const result = calculateGrossWeight("consumables", specs, 1)
+    // ID=12 -> ID <= 12 -> OD=14. R_out=0.007, R_in=0.006.
+    // Area = Math.PI * (0.007^2 - 0.006^2) = 0.00004084 m2
+    // Net = 0.00004084 * 50 * 950 = 1.9399 -> 1.94
+    // Gross = 1.94 + 0.1 = 2.04
+    expect(result.weightKg).toBe(2.04)
+  })
+
   it("should calculate weight for MTI Hose based on packaging quantity as length", () => {
     const specs = {
       podkategorie: "MTI",

@@ -127,7 +127,7 @@ const TUBE_DENSITY: Record<string, number> = {
 /** Calculate hollow cylinder (tube/hose) weight (kg) */
 function calculateHollowCylinderWeight(innerDiameterMm: number, lengthM: number, densityKgm3: number): number {
   const id = innerDiameterMm
-  const od = id <= 10 ? id + 2 : id + 3
+  const od = id <= 12 ? id + 2 : id + 3
   const rOuter = od / 2000 // outer radius in meters
   const rInner = id / 2000 // inner radius in meters
   const areaPlasticM2 = Math.PI * (Math.pow(rOuter, 2) - Math.pow(rInner, 2))
@@ -578,7 +578,7 @@ export function calculateGrossWeight(
             const baseWeight = delka_m * 0.05 * 0.200 // 50mm strip at 200g/m2
             const net = r3(tubeNet + baseWeight)
             const total = r3(net + 0.1)
-            const od = prumer_mm <= 10 ? prumer_mm + 2 : prumer_mm + 3
+            const od = prumer_mm <= 12 ? prumer_mm + 2 : prumer_mm + 3
             return {
               weightKg: total,
               netWeightKg: net,
@@ -589,7 +589,7 @@ export function calculateGrossWeight(
             // SPRL or other
             const net = r3(tubeNet)
             const total = r3(net + 0.1)
-            const od = prumer_mm <= 10 ? prumer_mm + 2 : prumer_mm + 3
+            const od = prumer_mm <= 12 ? prumer_mm + 2 : prumer_mm + 3
             return {
               weightKg: total,
               netWeightKg: net,
@@ -607,7 +607,7 @@ export function calculateGrossWeight(
         const density = TUBE_DENSITY[material] ?? 1100
         const net = r3(calculateHollowCylinderWeight(prumer_mm, delka_m, density))
         const total = r3(net + 0.1)
-        const od = prumer_mm <= 10 ? prumer_mm + 2 : prumer_mm + 3
+        const od = prumer_mm <= 12 ? prumer_mm + 2 : prumer_mm + 3
         return {
           weightKg: total,
           netWeightKg: net,
