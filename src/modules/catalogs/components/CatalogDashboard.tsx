@@ -138,6 +138,8 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
             : (isBuyingInBasicUnit ? 1 : (product.mnozstvi_v_baleni || 1)))
         : 1
 
+      const defaultQty = isBuyingInBasicUnit ? (product.mnozstvi_v_baleni || 1) : 1
+
       const pricing = primarySourcing 
         ? calculateProductPricing(
             primarySourcing.nakupni_cena,
@@ -159,7 +161,7 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
               vyska: product.balik_vyska_cm_override
             },
             undefined,
-            product.simulovana_velikost_objednavky || 1,
+            defaultQty,
             product.mnozstvi_v_baleni || 1
           )
         : null

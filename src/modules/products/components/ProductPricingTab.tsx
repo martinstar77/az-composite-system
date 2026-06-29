@@ -36,7 +36,6 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
     retail: product.cilova_marze_retail_procenta || 30,
     partner: product.cilova_marze_partner_procenta || 20
   })
-  const [simulovanaVelikost, setSimulovanaVelikost] = useState<number>(product.simulovana_velikost_objednavky || 1)
   const activeSourcing = useMemo(() => sourcingData.filter(s => !s.deleted_at), [sourcingData])
   const primarySourcing = activeSourcing.find(s => s.is_primary) || activeSourcing[0]
   const hasPrimary = activeSourcing.some(s => s.is_primary)
@@ -54,6 +53,8 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
     : 1
 
   const showRatioFallbackWarning = !!(primarySourcing && isRatioFallbackUsed && !isBuyingInBasicUnit && (product.mnozstvi_v_baleni || 1) > 1)
+
+  const defaultQty = isBuyingInBasicUnit ? (product.mnozstvi_v_baleni || 1) : 1
 
   const breakdown = primarySourcing 
     ? calculateProductPricing(
@@ -76,7 +77,7 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
           vyska: product.balik_vyska_cm_override
         },
         undefined,
-        simulovanaVelikost,
+        defaultQty,
         product.mnozstvi_v_baleni || 1
       )
     : null
@@ -170,7 +171,7 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
   const handleSaveMargins = async () => {
     setIsSubmitting(true)
     try {
-      const { error } = await updateProductMargins(product.id, tempMargins, simulovanaVelikost)
+      const { error } = await updateProductMargins(product.id, tempMargins, defaultQty)
       if (error) throw error
       toast.success("Cílové marže a prodejní ceny byly upraveny", { description: "Změny byly uloženy a ceny překalkulovány." })
       setMargins(tempMargins)
@@ -179,18 +180,6 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
       toast.error("Chyba při úpravě marží", { description: e.message })
     } finally {
       setIsSubmitting(false)
-    }
-  }
-
-  const handleBlurSimulovanaVelikost = async () => {
-    if (simulovanaVelikost !== product.simulovana_velikost_objednavky) {
-      try {
-        const { error } = await updateProductMargins(product.id, margins, simulovanaVelikost)
-        if (error) throw error
-        toast.success("Simulovaná velikost objednávky byla uložena")
-      } catch (e: any) {
-        toast.error("Chyba při ukládání simulace", { description: e.message })
-      }
     }
   }
 
@@ -281,30 +270,7 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
         </div>
       </div>
 
-      {/* Simulační parametry velikosti objednávky */}
-      <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-xl flex flex-col md:flex-row items-center justify-between gap-6 shadow-md">
-        <div className="space-y-1.5 w-full md:w-1/3">
-          <Label className="text-xs uppercase font-bold text-zinc-400 flex items-center gap-1.5">
-            Simulovaná velikost objednávky (dávka)
-          </Label>
-          <div className="flex gap-2">
-            <Input
-              type="number"
-              min="1"
-              value={simulovanaVelikost}
-              onChange={(e) => setSimulovanaVelikost(Math.max(1, parseInt(e.target.value) || 1))}
-              onBlur={handleBlurSimulovanaVelikost}
-              className="bg-zinc-900 border-zinc-800 text-xs text-white"
-            />
-            <span className="text-xs text-zinc-500 self-center shrink-0 font-mono">
-              {primarySourcing?.c_merne_jednotky?.zkratka || 'MJ'}
-            </span>
-          </div>
-        </div>
-        <p className="text-xs text-zinc-500 italic max-w-xl leading-relaxed">
-          Zadejte počet nákupních jednotek, které se posílají společně v jedné zásilce. Fixní logistické poplatky (SWIFT, proclení, odpady, balné) a celková hmotnost zásilky pro výpočet dopravy budou rozpočítány podle této velikosti objednávky.
-        </p>
-      </div>
+
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
@@ -361,9 +327,9 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
                 {breakdown.packagingDimensions && breakdown.packagingDimensions.delka_cm > 0 && (
                   <div className="text-[10px] text-zinc-500 px-5 flex flex-wrap gap-x-4 gap-y-1 mt-0.5 pb-2">
                     <span>Rozměry: <strong className="text-zinc-400">{breakdown.packagingDimensions.delka_cm}×{breakdown.packagingDimensions.sirka_cm}×{breakdown.packagingDimensions.vyska_cm} cm</strong></span>
-                    <span>Hmotnost: <strong className="text-zinc-400">reálná {product.hmotnost_baliku_kg || 0} kg / účtovaná {breakdown.billedWeightKg || 0} kg</strong></span>
-                    {breakdown.volumetricWeightKg && breakdown.volumetricWeightKg > (product.hmotnost_baliku_kg || 0) && (
-                      <span className="text-amber-500 font-bold">Aplikována objemová hmotnost ({breakdown.volumetricWeightKg} kg)</span>
+                    <span>Hmotnost balíku: <strong className="text-zinc-400">reálná {product.hmotnost_baliku_kg || 0} kg / účtovaná {breakdown.packagingDimensions.billedWeight_kg || 0} kg</strong></span>
+                    {breakdown.packagingDimensions.volumetricWeight_kg && breakdown.packagingDimensions.volumetricWeight_kg > (product.hmotnost_baliku_kg || 0) && (
+                      <span className="text-amber-500 font-bold">Aplikována objemová hmotnost ({breakdown.packagingDimensions.volumetricWeight_kg} kg)</span>
                     )}
                   </div>
                 )}

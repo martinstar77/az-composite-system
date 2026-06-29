@@ -83,6 +83,8 @@ export async function GET(request: NextRequest) {
             : (isBuyingInBasicUnit ? 1 : (product.mnozstvi_v_baleni || 1)))
         : 1
 
+      const defaultQty = isBuyingInBasicUnit ? (product.mnozstvi_v_baleni || 1) : 1
+
       const pricing = primarySourcing 
         ? calculateProductPricing(
             primarySourcing.nakupni_cena,
@@ -104,7 +106,7 @@ export async function GET(request: NextRequest) {
               vyska: product.balik_vyska_cm_override
             },
             undefined,
-            product.simulovana_velikost_objednavky || 1,
+            defaultQty,
             product.mnozstvi_v_baleni || 1
           )
         : null

@@ -380,8 +380,8 @@ export function calculateProductPricing(
     volumetricWeightKg: packDims.volumetricWeight_kg / qty,
     packagingDimensions: {
       ...packDims,
-      billedWeight_kg: packDims.billedWeight_kg / qty,
-      volumetricWeight_kg: packDims.volumetricWeight_kg / qty
+      billedWeight_kg: packageQty > 0 ? (packDims.billedWeight_kg / packageQty) : packDims.billedWeight_kg,
+      volumetricWeight_kg: packageQty > 0 ? (packDims.volumetricWeight_kg / packageQty) : packDims.volumetricWeight_kg
     },
     shippingSafetyBufferCzk: shippingSafetyBufferCzk / qty,
 
