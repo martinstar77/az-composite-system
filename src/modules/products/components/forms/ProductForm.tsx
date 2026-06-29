@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 
 import { Button } from "@/shared/components/ui/button"
 import { Input } from "@/shared/components/ui/input"
@@ -145,45 +146,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     }
     return resolvePackageDimensions(w, activeProfile, overrides)
   }, [hmotnostBaliku, activeProfile, overrideDelka, overrideSirka, overrideVyska])
-
-  const estimatedNetWeight = useMemo(() => {
-    if (!kategorieId) return 0
-    
-    if (kategorieId === 'pryskyrice' && zakladniMjId === 'kg') {
-      const objem = parseFloat(String(currentSpecs.objem_nakup_l || ""))
-      if (objem && !isNaN(objem)) {
-        const typ = String(currentSpecs.typ || "RES")
-        const chem = String(currentSpecs.chemie || "EP")
-        const density = typ === 'HRD' ? 0.95 : (chem === 'EP' ? 1.15 : (chem === 'VE' ? 1.12 : (chem === 'PE' ? 1.13 : (chem === 'GEL' ? 1.20 : 1.0))))
-        return objem * density
-      }
-    }
-    if ((kategorieId === 'chemie' || kategorieId === 'spotrebni_chemie') && zakladniMjId === 'l') {
-      const rawVol = currentSpecs.objem || currentSpecs.mnozstvi
-      if (rawVol) {
-        const str = String(rawVol).trim().toLowerCase()
-        const num = parseFloat(str.replace(/[^0-9.]/g, ""))
-        if (!isNaN(num) && num > 0) {
-          const vol = str.includes("ml") ? num / 1000 : num
-          const density = currentSpecs.vlastnost === "EP" ? 1.15 : 1.0
-          return vol * density
-        }
-      }
-    }
-    if (kategorieId === 'brouseni_a_lesteni') {
-      const weightStr = currentSpecs.hmotnost_pasty || currentSpecs.hmotnost_vosku
-      if (weightStr) {
-        const parsedWeight = parseFloat(String(weightStr).replace(/[^0-9.]/g, ""))
-        if (!isNaN(parsedWeight)) {
-          const num = String(weightStr).toLowerCase().includes("g") && !String(weightStr).toLowerCase().includes("kg") 
-            ? parsedWeight / 1000
-            : parsedWeight
-          return num * (Number(mnozstviVBaleni) || 1)
-        }
-      }
-    }
-    return 0
-  }, [kategorieId, zakladniMjId, currentSpecs, mnozstviVBaleni])
 
 
   // Live Validation State
@@ -1472,6 +1434,46 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     [kategorieId, currentSpecs, lookups]
   )
 
+  const estimatedNetWeight = useMemo(() => {
+    if (!kategorieId) return 0
+    
+    const specs = currentSpecs as any
+    if (kategorieId === 'pryskyrice' && zakladniMjId === 'kg') {
+      const objem = parseFloat(String(specs.objem_nakup_l || ""))
+      if (objem && !isNaN(objem)) {
+        const typ = String(specs.typ || "RES")
+        const chem = String(specs.chemie || "EP")
+        const density = typ === 'HRD' ? 0.95 : (chem === 'EP' ? 1.15 : (chem === 'VE' ? 1.12 : (chem === 'PE' ? 1.13 : (chem === 'GEL' ? 1.20 : 1.0))))
+        return objem * density
+      }
+    }
+    if ((kategorieId === 'chemie' || kategorieId === 'spotrebni_chemie') && zakladniMjId === 'l') {
+      const rawVol = specs.objem || specs.mnozstvi
+      if (rawVol) {
+        const str = String(rawVol).trim().toLowerCase()
+        const num = parseFloat(str.replace(/[^0-9.]/g, ""))
+        if (!isNaN(num) && num > 0) {
+          const vol = str.includes("ml") ? num / 1000 : num
+          const density = specs.vlastnost === "EP" ? 1.15 : 1.0
+          return vol * density
+        }
+      }
+    }
+    if (kategorieId === 'brouseni_a_lesteni') {
+      const weightStr = specs.hmotnost_pasty || specs.hmotnost_vosku
+      if (weightStr) {
+        const parsedWeight = parseFloat(String(weightStr).replace(/[^0-9.]/g, ""))
+        if (!isNaN(parsedWeight)) {
+          const num = String(weightStr).toLowerCase().includes("g") && !String(weightStr).toLowerCase().includes("kg") 
+            ? parsedWeight / 1000
+            : parsedWeight
+          return num * (Number(mnozstviVBaleni) || 1)
+        }
+      }
+    }
+    return 0
+  }, [kategorieId, zakladniMjId, currentSpecs, mnozstviVBaleni])
+
   // Sync auto-weight into form field when not overridden
   useEffect(() => {
     if (!isWeightOverridden && autoWeight.weightKg !== null) {
@@ -1605,9 +1607,10 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const handleFormSubmit = async (data: ProductFormValues) => {
     // 1. Roll-based packaging profile validation
     if (["vyztuzne_materialy", "consumables"].includes(kategorieId)) {
-      const packType = currentSpecs.typ_baleni || 'role'
-      const podkat = currentSpecs.podkategorie || ''
-      const podtyp_fch = currentSpecs.podtyp_fch || ''
+      const specs = currentSpecs as any
+      const packType = specs.typ_baleni || 'role'
+      const podkat = specs.podkategorie || ''
+      const podtyp_fch = specs.podtyp_fch || ''
       
       const isRoll = (packType === 'role') 
                      || ['BF', 'RF', 'PP', 'PP-PTFE', 'BC', 'FM'].includes(podkat)
