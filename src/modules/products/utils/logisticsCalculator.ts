@@ -175,17 +175,18 @@ export function calculateGrossWeight(
       const sirka_cm = Number(s.sirka_cm ?? 0)
       const delka_m = Number(s.delka_m ?? 0)
       const packType = String(s.typ_baleni ?? "role")
-      const qty = Number(s.pocet_kusu ?? 1)
 
       if (!gramaz || !sirka_cm || !delka_m) {
         return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí gramáž, šířka nebo délka." }
       }
 
       const sirka_m = sirka_cm / 100
-      const net = (gramaz / 1000) * sirka_m * delka_m
+      const rollArea = sirka_m * delka_m
 
       if (packType === "krabice") {
-        const netTotal = net * qty
+        const qty = mnozstviVBaleni || Number(s.pocet_kusu ?? 1)
+        const netOne = (gramaz / 1000) * rollArea
+        const netTotal = netOne * qty
         const packaging = 0.5
         const total = r3(netTotal + packaging)
         return {
@@ -195,7 +196,8 @@ export function calculateGrossWeight(
           breakdown: `${r3(netTotal)} kg materiál (${qty} ks) + ${packaging} kg krabice = ${total} kg`
         }
       } else if (packType === "metraz") {
-        // Cut-to-length, minimal packaging
+        const totalArea = mnozstviVBaleni || rollArea
+        const net = (gramaz / 1000) * totalArea
         const total = r3(net + 0.05)
         return {
           weightKg: total,
@@ -205,14 +207,17 @@ export function calculateGrossWeight(
         }
       } else {
         // role (default)
-        const tubeWeight = r3(sirka_m * 0.85)
+        const totalArea = mnozstviVBaleni || rollArea
+        const numRolls = rollArea > 0 ? (totalArea / rollArea) : 1
+        const net = (gramaz / 1000) * totalArea
+        const tubeTotal = r3(numRolls * sirka_m * 0.85)
         const packaging = 1.2
-        const total = r3(net + tubeWeight + packaging)
+        const total = r3(net + tubeTotal + packaging)
         return {
           weightKg: total,
           netWeightKg: r3(net),
           confidence: "high",
-          breakdown: `${r3(net)} kg net + ${tubeWeight} kg jádro + ${packaging} kg obal = ${total} kg`
+          breakdown: `${r3(net)} kg net (${r3(numRolls)} rolí) + ${tubeTotal} kg jádro + ${packaging} kg obal = ${total} kg`
         }
       }
     }
@@ -230,15 +235,19 @@ export function calculateGrossWeight(
       }
 
       const sirka_m = sirka_cm / 100
-      const net = r3((gramaz / 1000) * sirka_m * delka_m)
-      const tubeWeight = r3(sirka_m * 0.85)
+      const rollArea = sirka_m * delka_m
+      const totalArea = mnozstviVBaleni || rollArea
+      const numRolls = rollArea > 0 ? (totalArea / rollArea) : 1
+
+      const net = r3((gramaz / 1000) * totalArea)
+      const tubeTotal = r3(numRolls * sirka_m * 0.85)
       const packaging = 2.0  // extra: frozen gel packs + protective box
-      const total = r3(net + tubeWeight + packaging)
+      const total = r3(net + tubeTotal + packaging)
       return {
         weightKg: total,
         netWeightKg: net,
         confidence: "high",
-        breakdown: `${net} kg net + ${tubeWeight} kg jádro + ${packaging} kg obal/gelpacky = ${total} kg`
+        breakdown: `${net} kg net (${r3(numRolls)} rolí) + ${tubeTotal} kg jádro + ${packaging} kg obal/gelpacky = ${total} kg`
       }
     }
 
@@ -519,15 +528,18 @@ export function calculateGrossWeight(
         }
 
         const sirka_m = sirka_cm / 100
-        const net = r3((gramaz / 1000) * sirka_m * delka_m)
-        const tubeWeight = r3(sirka_m * 0.35)
+        const rollArea = sirka_m * delka_m
+        const totalArea = mnozstviVBaleni || rollArea
+        const numRolls = rollArea > 0 ? (totalArea / rollArea) : 1
+        const net = r3((gramaz / 1000) * totalArea)
+        const tubeWeight = r3(numRolls * sirka_m * 0.35)
         const packaging = 0.3
         const total = r3(net + tubeWeight + packaging)
         return {
           weightKg: total,
           netWeightKg: net,
           confidence: "high",
-          breakdown: `${net} kg net (${gramaz} g/m²) + ${tubeWeight} kg jádro + ${packaging} kg obal = ${total} kg`
+          breakdown: `${net} kg net (${r3(numRolls)} rolí @${gramaz} g/m²) + ${tubeWeight} kg jádro + ${packaging} kg obal = ${total} kg`
         }
       }
 
@@ -535,7 +547,7 @@ export function calculateGrossWeight(
         const sirka_mm = Number(s.sirka_mm ?? 12)
         const delka_m = Number(s.delka_m ?? 15)
         const tloustka_mm = Number(s.tloustka_mm ?? 3.5)
-        const pocet_roli = Number(s.pocet_roli_v_baleni ?? 1)
+        const pocet_roli = mnozstviVBaleni || Number(s.pocet_roli_v_baleni ?? 1)
 
         const perRollVolumeM3 = (sirka_mm / 1000) * (tloustka_mm / 1000) * delka_m
         const perRollKg = r3(perRollVolumeM3 * 250)
@@ -553,7 +565,8 @@ export function calculateGrossWeight(
       if (podkat === "FT") {
         const sirka_mm = Number(s.sirka_mm ?? 25)
         const delka_m = Number(s.delka_m ?? 66)
-        const pocet_roli = Number(s.pocet_roli_v_baleni ?? 1)
+        const totalLen = mnozstviVBaleni || (delka_m * Number(s.pocet_roli_v_baleni ?? 1))
+        const pocet_roli = delka_m > 0 ? (totalLen / delka_m) : Number(s.pocet_roli_v_baleni ?? 1)
 
         const perRollKg = r3((sirka_mm / 1000) * delka_m * 0.070)
         const net = r3(perRollKg * pocet_roli)
@@ -563,13 +576,14 @@ export function calculateGrossWeight(
           weightKg: total,
           netWeightKg: net,
           confidence: "medium",
-          breakdown: `${pocet_roli} rolí × ${perRollKg} kg (${sirka_mm}mm × ${delka_m}m @70 g/m²) + ${packaging} kg = ${total} kg`
+          breakdown: `${r3(pocet_roli)} rolí × ${perRollKg} kg (${sirka_mm}mm × ${delka_m}m @70 g/m²) + ${packaging} kg = ${total} kg`
         }
       }
 
       if (podkat === "FCH") {
         const podtyp = String(s.podtyp_fch ?? "TAPE")
-        const delka_m = Number(s.delka_m ?? 100)
+        const specs_delka = Number(s.delka_m ?? 100)
+        const delka_m = mnozstviVBaleni || specs_delka
         const material = String(s.material ?? "HDPE").toUpperCase()
         const density = TUBE_DENSITY[material] ?? 1100
 
@@ -583,7 +597,7 @@ export function calculateGrossWeight(
             weightKg: total,
             netWeightKg: net,
             confidence: "high",
-            breakdown: `Dutý profil ${sirka_mm}×${vyska_mm}mm (stěna ${t}mm) × ${delka_m}m × ${density} kg/m³ = ${net} kg + 0.05 kg = ${total} kg`
+            breakdown: `Dutý profil ${sirka_mm}×${vyska_mm}mm (stěna ${t}mm) × ${r3(delka_m)}m × ${density} kg/m³ = ${net} kg + 0.05 kg = ${total} kg`
           }
         } else {
           const prumer_mm = Number(s.vnitrni_prumer_mm ?? s.prumer_mm ?? 10)
@@ -609,14 +623,15 @@ export function calculateGrossWeight(
               weightKg: total,
               netWeightKg: net,
               confidence: "high",
-              breakdown: `Hadice Ø${od}/${prumer_mm}mm × ${delka_m}m × ${density} kg/m³ = ${net} kg + 0.1 kg = ${total} kg`
+              breakdown: `Hadice Ø${od}/${prumer_mm}mm × ${r3(delka_m)}m × ${density} kg/m³ = ${net} kg + 0.1 kg = ${total} kg`
             }
           }
         }
       }
 
       if (podkat === "TUBE") {
-        const delka_m = Number(s.delka_m ?? 50)
+        const specs_delka = Number(s.delka_m ?? 50)
+        const delka_m = mnozstviVBaleni || specs_delka
         const prumer_mm = Number(s.vnitrni_prumer_mm ?? s.prumer_mm ?? 10)
         const material = String(s.material ?? "HDPE").toUpperCase()
         const density = TUBE_DENSITY[material] ?? 1100
@@ -627,7 +642,7 @@ export function calculateGrossWeight(
           weightKg: total,
           netWeightKg: net,
           confidence: "high",
-          breakdown: `Hadice Ø${od}/${prumer_mm}mm × ${delka_m}m × ${density} kg/m³ = ${net} kg + 0.1 kg = ${total} kg`
+          breakdown: `Hadice Ø${od}/${prumer_mm}mm × ${r3(delka_m)}m × ${density} kg/m³ = ${net} kg + 0.1 kg = ${total} kg`
         }
       }
 

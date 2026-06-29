@@ -10,8 +10,8 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       delka_m: 50, // 50m
       typ_baleni: "role"
     }
-    const result = calculateGrossWeight("vyztuzne_materialy", specs, 1)
-    // Formula: (200/1000 * 1 * 50) + (1 * 0.85) + 1.2 = 10 + 0.85 + 1.2 = 12.05
+    const result = calculateGrossWeight("vyztuzne_materialy", specs, 50)
+    // Formula: (200/1000 * 50) + (1 * 1 * 0.85) + 1.2 = 10 + 0.85 + 1.2 = 12.05
     expect(result.weightKg).toBe(12.05)
     expect(result.confidence).toBe("high")
   })
@@ -24,7 +24,7 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       typ_baleni: "krabice",
       pocet_kusu: 5
     }
-    const result = calculateGrossWeight("vyztuzne_materialy", specs, 1)
+    const result = calculateGrossWeight("vyztuzne_materialy", specs, 5)
     // Formula: (200/1000 * 1 * 2 * 5) + 0.5 = 2 + 0.5 = 2.5
     expect(result.weightKg).toBe(2.5)
   })
@@ -35,9 +35,9 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       sirka_cm: 125, // 1.25m
       delka_m: 10
     }
-    const result = calculateGrossWeight("prepregy", specs, 1)
-    // Net: (400/1000 * 1.25 * 10) = 5.0 kg
-    // Tube: 1.25 * 0.85 = 1.0625 kg
+    const result = calculateGrossWeight("prepregy", specs, 12.5)
+    // Net: (400/1000 * 12.5) = 5.0 kg
+    // Tube: 1 * 1.25 * 0.85 = 1.0625 kg
     // Packaging: 2.0 kg
     // Total: 5 + 1.06 + 2 = 8.06 -> r3 -> 8.06
     expect(result.weightKg).toBe(8.06)
@@ -110,7 +110,7 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       tloustka_mm: 3.5,
       pocet_roli_v_baleni: 2
     }
-    const result = calculateGrossWeight("consumables", specs, 1)
+    const result = calculateGrossWeight("consumables", specs, 2)
     // per roll: 0.012 * 0.0035 * 15 = 0.00063 m3
     // net: 0.16 * 2 = 0.32 kg
     // total: 0.32 + 0.2 = 0.52 kg
@@ -135,7 +135,7 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       delka_m: 50,
       material: "HDPE"
     }
-    const result = calculateGrossWeight("consumables", specs, 1)
+    const result = calculateGrossWeight("consumables", specs, 50)
     // ID=10 -> OD=12. R_out=0.006, R_in=0.005.
     // Area = Math.PI * (0.006^2 - 0.005^2) = 0.0000345575 m2
     // Net = 0.0000345575 * 50 * 950 = 1.641 kg -> 1.64
@@ -151,7 +151,7 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       delka_m: 50,
       material: "HDPE"
     }
-    const result = calculateGrossWeight("consumables", specs, 1)
+    const result = calculateGrossWeight("consumables", specs, 50)
     // ID=13 -> OD=16. R_out=0.008, R_in=0.0065.
     // TubeNet = 3.246 kg. Base strip = 50 * 0.05 * 0.200 = 0.50 kg.
     // Net = 3.246 + 0.50 = 3.746 -> r3 -> 3.75 kg
@@ -168,7 +168,7 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       delka_m: 100,
       material: "HDPE"
     }
-    const result = calculateGrossWeight("consumables", specs, 1)
+    const result = calculateGrossWeight("consumables", specs, 100)
     // W=15, H=4, t=1.0. W_in=13, H_in=2.
     // Area = 15*4 - 13*2 = 34 mm2 = 0.000034 m2
     // Net = 0.000034 * 100 * 950 = 3.23
@@ -183,7 +183,7 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       delka_m: 50,
       material: "HDPE"
     }
-    const result = calculateGrossWeight("consumables", specs, 1)
+    const result = calculateGrossWeight("consumables", specs, 50)
     // ID=8 -> OD=10. R_out=0.005, R_in=0.004.
     // Area = Math.PI * (0.005^2 - 0.004^2) = 0.000028274 m2
     // Net = 0.000028274 * 50 * 950 = 1.343 -> 1.34
@@ -198,7 +198,7 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       delka_m: 50,
       material: "HDPE"
     }
-    const result = calculateGrossWeight("consumables", specs, 1)
+    const result = calculateGrossWeight("consumables", specs, 50)
     // ID=12 -> ID <= 12 -> OD=14. R_out=0.007, R_in=0.006.
     // Area = Math.PI * (0.007^2 - 0.006^2) = 0.00004084 m2
     // Net = 0.00004084 * 50 * 950 = 1.9399 -> 1.94
@@ -226,9 +226,9 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       sirka_cm: 122,
       delka_m: 153
     }
-    const result = calculateGrossWeight("consumables", specs, 1)
+    const result = calculateGrossWeight("consumables", specs, 186.66)
     // Grammage calculated: Math.round(12.5 * 0.95 * 2) / 2 = 12.0 g/m2
-    // Net: 12 / 1000 * 1.22 * 153 = 2.2399 -> r3 -> 2.24 kg
+    // Net: 12 / 1000 * 186.66 = 2.2399 -> r3 -> 2.24 kg
     // Tube: 1.22 * 0.35 = 0.427 -> r3 -> 0.43 kg
     // Packaging: 0.3 kg
     // Gross = 2.24 + 0.43 + 0.3 = 2.97 kg
@@ -243,13 +243,44 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       sirka_cm: 100,
       delka_m: 30
     }
-    const result = calculateGrossWeight("consumables", specs, 1)
+    const result = calculateGrossWeight("consumables", specs, 30)
     // Grammage mapped: 120 -> 225 g/m2
-    // Net: 225 / 1000 * 1.0 * 30 = 6.75 kg
+    // Net: 225 / 1000 * 30 = 6.75 kg
     // Tube: 1.0 * 0.35 = 0.35 kg
     // Packaging: 0.3 kg
     // Gross = 6.75 + 0.35 + 0.3 = 7.40 kg
     expect(result.weightKg).toBe(7.40)
+  })
+
+  it("should scale weight linearly with mnozstviVBaleni (multiplier audit)", () => {
+    const specsHose = {
+      podkategorie: "TUBE",
+      vnitrni_prumer_mm: 8,
+      delka_m: 50,
+      material: "HDPE"
+    }
+    // 50m weight is 1.44 kg (net 1.34 + 0.1 packaging)
+    const result50 = calculateGrossWeight("consumables", specsHose, 50)
+    // 1m weight should be computed for 1m (net = 1.34 / 50 = 0.0268 -> r3 -> 0.03, total = 0.03 + 0.1 = 0.13 kg)
+    const result1 = calculateGrossWeight("consumables", specsHose, 1)
+    
+    expect(result50.weightKg).toBe(1.44)
+    expect(result1.weightKg).toBe(0.13)
+
+    const specsOmega = {
+      podkategorie: "FCH",
+      podtyp_fch: "OMEGA",
+      vnitrni_prumer_mm: 10,
+      delka_m: 50,
+      material: "HDPE"
+    }
+    // 50m: TubeNet = 1.64, Base strip = 0.50. Net = 2.14. Gross = 2.14 + 0.1 = 2.24 kg
+    const resultOmega50 = calculateGrossWeight("consumables", specsOmega, 50)
+    // 1m: TubeNet = 1.64 / 50 = 0.0328. Base strip = 1 * 0.05 * 0.2 = 0.01. Net = 0.0428 -> r3 -> 0.04. Gross = 0.04 + 0.1 = 0.14 kg
+    const resultOmega1 = calculateGrossWeight("consumables", specsOmega, 1)
+
+    expect(resultOmega50.weightKg).toBe(2.24)
+    expect(resultOmega1.weightKg).toBe(0.14)
   })
 })
 
