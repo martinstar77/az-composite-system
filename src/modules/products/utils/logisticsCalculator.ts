@@ -572,14 +572,30 @@ export function calculateGrossWeight(
           }
         } else {
           const prumer_mm = Number(s.vnitrni_prumer_mm ?? s.prumer_mm ?? 10)
-          const net = r3(calculateHollowCylinderWeight(prumer_mm, delka_m, density))
-          const total = r3(net + 0.1)
-          const od = prumer_mm <= 10 ? prumer_mm + 2 : prumer_mm + 3
-          return {
-            weightKg: total,
-            netWeightKg: net,
-            confidence: "high",
-            breakdown: `Hadice Ø${od}/${prumer_mm}mm × ${delka_m}m × ${density} kg/m³ = ${net} kg + 0.1 kg = ${total} kg`
+          const tubeNet = calculateHollowCylinderWeight(prumer_mm, delka_m, density)
+
+          if (podtyp === "OMEGA") {
+            const baseWeight = delka_m * 0.05 * 0.200 // 50mm strip at 200g/m2
+            const net = r3(tubeNet + baseWeight)
+            const total = r3(net + 0.1)
+            const od = prumer_mm <= 10 ? prumer_mm + 2 : prumer_mm + 3
+            return {
+              weightKg: total,
+              netWeightKg: net,
+              confidence: "high",
+              breakdown: `Omega kanálek Ø${od}/${prumer_mm}mm (${r3(tubeNet)} kg) + vázací páska (${r3(baseWeight)} kg) = ${net} kg + 0.1 kg = ${total} kg`
+            }
+          } else {
+            // SPRL or other
+            const net = r3(tubeNet)
+            const total = r3(net + 0.1)
+            const od = prumer_mm <= 10 ? prumer_mm + 2 : prumer_mm + 3
+            return {
+              weightKg: total,
+              netWeightKg: net,
+              confidence: "high",
+              breakdown: `Hadice Ø${od}/${prumer_mm}mm × ${delka_m}m × ${density} kg/m³ = ${net} kg + 0.1 kg = ${total} kg`
+            }
           }
         }
       }

@@ -143,6 +143,22 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
     expect(result.weightKg).toBe(1.74)
   })
 
+  it("should calculate weight for hollow cylinder FCH OMEGA channel with base fabric strip weight", () => {
+    const specs = {
+      podkategorie: "FCH",
+      podtyp_fch: "OMEGA",
+      vnitrni_prumer_mm: 13,
+      delka_m: 50,
+      material: "HDPE"
+    }
+    const result = calculateGrossWeight("consumables", specs, 1)
+    // ID=13 -> OD=16. R_out=0.008, R_in=0.0065.
+    // TubeNet = 3.246 kg. Base strip = 50 * 0.05 * 0.200 = 0.50 kg.
+    // Net = 3.246 + 0.50 = 3.746 -> r3 -> 3.75 kg
+    // Gross = 3.75 + 0.1 = 3.85 kg
+    expect(result.weightKg).toBe(3.85)
+  })
+
   it("should calculate weight for hollow rect FCH TAPE channel", () => {
     const specs = {
       podkategorie: "FCH",
