@@ -404,7 +404,33 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
                   <div>
                     <p className="text-[10px] uppercase text-zinc-500 font-bold tracking-wider">Množství v balení</p>
                     <p className="font-semibold text-zinc-200 mt-0.5">
-                      {product.mnozstvi_v_baleni != null ? product.mnozstvi_v_baleni : '—'} {product.c_merne_jednotky_baleni?.zkratka || ''}
+                      {product.mnozstvi_v_baleni != null ? `${product.mnozstvi_v_baleni} ${product.c_merne_jednotky_zakladni?.zkratka || ''}` : '—'}
+                      {(() => {
+                        const qty = product.mnozstvi_v_baleni || 0
+                        const specs = (product.specifikace as any) || {}
+                        const podkat = specs.podkategorie
+                        const uom = product.c_merne_jednotky_baleni?.zkratka || ''
+                        
+                        if (qty > 0 && uom) {
+                          if (product.kategorie_id === "vyztuzne_materialy" || product.kategorie_id === "prepregy") {
+                            const sirka_cm = Number(specs.sirka_cm ?? 0)
+                            const delka_m = Number(specs.delka_m ?? 0)
+                            const rollArea = (sirka_cm / 100) * delka_m
+                            if (rollArea > 0) {
+                              const numRolls = qty / rollArea
+                              return ` (= ${numRolls.toFixed(2).replace(/\.00$/, "")} ${uom})`
+                            }
+                          }
+                          if (podkat === "FCH" || podkat === "TUBE") {
+                            const rollLen = Number(specs.delka_m ?? 0)
+                            if (rollLen > 0) {
+                              const numRolls = qty / rollLen
+                              return ` (= ${numRolls.toFixed(2).replace(/\.00$/, "")} ${uom})`
+                            }
+                          }
+                        }
+                        return null
+                      })()}
                     </p>
                   </div>
                   <div>

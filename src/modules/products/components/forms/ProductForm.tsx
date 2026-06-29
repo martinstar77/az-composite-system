@@ -128,12 +128,21 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
 
   // Override tracking — true when the user has manually typed a value
-  const [isWeightOverridden, setIsWeightOverridden] = useState(
-    () => !!initialData?.hmotnost_baliku_kg
-  )
+  const [isWeightOverridden, setIsWeightOverridden] = useState(() => {
+    if (initialData?.hmotnost_zafixovana) return true
+    if (!initialData) return false
+    const initWeight = parseFloat(String(initialData.hmotnost_baliku_kg)) || 0
+    const calculatedAtLoad = calculateGrossWeight(
+      initialData.kategorie_id,
+      initialData.specifikace || {},
+      initialData.mnozstvi_v_baleni || 1
+    ).weightKg || 0
+    return Math.abs(initWeight - calculatedAtLoad) > 0.01
+  })
   const [isProfileOverridden, setIsProfileOverridden] = useState(
     () => !!initialData?.balici_profil_id
   )
+
 
   const activeProfile = useMemo(() => {
     return (lookups as any).profiles?.find((p: any) => p.id === baliciProfilId) || null
@@ -1497,6 +1506,31 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     fasSize, clnType, clnQty, chemSub, chemVol,
     chemBaseType, chemAdhProp, chemSealerProp
   ])
+
+  const packageExplanation = useMemo(() => {
+    const qty = parseFloat(String(mnozstviVBaleni)) || 0
+    if (qty <= 0) return null
+    const specs = (currentSpecs as any) || {}
+    const podkat = specs.podkategorie
+
+    if (kategorieId === "vyztuzne_materialy" || kategorieId === "prepregy") {
+      const sirka_cm = Number(specs.sirka_cm ?? 0)
+      const delka_m = Number(specs.delka_m ?? 0)
+      const rollArea = (sirka_cm / 100) * delka_m
+      if (rollArea > 0) {
+        const numRolls = qty / rollArea
+        return `Odpovídá ${numRolls.toFixed(2).replace(/\.00$/, "")} rolím (1 role = ${rollArea.toFixed(2).replace(/\.00$/, "")} m²)`
+      }
+    }
+    if (podkat === "FCH" || podkat === "TUBE") {
+      const rollLen = Number(specs.delka_m ?? 0)
+      if (rollLen > 0) {
+        const numRolls = qty / rollLen
+        return `Odpovídá ${numRolls.toFixed(2).replace(/\.00$/, "")} rolím/ks (1 role/ks = ${rollLen} m)`
+      }
+    }
+    return null
+  }, [mnozstviVBaleni, currentSpecs, kategorieId])
 
   const autoWeight = useMemo(() =>
     calculateGrossWeight(kategorieId, currentSpecs, Number(mnozstviVBaleni) || 1),
@@ -2879,14 +2913,24 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       <div className="grid grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg border border-zinc-800">
         <div className="space-y-2">
           <Label htmlFor="mnozstvi_v_baleni">Množství v bal.</Label>
-          <Input 
-            id="mnozstvi_v_baleni" 
-            type="number" 
-            step="0.01" 
-            readOnly={isPackagingLocked}
-            className={isPackagingLocked ? "bg-muted text-muted-foreground border-zinc-850" : ""}
-            {...register("mnozstvi_v_baleni")} 
-          />
+          <div className="flex items-center gap-2">
+            <Input 
+              id="mnozstvi_v_baleni" 
+              type="number" 
+              step="0.01" 
+              readOnly={isPackagingLocked}
+              className={isPackagingLocked ? "bg-muted text-muted-foreground border-zinc-850" : ""}
+              {...register("mnozstvi_v_baleni")} 
+            />
+            <span className="text-xs font-semibold text-zinc-400 min-w-[24px]">
+              {lookups.units.find(u => u.id === zakladniMjId)?.zkratka}
+            </span>
+          </div>
+          {packageExplanation && (
+            <p className="text-[10px] text-zinc-400 italic mt-1 font-medium bg-zinc-900/40 px-1.5 py-0.5 rounded border border-zinc-800/60 block">
+              {packageExplanation}
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label>Jednotka balení</Label>

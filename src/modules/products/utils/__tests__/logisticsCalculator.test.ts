@@ -153,10 +153,10 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
     }
     const result = calculateGrossWeight("consumables", specs, 50)
     // ID=13 -> OD=16. R_out=0.008, R_in=0.0065.
-    // TubeNet = 3.246 kg. Base strip = 50 * 0.05 * 0.200 = 0.50 kg.
-    // Net = 3.246 + 0.50 = 3.746 -> r3 -> 3.75 kg
-    // Gross = 3.75 + 0.1 = 3.85 kg
-    expect(result.weightKg).toBe(3.85)
+    // TubeNet = 3.758 kg. Base strip = 50 * 0.05 * 0.200 = 0.50 kg.
+    // Net = 3.758 + 0.50 = 4.258 -> r3 -> 4.258 kg
+    // Gross = 4.258 + 0.1 = 4.358 -> r3 -> 4.36 kg
+    expect(result.weightKg).toBe(4.36)
   })
 
   it("should calculate weight for hollow rect FCH TAPE channel", () => {
@@ -274,13 +274,13 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       delka_m: 50,
       material: "HDPE"
     }
-    // 50m: TubeNet = 1.64, Base strip = 0.50. Net = 2.14. Gross = 2.14 + 0.1 = 2.24 kg
+    // 50m: TubeNet = 1.904, Base strip = 0.50. Net = 2.404. Gross = 2.404 + 0.1 = 2.504 -> r3 -> 2.5 kg
     const resultOmega50 = calculateGrossWeight("consumables", specsOmega, 50)
-    // 1m: TubeNet = 1.64 / 50 = 0.0328. Base strip = 1 * 0.05 * 0.2 = 0.01. Net = 0.0428 -> r3 -> 0.04. Gross = 0.04 + 0.1 = 0.14 kg
+    // 1m: TubeNet = 0.038, Base strip = 1 * 0.05 * 0.2 = 0.01. Net = 0.048. Gross = 0.048 + 0.1 = 0.148 -> r3 -> 0.15 kg
     const resultOmega1 = calculateGrossWeight("consumables", specsOmega, 1)
 
-    expect(resultOmega50.weightKg).toBe(2.24)
-    expect(resultOmega1.weightKg).toBe(0.14)
+    expect(resultOmega50.weightKg).toBe(2.5)
+    expect(resultOmega1.weightKg).toBe(0.15)
   })
 })
 

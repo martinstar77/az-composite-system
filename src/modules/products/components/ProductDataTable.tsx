@@ -849,7 +849,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
               {inStock} {p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id}
             </div>
             <div className="text-[10px] text-muted-foreground">
-              Balení: {p.mnozstvi_v_baleni} {p.c_merne_jednotky_baleni?.zkratka}
+              Balení: {p.mnozstvi_v_baleni} {p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id} ({p.c_merne_jednotky_baleni?.zkratka || p.jednotka_baleni_id})
             </div>
           </div>
         )
@@ -865,7 +865,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
             <span>
               {p.mnozstvi_v_baleni}{" "}
               <span className="text-zinc-500">
-                {p.c_merne_jednotky_baleni?.zkratka || p.jednotka_baleni_id}
+                {p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id} ({p.c_merne_jednotky_baleni?.zkratka || p.jednotka_baleni_id})
               </span>
             </span>
           </div>

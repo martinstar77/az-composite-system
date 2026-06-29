@@ -585,7 +585,7 @@ export function calculateGrossWeight(
         const specs_delka = Number(s.delka_m ?? 100)
         const delka_m = mnozstviVBaleni || specs_delka
         const material = String(s.material ?? "HDPE").toUpperCase()
-        const density = TUBE_DENSITY[material] ?? 1100
+        const density = podtyp === "OMEGA" ? 1100 : (TUBE_DENSITY[material] ?? 1100)
 
         if (podtyp === "TAPE") {
           const sirka_mm = Number(s.sirka_mm ?? 15)
