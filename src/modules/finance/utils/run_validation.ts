@@ -180,6 +180,21 @@ const tPaletaDE: LogisticsTemplate = {
   typ_dopravy: "paleta"
 }
 
+const tLegacyFixed: LogisticsTemplate = {
+  nazev: "Legacy Fixed",
+  typ_vypoctu_dopravy: "fixni",
+  sazba_dopravy: 100, // 100 EUR
+  typ_vypoctu_dopravy_v2: "legacy",
+  bezpecnostni_koeficient: 1.0,
+  poplatek_banka_czk: 0,
+  poplatek_procleni_czk: 0,
+  poplatek_odpady_czk: 0,
+  poplatek_balne_czk: 0,
+  vychozi_clo_procenta: 0,
+  zeme_puvodu: "DE",
+  typ_dopravy: "balik"
+}
+
 function runTests() {
   console.log("=== SHIPPENGINE V2 VERIFICATION SCRIPT ===")
   
@@ -236,6 +251,22 @@ function runTests() {
   console.log(`- Batch shipping (per unit, qty=48): ${res7_single?.totalShippingCostCzk} CZK`)
   console.log(`- Single SWIFT fee: ${res7_batch?.totalBankFeesCzk} CZK`)
   console.log(`- Batch SWIFT fee (per unit, qty=48): ${res7_single?.totalBankFeesCzk} CZK`)
+
+  // Test Case 8: Legacy Fixed Shipping Splitting
+  const res8_single = calculateProductPricing(10, "EUR", 1, 1.0, 0, { retail: 30, partner: 20 }, rates, settings, tLegacyFixed, pBoxStandard, {}, undefined, 1)
+  const res8_batch = calculateProductPricing(10, "EUR", 1, 1.0, 0, { retail: 30, partner: 20 }, rates, settings, tLegacyFixed, pBoxStandard, {}, undefined, 48)
+  console.log("\n8. Legacy Fixed Shipping Splitting test (qty = 48 vs qty = 1):")
+  console.log(`- Single shipping (qty=1): ${res8_single?.totalShippingCostCzk} CZK`)
+  console.log(`- Batch shipping (per unit, qty=48): ${res8_batch?.totalShippingCostCzk} CZK`)
+  console.log(`- Expected Batch shipping per unit: ~${(res8_single?.totalShippingCostCzk || 0) / 48} CZK`)
+
+  // Test Case 9: Volumetric weight scaling with overrides
+  const overrides = { delka: 20, sirka: 20, vyska: 20 } // vol = 1.6kg per item
+  const pack9_single = resolvePackageDimensions(0.5, pBoxStandard, overrides, undefined, 1)
+  const pack9_batch = resolvePackageDimensions(0.5 * 48, pBoxStandard, overrides, undefined, 48) // 24kg real weight
+  console.log("\n9. Volumetric Weight Override Scaling test (qty = 48 vs qty = 1):")
+  console.log(`- Single billed weight (qty=1): ${pack9_single.billedWeight_kg} kg (Expected: 1.6 kg)`)
+  console.log(`- Batch billed weight (qty=48): ${pack9_batch.billedWeight_kg} kg (Expected: 76.8 kg)`)
 }
 
 runTests()

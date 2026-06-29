@@ -96,7 +96,8 @@ export function calculateProductPricing(
     weightKg * packageQty,
     baliciProfil || null,
     balikOverrides || {},
-    boxSizesList
+    boxSizesList,
+    packageQty
   )
   const billedWeight = packDims.billedWeight_kg
 
@@ -235,7 +236,7 @@ export function calculateProductPricing(
       } else if (template.typ_vypoctu_dopravy === 'vaha_kg') {
         totalShippingCostCzk = billedWeight * template.sazba_dopravy * effectiveEurRate
       } else {
-        totalShippingCostCzk = template.sazba_dopravy * effectiveEurRate * packageQty // Fixed cost per batch/package
+        totalShippingCostCzk = template.sazba_dopravy * effectiveEurRate // Fixed cost per shipment
       }
     }
   } else {

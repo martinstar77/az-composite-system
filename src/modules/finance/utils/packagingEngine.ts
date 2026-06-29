@@ -29,13 +29,14 @@ export function resolvePackageDimensions(
   realWeightKg: number,
   profile: BaliciProfil | null,
   overrides: { delka?: number | null; sirka?: number | null; vyska?: number | null },
-  boxSizesList?: StandardBoxSize[]
+  boxSizesList?: StandardBoxSize[],
+  packageQty: number = 1
 ): PackageDimensions {
   const koef = profile?.koeficient_objemove_hmotnosti ?? 5000
 
   // 1. Override priority
   if (overrides.delka && overrides.sirka && overrides.vyska) {
-    const vol = (overrides.delka * overrides.sirka * overrides.vyska) / koef
+    const vol = ((overrides.delka * overrides.sirka * overrides.vyska) * packageQty) / koef
     return {
       delka_cm: overrides.delka,
       sirka_cm: overrides.sirka,
