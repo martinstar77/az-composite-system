@@ -1,0 +1,87 @@
+-- Migration: Deactivate packaging profile validation in fn_validate_product_logistics
+-- Programmatic packaging weight estimation is used instead of database profile constraints.
+
+CREATE OR REPLACE FUNCTION fn_validate_product_logistics()
+RETURNS TRIGGER AS $$
+DECLARE
+  spec_objem TEXT;
+  spec_mnozstvi TEXT;
+  spec_typ TEXT;
+  spec_chemie TEXT;
+  parsed_vol NUMERIC;
+  density NUMERIC;
+  net_weight_est NUMERIC;
+BEGIN
+  -- Ignore soft-deleted products
+  IF NEW.deleted_at IS NOT NULL THEN
+    RETURN NEW;
+  END IF;
+
+  -- Only perform validation if status is 'ready_to_order'
+  IF NEW.stav_katalogu_id = 'ready_to_order' THEN
+    
+    -- Extract values from JSONB specifications safely
+    spec_objem := NEW.specifikace->>'objem';
+    spec_mnozstvi := NEW.specifikace->>'mnozstvi';
+    spec_typ := NEW.specifikace->>'typ';
+    spec_chemie := NEW.specifikace->>'chemie';
+
+    -- Physical Paradox check (Gross weight < Net weight)
+    net_weight_est := NULL;
+
+    -- Estimate Net Weight for resins
+    IF NEW.kategorie_id = 'pryskyrice' AND NEW.zakladni_mj_id = 'kg' THEN
+      parsed_vol := NULL;
+      IF NEW.specifikace->>'objem_nakup_l' IS NOT NULL THEN
+        -- Simple parsing of float
+        parsed_vol := CAST(substring(NEW.specifikace->>'objem_nakup_l' from '^[0-9.]+') AS NUMERIC);
+      END IF;
+      
+      IF parsed_vol IS NOT NULL AND parsed_vol > 0 THEN
+        density := CASE 
+          WHEN spec_typ = 'HRD' THEN 0.95 
+          WHEN spec_chemie = 'EP' THEN 1.15
+          WHEN spec_chemie = 'VE' THEN 1.12
+          WHEN spec_chemie = 'PE' THEN 1.13
+          WHEN spec_chemie = 'GEL' THEN 1.20
+          ELSE 1.0
+        END;
+        net_weight_est := parsed_vol * density;
+      END IF;
+
+    -- Estimate Net Weight for chemistry
+    ELSIF NEW.kategorie_id IN ('chemie', 'spotrebni_chemie') AND NEW.zakladni_mj_id = 'l' THEN
+      parsed_vol := NULL;
+      IF spec_objem IS NOT NULL THEN
+        parsed_vol := CAST(substring(spec_objem from '^[0-9.]+') AS NUMERIC);
+        IF spec_objem LIKE '%ml' THEN
+          parsed_vol := parsed_vol / 1000.0;
+        END IF;
+      ELSIF spec_mnozstvi IS NOT NULL THEN
+        parsed_vol := CAST(substring(spec_mnozstvi from '^[0-9.]+') AS NUMERIC);
+        IF spec_mnozstvi LIKE '%ml' THEN
+          parsed_vol := parsed_vol / 1000.0;
+        END IF;
+      END IF;
+
+      IF parsed_vol IS NOT NULL AND parsed_vol > 0 THEN
+        -- Safe lower bound density (0.75) for all liquids to avoid false paradoxes on solvent-based products (density ~0.8)
+        density := 0.75;
+        net_weight_est := parsed_vol * density;
+      END IF;
+    END IF;
+
+    -- Throw exception if physical weight paradox occurs
+    IF net_weight_est IS NOT NULL AND NEW.hmotnost_baliku_kg IS NOT NULL THEN
+      -- Allow 0.05kg tolerance for floating-point inaccuracies
+      IF NEW.hmotnost_baliku_kg < (net_weight_est - 0.05) THEN
+        RAISE EXCEPTION 'Physical paradox for SKU %: Gross weight (%) is lower than estimated net weight (%)', 
+          NEW.sku, NEW.hmotnost_baliku_kg, net_weight_est;
+      END IF;
+    END IF;
+
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;

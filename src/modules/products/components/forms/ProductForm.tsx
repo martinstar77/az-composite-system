@@ -1641,25 +1641,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   )
 
   const isChemicalCategory = kategorieId === 'prepregy' || kategorieId === 'pryskyrice' || kategorieId === 'lepidla' || kategorieId === 'spotrebni_chemie' || kategorieId === 'chemie';
-
   const handleFormSubmit = async (data: ProductFormValues) => {
-    // 1. Roll-based packaging profile validation
-    if (["vyztuzne_materialy", "consumables"].includes(kategorieId)) {
-      const specs = currentSpecs as any
-      const packType = specs.typ_baleni || 'role'
-      const podkat = specs.podkategorie || ''
-      const podtyp_fch = specs.podtyp_fch || ''
-      
-      const isRoll = (packType === 'role') 
-                     || ['BF', 'RF', 'PP', 'PP-PTFE', 'BC', 'FM'].includes(podkat)
-                     || (podkat === 'FCH' && ['SPRL', 'OMEGA', 'TUBE', 'TTUBE'].includes(podtyp_fch))
-                     
-      if (isRoll && !data.balici_profil_id) {
-        toast.error("Role nebo metráž musí mít vybraný balicí profil pro výpočet dopravy!")
-        return
-      }
-    }
-    
     await onSubmit(data)
   }
 
