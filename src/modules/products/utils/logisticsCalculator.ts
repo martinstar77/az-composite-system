@@ -118,6 +118,31 @@ function parseWeightKg(raw: string | number | null | undefined): number | null {
 /** Round to 2 decimal places (retained name r3 to avoid refactoring of internal calls) */
 function r3(n: number): number {
   return Math.round(n * 100) / 100
+}/** Density (kg/m³) by tube/hose material code */
+const TUBE_DENSITY: Record<string, number> = {
+  HDPE: 950,
+  PET: 1380,
+}
+
+/** Calculate hollow cylinder (tube/hose) weight (kg) */
+function calculateHollowCylinderWeight(innerDiameterMm: number, lengthM: number, densityKgm3: number): number {
+  const id = innerDiameterMm
+  const od = id <= 10 ? id + 2 : id + 3
+  const rOuter = od / 2000 // outer radius in meters
+  const rInner = id / 2000 // inner radius in meters
+  const areaPlasticM2 = Math.PI * (Math.pow(rOuter, 2) - Math.pow(rInner, 2))
+  return areaPlasticM2 * lengthM * densityKgm3
+}
+
+/** Calculate hollow rectangular profile (flat flow channel tape) weight (kg) */
+function calculateHollowRectWeight(widthMm: number, heightMm: number, lengthM: number, densityKgm3: number): number {
+  const w = widthMm
+  const h = heightMm
+  const t = h <= 10 ? 1.0 : 1.5
+  const wIn = Math.max(0, w - 2 * t)
+  const hIn = Math.max(0, h - 2 * t)
+  const areaPlasticM2 = (w * h - wIn * hIn) / 1000000
+  return areaPlasticM2 * lengthM * densityKgm3
 }
 
 // ---------------------------------------------------------------------------
@@ -530,29 +555,48 @@ export function calculateGrossWeight(
       if (podkat === "FCH") {
         const podtyp = String(s.podtyp_fch ?? "TAPE")
         const delka_m = Number(s.delka_m ?? 100)
+        const material = String(s.material ?? "HDPE").toUpperCase()
+        const density = TUBE_DENSITY[material] ?? 1100
 
         if (podtyp === "TAPE") {
           const sirka_mm = Number(s.sirka_mm ?? 15)
-          const net = r3((sirka_mm / 1000) * delka_m * 200 * 0.001)
+          const vyska_mm = Number(s.vyska_mm ?? 4)
+          const net = r3(calculateHollowRectWeight(sirka_mm, vyska_mm, delka_m, density))
           const total = r3(net + 0.05)
+          const t = vyska_mm <= 10 ? 1.0 : 1.5
           return {
             weightKg: total,
             netWeightKg: net,
-            confidence: "medium",
-            breakdown: `${sirka_mm}mm × ${delka_m}m × 200 g/m² = ${net} kg + 0.05 kg = ${total} kg`
+            confidence: "high",
+            breakdown: `Dutý profil ${sirka_mm}×${vyska_mm}mm (stěna ${t}mm) × ${delka_m}m × ${density} kg/m³ = ${net} kg + 0.05 kg = ${total} kg`
           }
         } else {
           const prumer_mm = Number(s.vnitrni_prumer_mm ?? s.prumer_mm ?? 10)
-          const prumer_m = prumer_mm / 1000
-          const volume_m3 = Math.PI * Math.pow(prumer_m / 2, 2) * delka_m
-          const net = r3(volume_m3 * 1100)
+          const net = r3(calculateHollowCylinderWeight(prumer_mm, delka_m, density))
           const total = r3(net + 0.1)
+          const od = prumer_mm <= 10 ? prumer_mm + 2 : prumer_mm + 3
           return {
             weightKg: total,
             netWeightKg: net,
-            confidence: "medium",
-            breakdown: `π × (${prumer_mm}mm/2)² × ${delka_m}m × 1100 kg/m³ = ${net} kg + 0.1 kg = ${total} kg`
+            confidence: "high",
+            breakdown: `Hadice Ø${od}/${prumer_mm}mm × ${delka_m}m × ${density} kg/m³ = ${net} kg + 0.1 kg = ${total} kg`
           }
+        }
+      }
+
+      if (podkat === "TUBE") {
+        const delka_m = Number(s.delka_m ?? 50)
+        const prumer_mm = Number(s.vnitrni_prumer_mm ?? s.prumer_mm ?? 10)
+        const material = String(s.material ?? "HDPE").toUpperCase()
+        const density = TUBE_DENSITY[material] ?? 1100
+        const net = r3(calculateHollowCylinderWeight(prumer_mm, delka_m, density))
+        const total = r3(net + 0.1)
+        const od = prumer_mm <= 10 ? prumer_mm + 2 : prumer_mm + 3
+        return {
+          weightKg: total,
+          netWeightKg: net,
+          confidence: "high",
+          breakdown: `Hadice Ø${od}/${prumer_mm}mm × ${delka_m}m × ${density} kg/m³ = ${net} kg + 0.1 kg = ${total} kg`
         }
       }
 
@@ -572,14 +616,47 @@ export function calculateGrossWeight(
 
       if (podkat === "MTI") {
         const qty = mnozstviVBaleni || 1
-        const unit_kg = 0.05
-        const total = r3(unit_kg * qty + 0.05)
-        const netTotal = r3(unit_kg * qty)
-        return {
-          weightKg: total,
-          netWeightKg: netTotal,
-          confidence: "medium",
-          breakdown: `${qty} ks × ${unit_kg} kg + 0.05 kg = ${total} kg`
+        const typ_mti = String(s.typ_mti ?? "Hose")
+
+        if (typ_mti === "Hose") {
+          const net = r3(calculateHollowCylinderWeight(8, qty, 950))
+          const total = r3(net + 0.05)
+          return {
+            weightKg: total,
+            netWeightKg: net,
+            confidence: "high",
+            breakdown: `MTI Hadice Ø10/8mm × ${qty}m × 950 kg/m³ = ${net} kg + 0.05 kg = ${total} kg`
+          }
+        } else if (typ_mti === "RBL") {
+          const net = r3(calculateHollowCylinderWeight(6, qty, 950))
+          const total = r3(net + 0.05)
+          return {
+            weightKg: total,
+            netWeightKg: net,
+            confidence: "high",
+            breakdown: `MTI RBL Hadice Ø8/6mm × ${qty}m × 950 kg/m³ = ${net} kg + 0.05 kg = ${total} kg`
+          }
+        } else if (typ_mti === "MVS") {
+          const sirka_mm = Number(s.sirka_mm ?? 100)
+          const net = r3((sirka_mm / 1000) * qty * 0.200)
+          const total = r3(net + 0.05)
+          return {
+            weightKg: total,
+            netWeightKg: net,
+            confidence: "medium",
+            breakdown: `MTI MVS membrána ${sirka_mm}mm × ${qty}m × 200 g/m² = ${net} kg + 0.05 kg = ${total} kg`
+          }
+        } else {
+          // Valve
+          const unit_kg = 0.05
+          const net = r3(unit_kg * qty)
+          const total = r3(net + 0.05)
+          return {
+            weightKg: total,
+            netWeightKg: net,
+            confidence: "medium",
+            breakdown: `MTI ventil: ${qty} ks × 0.05 kg = ${net} kg + 0.05 kg = ${total} kg`
+          }
         }
       }
 

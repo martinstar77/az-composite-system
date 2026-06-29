@@ -428,10 +428,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   const [conKpTvar, setConKpTvar] = useState(specs.tvar || "O")
   const [conKpPrumer, setConKpPrumer] = useState(specs.prumer_mm ? String(specs.prumer_mm) : "12")
 
-  const isPackagingLocked = useMemo(() => {
-    if (!kategorieId) return false
-    return ["vyztuzne_materialy", "consumables"].includes(kategorieId)
-  }, [kategorieId])
+  const isPackagingLocked = false
 
   // Auto-map packaging profile based on category and package type defaults
   useEffect(() => {
@@ -559,8 +556,12 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         const hasFabSpecsChanged = fabPackType !== origPackType || fabWidth !== origWidth || fabLength !== origLength || fabPieces !== origPieces
 
         if (!initialData || hasFabSpecsChanged) {
-          setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
-          setValue("jednotka_baleni_id", uom, { shouldValidate: true })
+          if (!dirtyFields.mnozstvi_v_baleni) {
+            setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
+          }
+          if (!dirtyFields.jednotka_baleni_id) {
+            setValue("jednotka_baleni_id", uom, { shouldValidate: true })
+          }
         }
 
         const w_cm = Math.round(w)
@@ -642,9 +643,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
         const specsEqual = initialData?.specifikace && areSpecsEqual(generatedSpecs, initialData.specifikace)
         if (!initialData || !specsEqual) {
-          setValue("zakladni_mj_id", "kg", { shouldValidate: true })
-          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-          setValue("mnozstvi_v_baleni", parseFloat(calculatedWeight.toFixed(2)), { shouldValidate: true })
+          if (!dirtyFields.zakladni_mj_id) {
+            setValue("zakladni_mj_id", "kg", { shouldValidate: true })
+          }
+          if (!dirtyFields.jednotka_baleni_id) {
+            setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+          }
+          if (!dirtyFields.mnozstvi_v_baleni) {
+            setValue("mnozstvi_v_baleni", parseFloat(calculatedWeight.toFixed(2)), { shouldValidate: true })
+          }
         }
         break;
       }
@@ -706,20 +713,34 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
         const specsEqual = initialData?.specifikace && areSpecsEqual(generatedSpecs, initialData.specifikace)
         if (!initialData || !specsEqual) {
-          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+          if (!dirtyFields.jednotka_baleni_id) {
+            setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+          }
 
           if (clnSub === 'standard') {
             if (clnType === 'CON') {
-              setValue("zakladni_mj_id", "l", { shouldValidate: true })
-              const parsedVol = parseFloat(clnQty.replace(/[^0-9.]/g, '')) || 1
-              setValue("mnozstvi_v_baleni", parsedVol, { shouldValidate: true })
+              if (!dirtyFields.zakladni_mj_id) {
+                setValue("zakladni_mj_id", "l", { shouldValidate: true })
+              }
+              if (!dirtyFields.mnozstvi_v_baleni) {
+                const parsedVol = parseFloat(clnQty.replace(/[^0-9.]/g, '')) || 1
+                setValue("mnozstvi_v_baleni", parsedVol, { shouldValidate: true })
+              }
             } else {
-              setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-              setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+              if (!dirtyFields.zakladni_mj_id) {
+                setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+              }
+              if (!dirtyFields.mnozstvi_v_baleni) {
+                setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+              }
             }
           } else if (clnSub === 'pmp') {
-            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            if (!dirtyFields.zakladni_mj_id) {
+              setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+            }
+            if (!dirtyFields.mnozstvi_v_baleni) {
+              setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            }
           }
         }
         break;
@@ -769,14 +790,24 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
         const specsEqual = initialData?.specifikace && areSpecsEqual(generatedSpecs, initialData.specifikace)
         if (!initialData || !specsEqual) {
-          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+          if (!dirtyFields.jednotka_baleni_id) {
+            setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+          }
 
           if (chemSub === 'lepidlo_ve_spreji' || chemSub === 'blinder') {
-            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            if (!dirtyFields.zakladni_mj_id) {
+              setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+            }
+            if (!dirtyFields.mnozstvi_v_baleni) {
+              setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+            }
           } else {
-            setValue("zakladni_mj_id", "l", { shouldValidate: true })
-            setValue("mnozstvi_v_baleni", volL, { shouldValidate: true })
+            if (!dirtyFields.zakladni_mj_id) {
+              setValue("zakladni_mj_id", "l", { shouldValidate: true })
+            }
+            if (!dirtyFields.mnozstvi_v_baleni) {
+              setValue("mnozstvi_v_baleni", volL, { shouldValidate: true })
+            }
           }
         }
         break;
@@ -1293,9 +1324,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
         const specsEqual = initialData?.specifikace && areSpecsEqual(generatedSpecs, initialData.specifikace)
         if (!initialData || !specsEqual) {
-          if (targetMj) setValue("zakladni_mj_id", targetMj, { shouldValidate: true })
-          if (targetUom) setValue("jednotka_baleni_id", targetUom, { shouldValidate: true })
-          if (targetQty !== undefined) setValue("mnozstvi_v_baleni", targetQty, { shouldValidate: true })
+          if (targetMj && !dirtyFields.zakladni_mj_id) {
+            setValue("zakladni_mj_id", targetMj, { shouldValidate: true })
+          }
+          if (targetUom && !dirtyFields.jednotka_baleni_id) {
+            setValue("jednotka_baleni_id", targetUom, { shouldValidate: true })
+          }
+          if (targetQty !== undefined && !dirtyFields.mnozstvi_v_baleni) {
+            setValue("mnozstvi_v_baleni", targetQty, { shouldValidate: true })
+          }
         }
         break;
       }

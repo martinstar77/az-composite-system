@@ -126,6 +126,67 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
     // Total: 1.0 + 0.1 = 1.1 kg
     expect(result.weightKg).toBe(1.1)
   })
+
+  it("should calculate weight for hollow cylinder FCH SPRL channel", () => {
+    const specs = {
+      podkategorie: "FCH",
+      podtyp_fch: "SPRL",
+      vnitrni_prumer_mm: 10,
+      delka_m: 50,
+      material: "HDPE"
+    }
+    const result = calculateGrossWeight("consumables", specs, 1)
+    // ID=10 -> OD=12. R_out=0.006, R_in=0.005.
+    // Area = Math.PI * (0.006^2 - 0.005^2) = 0.0000345575 m2
+    // Net = 0.0000345575 * 50 * 950 = 1.641 kg -> 1.64
+    // Gross = 1.64 + 0.1 = 1.74
+    expect(result.weightKg).toBe(1.74)
+  })
+
+  it("should calculate weight for hollow rect FCH TAPE channel", () => {
+    const specs = {
+      podkategorie: "FCH",
+      podtyp_fch: "TAPE",
+      sirka_mm: 15,
+      vyska_mm: 4,
+      delka_m: 100,
+      material: "HDPE"
+    }
+    const result = calculateGrossWeight("consumables", specs, 1)
+    // W=15, H=4, t=1.0. W_in=13, H_in=2.
+    // Area = 15*4 - 13*2 = 34 mm2 = 0.000034 m2
+    // Net = 0.000034 * 100 * 950 = 3.23
+    // Gross = 3.23 + 0.05 = 3.28
+    expect(result.weightKg).toBe(3.28)
+  })
+
+  it("should calculate weight for hollow cylinder TUBE Hadice", () => {
+    const specs = {
+      podkategorie: "TUBE",
+      vnitrni_prumer_mm: 8,
+      delka_m: 50,
+      material: "HDPE"
+    }
+    const result = calculateGrossWeight("consumables", specs, 1)
+    // ID=8 -> OD=10. R_out=0.005, R_in=0.004.
+    // Area = Math.PI * (0.005^2 - 0.004^2) = 0.000028274 m2
+    // Net = 0.000028274 * 50 * 950 = 1.343 -> 1.34
+    // Gross = 1.34 + 0.1 = 1.44
+    expect(result.weightKg).toBe(1.44)
+  })
+
+  it("should calculate weight for MTI Hose based on packaging quantity as length", () => {
+    const specs = {
+      podkategorie: "MTI",
+      typ_mti: "Hose"
+    }
+    const result = calculateGrossWeight("consumables", specs, 50)
+    // qty=50m. ID=8 (default for MTI Hose). OD=10. R_out=0.005, R_in=0.004.
+    // Area = Math.PI * (0.005^2 - 0.004^2) = 0.000028274 m2
+    // Net = 0.000028274 * 50 * 950 = 1.343 -> 1.34
+    // Gross = 1.34 + 0.05 = 1.39
+    expect(result.weightKg).toBe(1.39)
+  })
 })
 
 describe("logisticsCalculator - resolvePackagingProfile", () => {
