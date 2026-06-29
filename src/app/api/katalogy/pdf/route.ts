@@ -4,6 +4,29 @@ import { calculateProductPricing } from '@/modules/finance/utils/calculations'
 import { createElement } from 'react'
 import { NextRequest, NextResponse } from 'next/server'
 
+function getProductSubcategory(p: any): string {
+  const catId = p.kategorie_id
+  if (catId === 'vyztuzne_materialy') {
+    return p.specifikace?.materiál || p.specifikace?.material || 'OF'
+  }
+  if (catId === 'consumables') {
+    return p.specifikace?.podkategorie || 'Ostatní'
+  }
+  if (catId === 'naradi') {
+    return p.specifikace?.podkategorie || 'Ostatní'
+  }
+  if (catId === 'brouseni_a_lesteni') {
+    return p.specifikace?.podkategorie || 'ostatni'
+  }
+  if (catId === 'chemie') {
+    return p.specifikace?.podkategorie || 'ostatni'
+  }
+  if (catId === 'spotrebni_chemie') {
+    return p.specifikace?.podkategorie || 'standard'
+  }
+  return '_default'
+}
+
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
@@ -17,10 +40,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const tier = searchParams.get('tier') || 'partner'
     const currency = searchParams.get('currency') || 'EUR'
-    const category = searchParams.get('category') || 'all'
+    const categoriesParam = searchParams.get('categories') || searchParams.get('category') || 'all'
+    const subcategoriesParam = searchParams.get('subcategories') || ''
     const status = searchParams.get('status') || 'all'
     const search = searchParams.get('search') || ''
     const lang = searchParams.get('lang') || 'cs'
+
+    const selectedCats = categoriesParam && categoriesParam !== 'all' ? categoriesParam.split(',') : []
+    const selectedSubs = subcategoriesParam ? subcategoriesParam.split(',') : []
 
     // 1. Fetch all necessary data on the server
     const [
@@ -92,10 +119,21 @@ export async function GET(request: NextRequest) {
         (p.nazev_en && p.nazev_en.toLowerCase().includes(search.toLowerCase())) ||
         p.sku.toLowerCase().includes(search.toLowerCase())
       
-      const matchesCategory = category === 'all' || p.kategorie_id === category
       const matchesStatus = status === 'all' || p.stav_katalogu_id === status
       
-      return matchesSearch && matchesCategory && matchesStatus
+      const matchesCategory = selectedCats.length === 0 || selectedCats.includes(p.kategorie_id);
+      
+      let matchesSubcategory = true;
+      if (p.kategorie_id && selectedCats.includes(p.kategorie_id)) {
+        const prodSub = getProductSubcategory(p)
+        const subKey = `${p.kategorie_id}/${prodSub}`
+        const hasSubsSelectedForCat = selectedSubs.some(s => s.startsWith(`${p.kategorie_id}/`))
+        if (hasSubsSelectedForCat) {
+          matchesSubcategory = selectedSubs.includes(subKey)
+        }
+      }
+      
+      return matchesSearch && matchesStatus && matchesCategory && matchesSubcategory
     })
 
     // 4. Sorting by name (locale dependent)
@@ -130,8 +168,8 @@ export async function GET(request: NextRequest) {
 
     // 7. Stream response as PDF
     const filename = lang === 'cs'
-      ? `AZ_Composites_Katalog_${tier.toUpperCase()}_${currency}.pdf`
-      : `AZ_Composites_Catalog_${tier.toUpperCase()}_${currency}.pdf`
+      ? `AZ_Composite_Katalog_${tier.toUpperCase()}_${currency}.pdf`
+      : `AZ_Composite_Catalog_${tier.toUpperCase()}_${currency}.pdf`
 
     return new Response(new Uint8Array(buffer), {
       headers: {

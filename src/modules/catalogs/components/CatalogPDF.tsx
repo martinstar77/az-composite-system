@@ -55,8 +55,8 @@ const styles = StyleSheet.create({
   headerContainer: {
     position: 'relative',
     width: '100%',
-    height: 55,
-    marginBottom: 18,
+    height: 65,
+    marginBottom: 12,
   },
   headerImage: {
     position: 'absolute',
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   tdMuted: {
-    fontSize: 7,
+    fontSize: 6,
     color:    COLORS.muted,
   },
 
@@ -217,6 +217,19 @@ interface CategoryGroup {
   subgroups: Subgroup[]
 }
 
+function isHighTemp(temp: any): boolean {
+  if (!temp) return false
+  const tempStr = String(temp).toUpperCase()
+  if (tempStr.includes('HT')) return true
+  if (tempStr.includes('LT')) return false
+  const match = tempStr.match(/\d+/)
+  if (match) {
+    const val = parseInt(match[0])
+    return val > 150
+  }
+  return false
+}
+
 function translateCategory(id: string, name: string, lang: 'cs' | 'en'): string {
   if (lang === 'cs') {
     const csMap: Record<string, string> = {
@@ -224,7 +237,7 @@ function translateCategory(id: string, name: string, lang: 'cs' | 'en'): string 
       prepregy: "Prepregy",
       pryskyrice: "Pryskyřice a Gelcoaty",
       brouseni_a_lesteni: "Broušení a leštění",
-      lepidla: "Lepidla",
+      lepidla: "Strukturální lepidla",
       spotrebni_chemie: "Spotřební chemie a čističe",
       cores_standard: "Jádrové materiály",
       cores_active: "Active Core Technology",
@@ -239,7 +252,7 @@ function translateCategory(id: string, name: string, lang: 'cs' | 'en'): string 
       prepregy: "Prepregs",
       pryskyrice: "Resins & Gelcoats",
       brouseni_a_lesteni: "Sanding & Polishing",
-      lepidla: "Adhesives",
+      lepidla: "Structural Adhesives",
       spotrebni_chemie: "Consumable Chemicals & Cleaners",
       cores_standard: "Core Materials",
       cores_active: "Active Core Technology",
@@ -338,37 +351,75 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
 
       if (catId === 'vyztuzne_materialy') {
         const mat = p.specifikace?.materiál || p.specifikace?.material || 'OF'
-        subKey = mat
+        const form = p.specifikace?.typ || 'WF'
+        const weave = p.specifikace?.vazba || ''
         
         const materialMapCS: Record<string, string> = {
-          CF: "Uhlíková vlákna (Carbon)",
-          GF: "Skleněná vlákna (Glass)",
-          AF: "Aramidová vlákna (Aramid)",
-          BIOF: "Lněná vlákna (Bio Flax)",
-          BIOH: "Konopná vlákna (Bio Hemp)",
-          PAN: "Polyakrylonitrilová vlákna (PAN)",
-          PET: "Polyesterová vlákna (PET)",
+          CF: "Uhlíková vlákna",
+          GF: "Skelná vlákna",
+          AF: "Aramidová vlákna",
+          BIOF: "Lněná vlákna",
+          BIOH: "Konopná vlákna",
+          PAN: "Polyakrylonitrilová vlákna",
+          PET: "Polyesterová vlákna",
           HF: "Hybridní materiály",
           OF: "Ostatní výztuže"
         }
         const materialMapEN: Record<string, string> = {
-          CF: "Carbon Fiber Reinforcements",
-          GF: "Glass Fiber Reinforcements",
-          AF: "Aramid Fiber Reinforcements",
-          BIOF: "Flax Reinforcements (Bio Flax)",
-          BIOH: "Hemp Reinforcements (Bio Hemp)",
-          PAN: "Polyacrylonitrile Reinforcements (PAN)",
-          PET: "Polyester Reinforcements (PET)",
+          CF: "Carbon Fiber",
+          GF: "Glass Fiber",
+          AF: "Aramid Fiber",
+          BIOF: "Flax Reinforcements",
+          BIOH: "Hemp Reinforcements",
+          PAN: "Polyacrylonitrile",
+          PET: "Polyester",
           HF: "Hybrid Materials",
           OF: "Other Reinforcements"
         }
-        
-        subLabel = isCs ? (materialMapCS[mat] || "Ostatní výztuže") : (materialMapEN[mat] || "Other Reinforcements")
-        const priorities: Record<string, number> = { CF: 10, GF: 9, AF: 8, HF: 7, BIOF: 6, BIOH: 5, PAN: 4, PET: 3, OF: 2 }
-        subPriority = priorities[mat] || 0
+
+        const matNameCS = materialMapCS[mat] || "Ostatní výztuže"
+        const matNameEN = materialMapEN[mat] || "Other Reinforcements"
+
+        if (form === 'UD') {
+          subKey = `${mat}_UD`
+          subLabel = isCs ? `${matNameCS} - UD pásky` : `${matNameEN} - UD Tapes`
+        } else if (form === 'BIAX') {
+          subKey = `${mat}_BIAX`
+          subLabel = isCs ? `${matNameCS} - biaxiální tkaniny` : `${matNameEN} - Biaxial Fabrics`
+        } else if (form === 'MAT') {
+          subKey = `${mat}_MAT`
+          subLabel = isCs ? `${matNameCS} - rohože` : `${matNameEN} - Mats`
+        } else if (form === 'WF') {
+          if (weave === 'P') {
+            subKey = `${mat}_WF_P`
+            subLabel = isCs ? `${matNameCS} - tkaniny plátno (Plain)` : `${matNameEN} - Plain Weave Fabrics`
+          } else if (weave === 'T22' || weave === 'T44') {
+            subKey = `${mat}_WF_T`
+            subLabel = isCs ? `${matNameCS} - tkaniny kepr (Twill)` : `${matNameEN} - Twill Weave Fabrics`
+          } else {
+            subKey = `${mat}_WF_other`
+            subLabel = isCs ? `${matNameCS} - tkaniny ostatní` : `${matNameEN} - Other Fabrics`
+          }
+        } else {
+          subKey = `${mat}_other`
+          subLabel = isCs ? `${matNameCS} - ostatní` : `${matNameEN} - Other`
+        }
+
+        const matPriorities: Record<string, number> = { CF: 10, GF: 9, AF: 8, HF: 7, BIOF: 6, BIOH: 5, PAN: 4, PET: 3, OF: 2 }
+        const basePriority = matPriorities[mat] || 0
+        let formOffset = 0
+        if (form === 'WF') {
+          if (weave === 'T22' || weave === 'T44') formOffset = 0.5
+          else if (weave === 'P') formOffset = 0.4
+          else formOffset = 0.3
+        } else if (form === 'UD') {
+          formOffset = 0.2
+        } else if (form === 'BIAX') {
+          formOffset = 0.1
+        }
+        subPriority = basePriority + formOffset
       } else if (catId === 'consumables') {
         const sub = p.specifikace?.podkategorie || 'Ostatní'
-        subKey = sub
         
         const consumableMapCS: Record<string, string> = {
           BF: "Vakuové fólie (Bagging Film)",
@@ -380,7 +431,11 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
           FT: "Lepicí pásky (Flash Tape)",
           FM: "Distribuční síťky (Flow Mesh)",
           FCH: "Distribuční kanálky (Flow Channel)",
-          K: "Vakuové konektory a příslušenství"
+          K: "Vakuové konektory a příslušenství",
+          TUBE: "Hadice (Hoses)",
+          MTI: "MTI systémy (MTI Systems)",
+          KP: "Průchodné konektory (Through Connectors)",
+          Ostatní: "Ostatní spotřební materiál"
         }
         const consumableMapEN: Record<string, string> = {
           BF: "Vacuum Bagging Films (Bagging Film)",
@@ -392,31 +447,163 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
           FT: "Flash Tapes (Flash Tape)",
           FM: "Resin Distribution Mesh (Flow Mesh)",
           FCH: "Resin Distribution Channels (Flow Channel)",
-          K: "Vacuum Connectors & Accessories"
+          K: "Vacuum Connectors & Accessories",
+          TUBE: "Hoses (Hoses)",
+          MTI: "MTI Systems",
+          KP: "Through Connectors",
+          Ostatní: "Other Consumables"
         }
-        
-        subLabel = isCs ? (consumableMapCS[sub] || "Ostatní spotřební materiál") : (consumableMapEN[sub] || "Other Consumables")
-        const priorities: Record<string, number> = { BF: 20, RF: 19, PP: 18, "PP-PTFE": 17, BC: 16, ST: 15, FT: 14, FM: 13, FCH: 12, K: 11 }
-        subPriority = priorities[sub] || 0
+
+        if (sub === 'BF') {
+          const isHT = isHighTemp(p.specifikace?.teplotni_odolnost)
+          subKey = isHT ? 'BF_HT' : 'BF_LT'
+          subLabel = isCs
+            ? (isHT ? "Vakuové fólie - vysokoteplotní (High Temp)" : "Vakuové fólie - nízkoteplotní (Low Temp)")
+            : (isHT ? "Vacuum Bagging Films - High Temp" : "Vacuum Bagging Films - Low Temp")
+          subPriority = isHT ? 20.2 : 20.1
+        } else if (sub === 'RF') {
+          const isHT = isHighTemp(p.specifikace?.teplotni_odolnost)
+          subKey = isHT ? 'RF_HT' : 'RF_LT'
+          subLabel = isCs
+            ? (isHT ? "Separační fólie - vysokoteplotní (High Temp)" : "Separační fólie - nízkoteplotní (Low Temp)")
+            : (isHT ? "Release Films - High Temp" : "Release Films - Low Temp")
+          subPriority = isHT ? 19.2 : 19.1
+        } else if (sub === 'PP') {
+          const poly = p.specifikace?.polymer || 'PA66'
+          const weight = p.specifikace?.gramaz_gm2 || ''
+          const polyLabel = poly === 'PE' ? 'Polyester (PE)' : 'Nylon (PA66)'
+          subKey = `PP_${poly}_${weight}`
+          subLabel = isCs
+            ? `Strhávací tkaniny - ${polyLabel} ${weight ? `${weight} g/m²` : ''}`
+            : `Peel Plies - ${polyLabel} ${weight ? `${weight} g/m²` : ''}`
+          subPriority = 18.0 + (poly === 'PE' ? 0.2 : 0.4) + (weight ? parseFloat(weight) / 1000 : 0)
+        } else {
+          subKey = sub
+          subLabel = isCs ? (consumableMapCS[sub] || "Ostatní spotřební materiál") : (consumableMapEN[sub] || "Other Consumables")
+          const priorities: Record<string, number> = { 
+            "PP-PTFE": 17, 
+            BC: 16, 
+            ST: 15, 
+            FT: 14, 
+            FM: 13, 
+            FCH: 12, 
+            K: 11, 
+            TUBE: 10, 
+            MTI: 9, 
+            KP: 8, 
+            Ostatní: 1 
+          }
+          subPriority = priorities[sub] || 0
+        }
       } else if (catId === 'naradi') {
         const sub = p.specifikace?.podkategorie || 'Ostatní'
-        subKey = sub
         
         const toolMapCS: Record<string, string> = {
           BU: "Vakuové průchodky (Hose Connectors)",
           QR: "Rychlospojky (Quick Releases)",
           SQ: "Škrtící svorky (Hose Clamps)",
-          V: "Vakuometry (Vacuum Gauges)"
+          V: "Vakuometry (Vacuum Gauges)",
+          CU: "Mycí stanice RST5",
+          SU: "Spinner units Spin RST5",
+          Ostatní: "Ostatní nářadí"
         }
         const toolMapEN: Record<string, string> = {
           BU: "Vacuum Feedthroughs (Hose Connectors)",
           QR: "Quick Releases",
           SQ: "Hose Pinch Clamps",
-          V: "Vacuum Gauges"
+          V: "Vacuum Gauges",
+          CU: "RST5 Cleaning Stations",
+          SU: "Spinner Units Spin RST5",
+          Ostatní: "Other Tools"
+        }
+
+        if (sub === 'QR') {
+          const mat = p.specifikace?.material || 'other'
+          const matMapCS: Record<string, string> = {
+            BRS: "mosaz",
+            STL: "ocel",
+            SS: "nerez",
+            other: "ostatní"
+          }
+          const matMapEN: Record<string, string> = {
+            BRS: "brass",
+            STL: "steel",
+            SS: "stainless steel",
+            other: "other"
+          }
+          const matLabelCS = matMapCS[mat] || mat.toLowerCase()
+          const matLabelEN = matMapEN[mat] || mat.toLowerCase()
+          subKey = `QR_${mat}`
+          subLabel = isCs ? `Rychlospojky - ${matLabelCS}` : `Quick Releases - ${matLabelEN}`
+          const priorities: Record<string, number> = { SS: 29.3, BRS: 29.2, STL: 29.1, other: 29.0 }
+          subPriority = priorities[mat] || 29.0
+        } else {
+          subKey = sub
+          subLabel = isCs ? (toolMapCS[sub] || "Ostatní nářadí") : (toolMapEN[sub] || "Other Tools")
+          const priorities: Record<string, number> = { BU: 30, SQ: 28, V: 27, CU: 26, SU: 25, Ostatní: 1 }
+          subPriority = priorities[sub] || 0
+        }
+      } else if (catId === 'brouseni_a_lesteni') {
+        const sub = p.specifikace?.podkategorie || 'ostatni'
+        subKey = sub
+        
+        const mapCS: Record<string, string> = {
+          vosk: "Vosky a ochrana",
+          pasty: "Brusné a lešticí pasty",
+          brusne_kotouce: "Brusné a lešticí kotouče",
+          prislusenstvi: "Příslušenství",
+          ostatni: "Ostatní broušení a leštění"
+        }
+        const mapEN: Record<string, string> = {
+          vosk: "Waxes & Protection",
+          pasty: "Buffing & Polishing Compounds",
+          brusne_kotouce: "Buffing & Polishing Pads",
+          prislusenstvi: "Accessories",
+          ostatni: "Other Sanding & Polishing"
         }
         
-        subLabel = isCs ? (toolMapCS[sub] || "Ostatní nářadí") : (toolMapEN[sub] || "Other Tools")
-        const priorities: Record<string, number> = { BU: 30, QR: 29, SQ: 28, V: 27 }
+        subLabel = isCs ? (mapCS[sub] || "Ostatní") : (mapEN[sub] || "Other")
+        const priorities: Record<string, number> = { pasty: 10, brusne_kotouce: 9, vosk: 8, prislusenstvi: 7, ostatni: 1 }
+        subPriority = priorities[sub] || 0
+      } else if (catId === 'chemie') {
+        const sub = p.specifikace?.podkategorie || 'ostatni'
+        subKey = sub
+        
+        const mapCS: Record<string, string> = {
+          lepidlo_ve_spreji: "Lepidla ve spreji",
+          blinder: "Bindery",
+          plnic_poru_sealer: "Plniče pórů (Sealer)",
+          separatory_release_agent: "Separátory (Release Agent)",
+          ostatni: "Ostatní chemie"
+        }
+        const mapEN: Record<string, string> = {
+          lepidlo_ve_spreji: "Spray Adhesives",
+          blinder: "Binders",
+          plnic_poru_sealer: "Pore Sealers",
+          separatory_release_agent: "Release Agents",
+          ostatni: "Other Chemicals"
+        }
+        
+        subLabel = isCs ? (mapCS[sub] || "Ostatní chemie") : (mapEN[sub] || "Other Chemicals")
+        const priorities: Record<string, number> = { separatory_release_agent: 10, plnic_poru_sealer: 9, blinder: 8, lepidlo_ve_spreji: 7, ostatni: 1 }
+        subPriority = priorities[sub] || 0
+      } else if (catId === 'spotrebni_chemie') {
+        const sub = p.specifikace?.podkategorie || 'standard'
+        subKey = sub
+        
+        const mapCS: Record<string, string> = {
+          pmp: "PMP tekuté čističe",
+          standard: "Čisticí prostředky",
+          ostatni: "Ostatní čističe"
+        }
+        const mapEN: Record<string, string> = {
+          pmp: "PMP Cleaners",
+          standard: "Cleaning Products",
+          ostatni: "Other Cleaners"
+        }
+        
+        subLabel = isCs ? (mapCS[sub] || "Ostatní") : (mapEN[sub] || "Other")
+        const priorities: Record<string, number> = { standard: 10, pmp: 9, ostatni: 1 }
         subPriority = priorities[sub] || 0
       }
 
@@ -445,7 +632,7 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
   return (
     <Document
       title={`${getTierLabel()} - ${today}`}
-      author="AZ-Composites s.r.o."
+      author="AZ Composite"
     >
       <Page size="A4" style={styles.page}>
         {/* Branding Hlavička */}
@@ -457,14 +644,19 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
               {isCs ? 'Platnost od' : 'Valid from'}: {today} · {isCs ? 'Měna' : 'Currency'}: {targetCurrency}
             </Text>
             <Text style={[styles.documentSubLabel, { fontSize: 7, marginTop: 1 }]}>
-              {isCs ? 'Platnost ceníku 14 dní · Ceny bez DPH' : 'Pricelist validity 14 days · Prices excl. VAT'}
+              {isCs ? 'Platnost ceníku 14 dní · Ceny bez DPH a nezahrnují dopravu' : 'Pricelist validity 14 days · Prices excl. VAT and shipping'}
+            </Text>
+            <Text style={[styles.documentSubLabel, { fontSize: 6, marginTop: 2, color: COLORS.muted, textAlign: 'right', maxWidth: 280 }]}>
+              {isCs 
+                ? 'Uvedené ceny jsou pouze informativní. Vyhrazujeme si právo na změnu cen vlivem změn v dodavatelském řetězci a kurzových výkyvů.' 
+                : 'Indicative prices only. We reserve the right to change prices due to supply chain changes and exchange rate fluctuations.'}
             </Text>
           </View>
         </View>
 
         {/* Hierarchické tabulky podle kategorií a podkategorií */}
-        {groupedCategories.map((cat) => (
-          <View key={cat.id} style={{ marginBottom: 12 }}>
+        {groupedCategories.map((cat, catIdx) => (
+          <View key={cat.id} style={{ marginBottom: 12 }} break={catIdx > 0}>
             {/* Nadpis hlavní kategorie */}
             <View style={styles.categoryHeader}>
               <Text style={styles.categoryTitle}>
@@ -491,15 +683,16 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
                     <Text style={[styles.thText, styles.colSku]}>{isCs ? "Kód produktu" : "Product Code"}</Text>
                     <Text style={[styles.thText, styles.colUnitPrice]}>{isCs ? "Cena / jedn." : "Price / Unit"}</Text>
                     <Text style={[styles.thText, styles.colUnitCount]}>{isCs ? "Počet" : "Qty"}</Text>
-                    <Text style={[styles.thText, styles.colTotalPrice]}>{isCs ? "Cena balení" : "Pack Price"}</Text>
+                    <Text style={[styles.thText, styles.colTotalPrice]}>{isCs ? "Cena celkem" : "Total Price"}</Text>
                     <Text style={[styles.thText, styles.colPackSize]}>{isCs ? "Balení" : "Packaging"}</Text>
                   </View>
 
                   {/* Table Body */}
                   {sub.products.map((p, idx) => {
                     const pricePerUnit = getNumericPrice(p.pricing)
-                    const qtyInPack = p.mnozstvi_v_baleni || 1
-                    const totalPriceVal = pricePerUnit * qtyInPack
+                    // Počet kusů v prodejním balení (role, bal.) – toto je to co klient kupuje jako celek
+                    const packQty = p.mnozstvi_v_baleni && p.mnozstvi_v_baleni > 0 ? p.mnozstvi_v_baleni : 1
+                    const totalPriceVal = pricePerUnit * packQty
                     const rawUnitAbbr = p.c_merne_jednotky_zakladni?.zkratka || ''
                     const rawPackAbbr = p.c_merne_jednotky_baleni?.zkratka || 'bal.'
                     
@@ -508,12 +701,17 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
                     const isAlt = idx % 2 === 1
                     
                     const onRequestText = isCs ? "Na dotaz" : "On request"
-                    const productName = isCs ? p.nazev : (p.nazev_en || p.nazev)
+                    const productName = isCs ? p.nazev : (p.nazev_en || '—')
 
                     return (
                       <View style={[styles.tableRow, isAlt ? styles.tableRowAlt : {}]} key={p.id} wrap={false}>
                         <View style={styles.colName}>
                           <Text style={styles.tdText}>{productName}</Text>
+                          {p.specifikace?.tloustka_um && (
+                            <Text style={[styles.tdText, styles.tdMuted, { fontSize: 6.5, marginTop: 1 }]}>
+                              {isCs ? `Tloušťka: ${p.specifikace.tloustka_um} µm` : `Thickness: ${p.specifikace.tloustka_um} µm`}
+                            </Text>
+                          )}
                         </View>
                         <Text style={[styles.tdText, styles.tdMuted, styles.colSku]}>
                           {formatSkuForPdf(p.sku)}
@@ -522,7 +720,7 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
                           {pricePerUnit > 0 ? `${pricePerUnit.toFixed(2)} ${targetCurrency} / ${unitAbbr}` : onRequestText}
                         </Text>
                         <Text style={[styles.tdText, styles.colUnitCount]}>
-                          {`${qtyInPack} ${unitAbbr}`}
+                          {`${packQty} ${unitAbbr}`}
                         </Text>
                         <Text style={[styles.tdBold, styles.colTotalPrice]}>
                           {pricePerUnit > 0 ? `${totalPriceVal.toFixed(2)} ${targetCurrency}` : onRequestText}
@@ -543,8 +741,8 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
             {isCs 
-              ? "AZ-Composites s.r.o. · Ceny jsou bez DPH a nezahrnují finální dopravu ke klientovi." 
-              : "AZ-Composites s.r.o. · Prices are excl. VAT and do not include final shipping to the client."}
+              ? "AZ Composite · Ceny jsou bez DPH a nezahrnují finální dopravu ke klientovi." 
+              : "AZ Composite · Prices are excl. VAT and do not include final shipping to the client."}
           </Text>
           <Text style={styles.pageNumber} render={({ pageNumber, totalPages }) =>
             isCs ? `Strana ${pageNumber} / ${totalPages}` : `Page ${pageNumber} / ${totalPages}`

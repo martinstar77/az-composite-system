@@ -626,6 +626,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             templates={templates || []}
             units={units || []}
             productUnit={product.c_merne_jednotky_zakladni?.zkratka || 'ks'}
+            mnozstviVBaleni={product.mnozstvi_v_baleni ?? undefined}
+            jednotkaBaleniId={product.jednotka_baleni_id ?? undefined}
           />
         </TabsContent>
 

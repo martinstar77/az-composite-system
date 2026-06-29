@@ -87,9 +87,13 @@ export function calculateProductPricing(
   const qty = orderQuantity && orderQuantity > 0 ? orderQuantity : 1
   const unitsInPack = packSize && packSize > 0 ? packSize : totalUnits
 
+  // Calculate physical packages quantity in shipment
+  const packRatio = (unitsInPack && totalUnits) ? (unitsInPack / totalUnits) : 1
+  const packageQty = qty / (packRatio > 0 ? packRatio : 1)
+
   // 1. Resolve packaging dimensions and billedWeight for the whole shipment
   const packDims = resolvePackageDimensions(
-    weightKg * qty,
+    weightKg * packageQty,
     baliciProfil || null,
     balikOverrides || {},
     boxSizesList
@@ -214,8 +218,8 @@ export function calculateProductPricing(
           break
 
         case 'pallet_alloc':
-          // pallet allocation is per qty, i.e. we scale it with qty (representing allocation)
-          baseCostCzk = (((template.pallet_cena_eur ?? 0) * effectiveEurRate) / (template.pallet_pocet_produktu ?? 1)) * qty
+          // pallet allocation is per packageQty, i.e. we scale it with packageQty
+          baseCostCzk = (((template.pallet_cena_eur ?? 0) * effectiveEurRate) / (template.pallet_pocet_produktu ?? 1)) * packageQty
           break
 
         default:
@@ -231,7 +235,7 @@ export function calculateProductPricing(
       } else if (template.typ_vypoctu_dopravy === 'vaha_kg') {
         totalShippingCostCzk = billedWeight * template.sazba_dopravy * effectiveEurRate
       } else {
-        totalShippingCostCzk = template.sazba_dopravy * effectiveEurRate * qty // Fixed cost per batch
+        totalShippingCostCzk = template.sazba_dopravy * effectiveEurRate * packageQty // Fixed cost per batch/package
       }
     }
   } else {
@@ -288,12 +292,12 @@ export function calculateProductPricing(
 
   // --- CALCULATE PER UNIT (basic unit) ---
   const unitPurchasePriceCzk = (totalPurchasePriceCzk / qty) / totalUnits
-  const unitShippingCostCzk = (totalShippingCostCzk / qty) / unitsInPack
-  const unitCustomsCostCzk = (totalCustomsCostCzk / qty) / unitsInPack
-  const unitBankFeesCzk = (totalBankFeesCzk / qty) / unitsInPack
-  const unitClearingFeesCzk = (totalClearingFeesCzk / qty) / unitsInPack
-  const unitWasteFeesCzk = (totalWasteFeesCzk / qty) / unitsInPack
-  const unitPackagingFeesCzk = (totalPackagingFeesCzk / qty) / unitsInPack
+  const unitShippingCostCzk = (totalShippingCostCzk / packageQty) / unitsInPack
+  const unitCustomsCostCzk = (totalCustomsCostCzk / packageQty) / unitsInPack
+  const unitBankFeesCzk = (totalBankFeesCzk / packageQty) / unitsInPack
+  const unitClearingFeesCzk = (totalClearingFeesCzk / packageQty) / unitsInPack
+  const unitWasteFeesCzk = (totalWasteFeesCzk / packageQty) / unitsInPack
+  const unitPackagingFeesCzk = (totalPackagingFeesCzk / packageQty) / unitsInPack
 
   const unitLandedCostBase = unitPurchasePriceCzk + unitShippingCostCzk + unitCustomsCostCzk + unitBankFeesCzk + unitClearingFeesCzk + unitWasteFeesCzk + unitPackagingFeesCzk
   const unitBufferAmount = unitLandedCostBase * (settings.marze_rezerva_procenta / 100)
@@ -323,7 +327,7 @@ export function calculateProductPricing(
     const purchasePart = purchasingUnitPrice * r * (1 + roklenMargin)
     const purchasePartUnit = purchasePart / totalUnits
     
-    const logisticsPart = (totalShippingCostCzk + totalCustomsCostCzk + totalBankFeesCzk + totalClearingFeesCzk + totalWasteFeesCzk + totalPackagingFeesCzk + totalBufferAmount) / qty
+    const logisticsPart = (totalShippingCostCzk + totalCustomsCostCzk + totalBankFeesCzk + totalClearingFeesCzk + totalWasteFeesCzk + totalPackagingFeesCzk + totalBufferAmount) / packageQty
     const logisticsPartUnit = logisticsPart / unitsInPack
     
     const costUnit = purchasePartUnit + logisticsPartUnit
@@ -336,13 +340,13 @@ export function calculateProductPricing(
     totalUnits,
     
     totalPurchasePriceCzk: totalPurchasePriceCzk / qty,
-    totalShippingCostCzk: totalShippingCostCzk / qty,
-    totalCustomsCostCzk: totalCustomsCostCzk / qty,
-    totalBankFeesCzk: totalBankFeesCzk / qty,
-    totalClearingFeesCzk: totalClearingFeesCzk / qty,
-    totalWasteFeesCzk: totalWasteFeesCzk / qty,
-    totalPackagingFeesCzk: totalPackagingFeesCzk / qty,
-
+    totalShippingCostCzk: totalShippingCostCzk / packageQty,
+    totalCustomsCostCzk: totalCustomsCostCzk / packageQty,
+    totalBankFeesCzk: totalBankFeesCzk / packageQty,
+    totalClearingFeesCzk: totalClearingFeesCzk / packageQty,
+    totalWasteFeesCzk: totalWasteFeesCzk / packageQty,
+    totalPackagingFeesCzk: totalPackagingFeesCzk / packageQty,
+ 
     unitPurchasePriceCzk,
     unitShippingCostCzk,
     unitCustomsCostCzk,
@@ -350,7 +354,7 @@ export function calculateProductPricing(
     unitClearingFeesCzk,
     unitWasteFeesCzk,
     unitPackagingFeesCzk,
-
+ 
     totalLandedCostBase: totalLandedCostBase / qty,
     totalBufferAmount: totalBufferAmount / qty,
     totalLandedCostWithBuffer: totalLandedCostWithBuffer / qty,

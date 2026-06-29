@@ -35,9 +35,20 @@ interface ProductSourcingTabProps {
   templates: LogisticsTemplate[]
   units: any[]
   productUnit?: string
+  mnozstviVBaleni?: number
+  jednotkaBaleniId?: string
 }
 
-export function ProductSourcingTab({ productId, sourcingData, suppliers, templates, units, productUnit = "ks" }: ProductSourcingTabProps) {
+export function ProductSourcingTab({
+  productId,
+  sourcingData,
+  suppliers,
+  templates,
+  units,
+  productUnit = "ks",
+  mnozstviVBaleni,
+  jednotkaBaleniId,
+}: ProductSourcingTabProps) {
   const [sorting, setSorting] = React.useState<SortingState>([{ id: "nakupni_cena", desc: false }])
   const [showHistory, setShowHistory] = React.useState(false)
   
@@ -203,6 +214,8 @@ export function ProductSourcingTab({ productId, sourcingData, suppliers, templat
               units={units}
               initialData={row.original} 
               productUnit={productUnit}
+              mnozstviVBaleni={mnozstviVBaleni}
+              jednotkaBaleniId={jednotkaBaleniId}
             />
             <Button 
               variant="ghost" 
@@ -245,7 +258,15 @@ export function ProductSourcingTab({ productId, sourcingData, suppliers, templat
             </Label>
           </div>
         </div>
-        <AddSourcingDialog productId={productId} suppliers={suppliers} templates={templates} units={units} productUnit={productUnit} />
+        <AddSourcingDialog 
+          productId={productId} 
+          suppliers={suppliers} 
+          templates={templates} 
+          units={units} 
+          productUnit={productUnit} 
+          mnozstviVBaleni={mnozstviVBaleni}
+          jednotkaBaleniId={jednotkaBaleniId}
+        />
       </div>
 
       <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 overflow-hidden shadow-xl">

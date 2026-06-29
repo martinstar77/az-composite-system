@@ -22,6 +22,83 @@ interface PricedProduct extends Product {
   pricing: PricingBreakdown | null
 }
 
+function getProductSubcategory(p: Product): string {
+  const catId = p.kategorie_id
+  if (catId === 'vyztuzne_materialy') {
+    return p.specifikace?.materiál || p.specifikace?.material || 'OF'
+  }
+  if (catId === 'consumables') {
+    return p.specifikace?.podkategorie || 'Ostatní'
+  }
+  if (catId === 'naradi') {
+    return p.specifikace?.podkategorie || 'Ostatní'
+  }
+  if (catId === 'brouseni_a_lesteni') {
+    return p.specifikace?.podkategorie || 'ostatni'
+  }
+  if (catId === 'chemie') {
+    return p.specifikace?.podkategorie || 'ostatni'
+  }
+  if (catId === 'spotrebni_chemie') {
+    return p.specifikace?.podkategorie || 'standard'
+  }
+  return '_default'
+}
+
+const SUBCATEGORY_NAMES_CS: Record<string, string> = {
+  // vyztuzne_materialy
+  CF: "Uhlíková vlákna (Carbon)",
+  GF: "Skleněná vlákna (Glass)",
+  AF: "Aramidová vlákna (Aramid)",
+  BIOF: "Lněná vlákna (Bio Flax)",
+  BIOH: "Konopná vlákna (Bio Hemp)",
+  PAN: "Polyakrylonitrilová vlákna (PAN)",
+  PET: "Polyesterová vlákna (PET)",
+  HF: "Hybridní materiály",
+  OF: "Ostatní výztuže",
+  
+  // consumables
+  BF: "Vakuové fólie (Bagging Film)",
+  RF: "Separační fólie (Release Film)",
+  PP: "Strhávací tkaniny (Peel Ply)",
+  "PP-PTFE": "Teflonové strhávací tkaniny (PTFE Peel Ply)",
+  BC: "Odsávací netkané textilie (Breather / Bleeder)",
+  ST: "Těsnicí pásky (Sealant Tape)",
+  FT: "Lepicí pásky (Flash Tape)",
+  FM: "Distribuční síťky (Flow Mesh)",
+  FCH: "Distribuční kanálky (Flow Channel)",
+  K: "Vakuové konektory a příslušenství",
+  TUBE: "Hadice (Hoses)",
+  MTI: "MTI systémy (MTI Systems)",
+  KP: "Průchodné konektory (Through Connectors)",
+  Ostatní: "Ostatní spotřební materiál",
+  
+  // naradi
+  BU: "Vakuové průchodky (Hose Connectors)",
+  QR: "Rychlospojky (Quick Releases)",
+  SQ: "Škrtící svorky (Hose Clamps)",
+  V: "Vakuometry (Vacuum Gauges)",
+  CU: "Mycí stanice RST5",
+  SU: "Spinner units Spin RST5",
+  
+  // brouseni_a_lesteni
+  vosk: "Vosky a ochrana",
+  pasty: "Brusné a lešticí pasty",
+  brusne_kotouce: "Brusné a lešticí kotouče",
+  prislusenstvi: "Příslušenství",
+  ostatni: "Ostatní broušení a leštění",
+  
+  // chemie
+  lepidlo_ve_spreji: "Lepidla ve spreji",
+  blinder: "Bindery",
+  plnic_poru_sealer: "Plniče pórů (Sealer)",
+  separatory_release_agent: "Separátory (Release Agent)",
+  
+  // spotrebni_chemie
+  pmp: "PMP tekuté čističe",
+  standard: "Čisticí prostředky"
+}
+
 interface CatalogDashboardProps {
   products: Product[]
   rates: ExchangeRate[]
@@ -38,6 +115,10 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [sortField, setSortField] = useState<"nazev" | "sku" | "kategorie" | "landed_cost" | null>("nazev")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
+  
+  // Multi-selection states
+  const [selectedCats, setSelectedCats] = useState<string[]>([])
+  const [selectedSubs, setSelectedSubs] = useState<string[]>([])
   
   const [isGeneratingExcel, setIsGeneratingExcel] = useState(false)
   const [isRegenerating, setIsRegenerating] = useState(false)
@@ -113,7 +194,35 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
     return list.sort((a, b) => a.name.localeCompare(b.name, 'cs'));
   }, [products]);
 
-  // Filtrace a řazení pro tabulku a exporty
+  // Hierarchy of categories and subcategories
+  const categoriesTree = useMemo(() => {
+    const tree: Record<string, { name: string; subs: Set<string> }> = {}
+    
+    products.forEach(p => {
+      if (!p.kategorie_id) return
+      if (['prepregy', 'cores_standard', 'cores_active'].includes(p.kategorie_id)) return
+      
+      if (!tree[p.kategorie_id]) {
+        tree[p.kategorie_id] = {
+          name: p.c_kategorie?.nazev || p.kategorie_id,
+          subs: new Set<string>()
+        }
+      }
+      
+      const sub = getProductSubcategory(p)
+      if (sub && sub !== '_default') {
+        tree[p.kategorie_id].subs.add(sub)
+      }
+    })
+    
+    return Object.entries(tree).map(([id, data]) => ({
+      id,
+      name: data.name,
+      subs: Array.from(data.subs).sort()
+    })).sort((a, b) => a.name.localeCompare(b.name, 'cs'))
+  }, [products])
+
+  // Filtrace a řazení pro tabulku Matrix (využívá jednoduchý categoryFilter)
   const filteredProducts = useMemo(() => {
     let result = pricedProducts.filter(p => {
       const matchesSearch = 
@@ -160,6 +269,31 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
     return result;
   }, [pricedProducts, searchTerm, categoryFilter, statusFilter, sortField, sortDirection])
 
+  // Filtrace pro exporty (využívá komplexní strom check-boxů)
+  const exportFilteredProducts = useMemo(() => {
+    return pricedProducts.filter(p => {
+      const matchesSearch = 
+        p.nazev.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        p.sku.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === "all" || p.stav_katalogu_id === statusFilter;
+      
+      const matchesCategory = selectedCats.length === 0 || selectedCats.includes(p.kategorie_id);
+      
+      let matchesSubcategory = true;
+      if (p.kategorie_id && selectedCats.includes(p.kategorie_id)) {
+        const prodSub = getProductSubcategory(p)
+        const subKey = `${p.kategorie_id}/${prodSub}`
+        const hasSubsSelectedForCat = selectedSubs.some(s => s.startsWith(`${p.kategorie_id}/`))
+        if (hasSubsSelectedForCat) {
+          matchesSubcategory = selectedSubs.includes(subKey)
+        }
+      }
+      
+      return matchesSearch && matchesStatus && matchesCategory && matchesSubcategory;
+    });
+  }, [pricedProducts, searchTerm, selectedCats, selectedSubs, statusFilter])
+
   const handleSort = (field: "nazev" | "sku" | "kategorie" | "landed_cost") => {
     if (sortField === field) {
       setSortDirection(prev => prev === "asc" ? "desc" : "asc");
@@ -184,7 +318,7 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
     setIsGeneratingExcel(true);
     try {
       const exchangeRate = getTargetExchangeRate();
-      exportCatalogToExcel(filteredProducts, exportTier, exportCurrency, exchangeRate, exportLang);
+      exportCatalogToExcel(exportFilteredProducts, exportTier, exportCurrency, exchangeRate, exportLang);
       toast.success("Excel ceník byl úspěšně vygenerován.");
     } catch (e: any) {
       toast.error("Chyba při generování Excelu", { description: e.message });
@@ -195,7 +329,9 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
 
   const handleGeneratePDF = () => {
     try {
-      const url = `/api/katalogy/pdf?tier=${exportTier}&currency=${exportCurrency}&category=${categoryFilter}&status=${statusFilter}&lang=${exportLang}&search=${encodeURIComponent(searchTerm)}`
+      const catsParam = selectedCats.join(',')
+      const subsParam = selectedSubs.join(',')
+      const url = `/api/katalogy/pdf?tier=${exportTier}&currency=${exportCurrency}&categories=${encodeURIComponent(catsParam)}&subcategories=${encodeURIComponent(subsParam)}&status=${statusFilter}&lang=${exportLang}&search=${encodeURIComponent(searchTerm)}`
       window.open(url, '_blank')
       toast.success("PDF katalog se otevírá v nové záložce.")
     } catch (e: any) {
@@ -497,20 +633,114 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
               </Select>
               <p className="text-[10px] text-zinc-500 italic">Vypočtená cena bude přepočtena aktuálním kurzem do vybrané měny.</p>
             </div>
-
             <div className="space-y-2 col-span-2">
-              <Label>Filtr Kategorie (Volitelné)</Label>
-              <Select value={categoryFilter} onValueChange={(val) => setCategoryFilter(val || "all")}>
-                <SelectTrigger className="bg-zinc-900 border-zinc-800">
-                  <SelectValue placeholder="Všechny kategorie" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Celé portfolio (Všechny kategorie)</SelectItem>
-                  {availableCategories.map(c => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-zinc-200 text-sm font-semibold">Výběr kategorií a podkategorií pro export</Label>
+              <div className="border border-zinc-800 rounded-lg bg-zinc-900/50 p-4 space-y-4">
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                  <span className="text-[11px] text-zinc-400 font-mono">
+                    {selectedCats.length === 0 
+                      ? "Vybráno celé portfolio (všechny kategorie)" 
+                      : `Vybráno ${selectedCats.length} kategorií, ${selectedSubs.length} podkategorií (${exportFilteredProducts.length} produktů)`}
+                  </span>
+                  <Button 
+                    variant="ghost" 
+                    onClick={() => { setSelectedCats([]); setSelectedSubs([]) }}
+                    className="text-[10px] text-zinc-500 hover:text-zinc-355 h-6 px-2 hover:bg-zinc-800"
+                  >
+                    Reset (Celé portfolio)
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[220px] overflow-y-auto pr-2">
+                  {categoriesTree.map(cat => {
+                    const isCatSelected = selectedCats.includes(cat.id)
+                    const catSubs = cat.subs
+                    
+                    const handleCatChange = (checked: boolean) => {
+                      if (checked) {
+                        setSelectedCats(prev => [...prev, cat.id])
+                      } else {
+                        setSelectedCats(prev => prev.filter(c => c !== cat.id))
+                        // Remove all subs for this category
+                        setSelectedSubs(prev => prev.filter(s => !s.startsWith(`${cat.id}/`)))
+                      }
+                    }
+
+                    return (
+                      <div key={cat.id} className="space-y-2 p-2.5 rounded bg-zinc-950/60 border border-zinc-850">
+                        <div className="flex items-center space-x-2">
+                          <input 
+                            type="checkbox" 
+                            id={`cat-${cat.id}`}
+                            checked={isCatSelected}
+                            onChange={(e) => handleCatChange(e.target.checked)}
+                            className="rounded border-zinc-700 bg-zinc-900 text-primary focus:ring-primary h-4 w-4 accent-purple-600"
+                          />
+                          <Label htmlFor={`cat-${cat.id}`} className="text-xs font-bold text-zinc-200 cursor-pointer select-none">
+                            {cat.name}
+                          </Label>
+                        </div>
+
+                        {catSubs.length > 0 && isCatSelected && (
+                          <div className="pl-6 space-y-1.5 border-l border-zinc-800 ml-2 pt-1">
+                            <div className="flex items-center gap-2 pb-1 mb-1 border-b border-zinc-900/40">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedSubs(prev => [
+                                    ...prev.filter(s => !s.startsWith(`${cat.id}/`)),
+                                    ...catSubs.map(s => `${cat.id}/${s}`)
+                                  ])
+                                }}
+                                className="text-[9px] text-zinc-500 hover:text-zinc-300 font-medium cursor-pointer"
+                              >
+                                Vybrat vše
+                              </button>
+                              <span className="text-[9px] text-zinc-700">|</span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedSubs(prev => prev.filter(s => !s.startsWith(`${cat.id}/`)))
+                                }}
+                                className="text-[9px] text-zinc-500 hover:text-zinc-300 font-medium cursor-pointer"
+                              >
+                                Odebrat vše
+                              </button>
+                            </div>
+                            {catSubs.map(sub => {
+                              const subKey = `${cat.id}/${sub}`
+                              const isSubSelected = selectedSubs.includes(subKey)
+                              
+                              const handleSubChange = (checked: boolean) => {
+                                if (checked) {
+                                  setSelectedSubs(prev => [...prev, subKey])
+                                } else {
+                                  setSelectedSubs(prev => prev.filter(s => s !== subKey))
+                                }
+                              }
+
+                              return (
+                                <div key={sub} className="flex items-center space-x-2">
+                                  <input 
+                                    type="checkbox" 
+                                    id={`sub-${cat.id}-${sub}`}
+                                    checked={isSubSelected}
+                                    onChange={(e) => handleSubChange(e.target.checked)}
+                                    className="rounded border-zinc-750 bg-zinc-900 text-primary focus:ring-primary h-3.5 w-3.5 accent-purple-600"
+                                  />
+                                  <label htmlFor={`sub-${cat.id}-${sub}`} className="text-[11px] text-zinc-400 hover:text-zinc-250 cursor-pointer select-none">
+                                    {SUBCATEGORY_NAMES_CS[sub] || sub}
+                                  </label>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2 col-span-2">
@@ -530,7 +760,7 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
           <div className="pt-6 border-t border-zinc-800 flex gap-4">
              <Button 
                 onClick={handleGeneratePDF}
-                disabled={filteredProducts.length === 0}
+                disabled={exportFilteredProducts.length === 0}
                 className="flex-1 gap-2 bg-red-600 hover:bg-red-700 text-white"
              >
                 <FileText className="h-4 w-4" /> 
@@ -538,7 +768,7 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
              </Button>
              <Button 
                 onClick={handleDownloadExcel}
-                disabled={isGeneratingExcel || filteredProducts.length === 0}
+                disabled={isGeneratingExcel || exportFilteredProducts.length === 0}
                 className="flex-1 gap-2 bg-green-600 hover:bg-green-700 text-white"
              >
                 <Download className="h-4 w-4" /> 
@@ -546,7 +776,7 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
              </Button>
           </div>
           <p className="text-center text-[10px] text-zinc-500">
-            Export obsahuje pouze viditelná (vyfiltrovaná) data z tabulky. Vyfiltrujte kategorii výše pro specifický ceník.
+            Export obsahuje pouze položky vybrané ve stromovém filtru výše.
           </p>
           
           <div className="pt-6 border-t border-zinc-900 flex justify-end">

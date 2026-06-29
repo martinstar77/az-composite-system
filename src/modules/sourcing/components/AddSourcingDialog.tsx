@@ -36,9 +36,20 @@ interface AddSourcingDialogProps {
   units: any[]
   initialData?: any
   productUnit?: string
+  mnozstviVBaleni?: number
+  jednotkaBaleniId?: string
 }
 
-export function AddSourcingDialog({ productId, suppliers, templates, units, initialData, productUnit = "ks" }: AddSourcingDialogProps) {
+export function AddSourcingDialog({
+  productId,
+  suppliers,
+  templates,
+  units,
+  initialData,
+  productUnit = "ks",
+  mnozstviVBaleni,
+  jednotkaBaleniId,
+}: AddSourcingDialogProps) {
   const [open, setOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   
@@ -77,8 +88,8 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
     } else if (open && !initialData) {
       setSupplierId("")
       setLogisticsTemplateId("")
-      setNakupniMjId("")
-      setPrevodniPomer("1")
+      setNakupniMjId(jednotkaBaleniId || "")
+      setPrevodniPomer(mnozstviVBaleni?.toString() || "1")
       setPrice("")
       setCurrency("EUR")
       setMoq("1")
@@ -87,7 +98,7 @@ export function AddSourcingDialog({ productId, suppliers, templates, units, init
       setPriceInputMode("package")
       setUnitPrice("")
     }
-  }, [open, initialData])
+  }, [open, initialData, mnozstviVBaleni, jednotkaBaleniId])
 
   const handleToggleMode = (mode: "package" | "unit") => {
     setPriceInputMode(mode)

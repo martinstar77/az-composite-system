@@ -602,6 +602,22 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         const isCuringType = chemType === 'HRD'
         const thirdSegment = isCuringType ? (cleanCuring || "NA") : chemTech
 
+        const densities: Record<string, number> = { EP: 1.15, VE: 1.12, PE: 1.13 }
+        let density = 1.15
+        if (chemType === 'HRD') {
+          density = 0.95
+        } else if (chemType === 'GEL') {
+          density = 1.20
+        } else {
+          density = densities[chemBase] || 1.15
+        }
+        const volL = parseFloat(chemObjemNakup) || 0
+        const calculatedWeight = volL * density
+
+        setValue("zakladni_mj_id", "kg", { shouldValidate: true })
+        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        setValue("mnozstvi_v_baleni", parseFloat(calculatedWeight.toFixed(2)), { shouldValidate: true })
+
         generatedSku = `${chemType}-${chemBase}-${thirdSegment}-${chemUse}`
         generatedSpecs = {
           typ: chemType,
@@ -613,15 +629,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         break;
       }
       case 'lepidla': {
-        if (!dirtyFields.zakladni_mj_id && !initialData) {
-          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-        }
-        if (!dirtyFields.jednotka_baleni_id && !initialData) {
-          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-        }
-        if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
-          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
-        }
+        setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+        setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
         
         const colorMap: Record<string, string> = {
           black: "BLK",
@@ -643,12 +653,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         break;
       }
       case 'spotrebni_chemie': {
-        if (!dirtyFields.jednotka_baleni_id && !initialData) {
-          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-        }
-        if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
-          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
-        }
+        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
 
         if (clnSub === 'standard') {
           const cleanQty = clnQty.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
@@ -668,8 +673,11 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
           if (clnType === 'CON') {
             setValue("zakladni_mj_id", "l", { shouldValidate: true })
+            const parsedVol = parseFloat(clnQty.replace(/[^0-9.]/g, '')) || 1
+            setValue("mnozstvi_v_baleni", parsedVol, { shouldValidate: true })
           } else {
             setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+            setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
           }
         } else if (clnSub === 'pmp') {
           const cleanQty = clnPmpQty.trim().toUpperCase().replace(/[^0-9]/g, '')
@@ -680,24 +688,23 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             mnozstvi: `${cleanQty} ml`
           }
           setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
         }
         break;
       }
       case 'chemie': {
         const normalizedVol = chemVol.trim().replace(',', '.')
         const cleanVol = normalizedVol.replace(/[^0-9]/g, '')
-        if (!dirtyFields.zakladni_mj_id && !initialData) {
-          if (chemSub === 'lepidlo_ve_spreji' || chemSub === 'blinder') {
-            setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-          } else {
-            setValue("zakladni_mj_id", "l", { shouldValidate: true })
-          }
-        }
-        if (!dirtyFields.jednotka_baleni_id && !initialData) {
-          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-        }
-        if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
+        const volL = parseFloat(normalizedVol) || 1
+
+        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+
+        if (chemSub === 'lepidlo_ve_spreji' || chemSub === 'blinder') {
+          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
           setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+        } else {
+          setValue("zakladni_mj_id", "l", { shouldValidate: true })
+          setValue("mnozstvi_v_baleni", volL, { shouldValidate: true })
         }
 
         if (chemSub === 'lepidlo_ve_spreji') {
@@ -753,17 +760,13 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         }
         break;
       case 'brouseni_a_lesteni': {
-        if (!dirtyFields.zakladni_mj_id && !initialData) {
-          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
-        }
-        if (!dirtyFields.jednotka_baleni_id && !initialData) {
-          setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
-        }
-        if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
-          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
-        }
+        setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
 
         if (polSub === 'vosk') {
+          setValue("zakladni_mj_id", "kg", { shouldValidate: true })
+          const parsedQty = parseFloat(polWaxQty.replace(',', '.').replace(/[^0-9.]/g, '')) || 1
+          setValue("mnozstvi_v_baleni", parsedQty, { shouldValidate: true })
+
           const waxNameCodeMap: Record<string, string> = {
             uv_shield: 'UV',
             flash_touch: 'FT'
@@ -786,6 +789,10 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             mnozstvi: `${normalizedQty} kg`
           }
         } else if (polSub === 'pasty') {
+          setValue("zakladni_mj_id", "kg", { shouldValidate: true })
+          const parsedWeight = parseFloat(polPasteWeight.replace(',', '.').replace(/[^0-9.]/g, '')) || 1
+          setValue("mnozstvi_v_baleni", parsedWeight, { shouldValidate: true })
+
           const typeCodeMap: Record<string, string> = {
             rex: 'REX',
             perla15: 'PER15',
@@ -808,46 +815,51 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             obal: polPasteCont,
             hmotnost: `${normalizedWeight} kg`
           }
-        } else if (polSub === 'brusne_kotouce') {
-          const typeCodeMap: Record<string, string> = {
-            vlneny: 'WOOL',
-            pena: 'FOAM'
-          }
-          const codeMap: Record<string, string> = {
-            ST1Y: 'ST1Y',
-            SL3: 'SL3',
-            DA03: 'DA03',
-            UNI: 'UNI'
-          }
-          const typeCode = typeCodeMap[polDiscType] || 'WOOL'
-          const code = codeMap[polDiscCode] || 'ST1Y'
-          const cleanDia = polDiscDia.trim().toUpperCase().replace(/[^0-9]/g, '')
+        } else {
+          setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+          setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
 
-          generatedSku = `PAD-${typeCode}-${code}-D${cleanDia}`
-          generatedSpecs = {
-            podkategorie: 'brusne_kotouce',
-            typ_kotouce: polDiscType,
-            kod_kotouce: polDiscCode,
-            prumer: cleanDia
-          }
-        } else if (polSub === 'prislusenstvi') {
-          const typeCodeMap: Record<string, string> = {
-            backplate: 'BKP'
-          }
-          const propCodeMap: Record<string, string> = {
-            rigid: 'RIG',
-            flexible: 'FLX'
-          }
-          const typeCode = typeCodeMap[polAccType] || 'BKP'
-          const propCode = propCodeMap[polAccProp] || 'RIG'
-          const cleanDia = polAccDia.trim().toUpperCase().replace(/[^0-9]/g, '')
+          if (polSub === 'brusne_kotouce') {
+            const typeCodeMap: Record<string, string> = {
+              vlneny: 'WOOL',
+              pena: 'FOAM'
+            }
+            const codeMap: Record<string, string> = {
+              ST1Y: 'ST1Y',
+              SL3: 'SL3',
+              DA03: 'DA03',
+              UNI: 'UNI'
+            }
+            const typeCode = typeCodeMap[polDiscType] || 'WOOL'
+            const code = codeMap[polDiscCode] || 'ST1Y'
+            const cleanDia = polDiscDia.trim().toUpperCase().replace(/[^0-9]/g, '')
 
-          generatedSku = `ACC-${typeCode}-${propCode}-D${cleanDia}`
-          generatedSpecs = {
-            podkategorie: 'prislusenstvi',
-            typ_prislusenstvi: polAccType,
-            vlastnost: polAccProp,
-            prumer: cleanDia
+            generatedSku = `PAD-${typeCode}-${code}-D${cleanDia}`
+            generatedSpecs = {
+              podkategorie: 'brusne_kotouce',
+              typ_kotouce: polDiscType,
+              kod_kotouce: polDiscCode,
+              prumer: cleanDia
+            }
+          } else if (polSub === 'prislusenstvi') {
+            const typeCodeMap: Record<string, string> = {
+              backplate: 'BKP'
+            }
+            const propCodeMap: Record<string, string> = {
+              rigid: 'RIG',
+              flexible: 'FLX'
+            }
+            const typeCode = typeCodeMap[polAccType] || 'BKP'
+            const propCode = propCodeMap[polAccProp] || 'RIG'
+            const cleanDia = polAccDia.trim().toUpperCase().replace(/[^0-9]/g, '')
+
+            generatedSku = `ACC-${typeCode}-${propCode}-D${cleanDia}`
+            generatedSpecs = {
+              podkategorie: 'prislusenstvi',
+              typ_prislusenstvi: polAccType,
+              vlastnost: polAccProp,
+              prumer: cleanDia
+            }
           }
         }
         break;
@@ -2768,8 +2780,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             id="mnozstvi_v_baleni" 
             type="number" 
             step="0.01" 
-            readOnly={kategorieId === "vyztuzne_materialy" || kategorieId === "consumables"}
-            className={kategorieId === "vyztuzne_materialy" || kategorieId === "consumables" ? "bg-muted text-muted-foreground border-zinc-850" : ""}
+            readOnly={["vyztuzne_materialy", "consumables", "pryskyrice", "lepidla", "spotrebni_chemie", "chemie", "brouseni_a_lesteni"].includes(kategorieId)}
+            className={["vyztuzne_materialy", "consumables", "pryskyrice", "lepidla", "spotrebni_chemie", "chemie", "brouseni_a_lesteni"].includes(kategorieId) ? "bg-muted text-muted-foreground border-zinc-850" : ""}
             {...register("mnozstvi_v_baleni")} 
           />
         </div>
@@ -2778,9 +2790,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           <Select 
             onValueChange={(val: string | null) => setValue("jednotka_baleni_id", val || "")} 
             value={jednotkaBaleniId || ""}
-            disabled={kategorieId === "vyztuzne_materialy" || kategorieId === "consumables"}
+            disabled={["vyztuzne_materialy", "consumables", "pryskyrice", "lepidla", "spotrebni_chemie", "chemie", "brouseni_a_lesteni"].includes(kategorieId)}
           >
-            <SelectTrigger className={`w-full ${kategorieId === "vyztuzne_materialy" || kategorieId === "consumables" ? "bg-muted text-muted-foreground opacity-90 cursor-not-allowed" : ""}`}>
+            <SelectTrigger className={`w-full ${["vyztuzne_materialy", "consumables", "pryskyrice", "lepidla", "spotrebni_chemie", "chemie", "brouseni_a_lesteni"].includes(kategorieId) ? "bg-muted text-muted-foreground opacity-90 cursor-not-allowed" : ""}`}>
               <SelectValue placeholder="Vyberte jednotku">
                 {lookups.units.find(u => u.id === jednotkaBaleniId)?.zkratka}
               </SelectValue>
