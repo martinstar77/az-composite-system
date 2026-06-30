@@ -503,54 +503,71 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
 
           const isBasic = unitMode === "basic"
 
+          const getPackMultiplier = (p: any, pr: any) => {
+            const primarySourcing = p.produkt_dodavatel?.find((s: any) => s.is_primary) || p.produkt_dodavatel?.[0]
+            const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === p.zakladni_mj_id &&
+              (!primarySourcing?.prevodni_pomer_na_zakladni || primarySourcing.prevodni_pomer_na_zakladni === 1)
+            const totalUnits = primarySourcing
+              ? ((primarySourcing.prevodni_pomer_na_zakladni && primarySourcing.prevodni_pomer_na_zakladni !== 1)
+                  ? primarySourcing.prevodni_pomer_na_zakladni
+                  : (isBuyingInBasicUnit ? 1 : (p.mnozstvi_v_baleni || 1)))
+              : 1
+            const continuousUnits = ['liter', 'l', 'kg', 'm2', 'm', 'bm', 'g']
+            const isContinuous = p.zakladni_mj_id ? continuousUnits.some(u => p.zakladni_mj_id.toLowerCase().includes(u)) : false
+            return isContinuous ? totalUnits : (p.mnozstvi_v_baleni || 1)
+          }
+
+          const multA = isBasic ? 1 : getPackMultiplier(a, prA)
+          const multB = isBasic ? 1 : getPackMultiplier(b, prB)
+
           switch (sortField) {
             case "purchase_price":
-              valA = isBasic ? prA.unitPurchasePriceCzk : prA.totalPurchasePriceCzk
-              valB = isBasic ? prB.unitPurchasePriceCzk : prB.totalPurchasePriceCzk
+              valA = prA.unitPurchasePriceCzk * multA
+              valB = prB.unitPurchasePriceCzk * multB
               break
             case "shipping":
-              valA = isBasic ? prA.unitShippingCostCzk : prA.totalShippingCostCzk
-              valB = isBasic ? prB.unitShippingCostCzk : prB.totalShippingCostCzk
+              valA = prA.unitShippingCostCzk * multA
+              valB = prB.unitShippingCostCzk * multB
               break
             case "customs":
-              valA = isBasic ? prA.unitCustomsCostCzk : prA.totalCustomsCostCzk
-              valB = isBasic ? prB.unitCustomsCostCzk : prB.totalCustomsCostCzk
+              valA = prA.unitCustomsCostCzk * multA
+              valB = prB.unitCustomsCostCzk * multB
               break
             case "bank_fees":
-              valA = isBasic ? prA.unitBankFeesCzk : prA.totalBankFeesCzk
-              valB = isBasic ? prB.unitBankFeesCzk : prB.totalBankFeesCzk
+              valA = prA.unitBankFeesCzk * multA
+              valB = prB.unitBankFeesCzk * multB
               break
             case "clearing":
-              valA = isBasic ? prA.unitClearingFeesCzk : prA.totalClearingFeesCzk
-              valB = isBasic ? prB.unitClearingFeesCzk : prB.totalClearingFeesCzk
+              valA = prA.unitClearingFeesCzk * multA
+              valB = prB.unitClearingFeesCzk * multB
               break
             case "waste":
-              valA = isBasic ? prA.unitWasteFeesCzk : prA.totalWasteFeesCzk
-              valB = isBasic ? prB.unitWasteFeesCzk : prB.totalWasteFeesCzk
+              valA = prA.unitWasteFeesCzk * multA
+              valB = prB.unitWasteFeesCzk * multB
               break
             case "packaging":
-              valA = isBasic ? prA.unitPackagingFeesCzk : prA.totalPackagingFeesCzk
-              valB = isBasic ? prB.unitPackagingFeesCzk : prB.totalPackagingFeesCzk
+              valA = prA.unitPackagingFeesCzk * multA
+              valB = prB.unitPackagingFeesCzk * multB
               break
             case "shipping_safety":
-              valA = prA.shippingSafetyBufferCzk ? (isBasic ? prA.shippingSafetyBufferCzk / prA.totalUnits : prA.shippingSafetyBufferCzk) : 0
-              valB = prB.shippingSafetyBufferCzk ? (isBasic ? prB.shippingSafetyBufferCzk / prB.totalUnits : prB.shippingSafetyBufferCzk) : 0
+              valA = (prA.shippingSafetyBufferCzk ? (prA.shippingSafetyBufferCzk / prA.totalUnits) : 0) * multA
+              valB = (prB.shippingSafetyBufferCzk ? (prB.shippingSafetyBufferCzk / prB.totalUnits) : 0) * multB
               break
             case "buffer":
-              valA = isBasic ? prA.unitBufferAmount : prA.totalBufferAmount
-              valB = isBasic ? prB.unitBufferAmount : prB.totalBufferAmount
+              valA = prA.unitBufferAmount * multA
+              valB = prB.unitBufferAmount * multB
               break
             case "landed_cost":
-              valA = isBasic ? prA.unitLandedCostWithBuffer : prA.totalLandedCostWithBuffer
-              valB = isBasic ? prB.unitLandedCostWithBuffer : prB.totalLandedCostWithBuffer
+              valA = prA.unitLandedCostWithBuffer * multA
+              valB = prB.unitLandedCostWithBuffer * multB
               break
             case "b2c":
-              valA = isBasic ? prA.b2cUnitPrice : prA.b2cUnitPrice * prA.totalUnits
-              valB = isBasic ? prB.b2cUnitPrice : prB.b2cUnitPrice * prB.totalUnits
+              valA = prA.b2cUnitPrice * multA
+              valB = prB.b2cUnitPrice * multB
               break
             case "b2b":
-              valA = isBasic ? prA.b2bUnitPrice : prA.b2bUnitPrice * prA.totalUnits
-              valB = isBasic ? prB.b2bUnitPrice : prB.b2bUnitPrice * prB.totalUnits
+              valA = prA.b2bUnitPrice * multA
+              valB = prB.b2bUnitPrice * multB
               break
             case "risk_margin":
               valA = prA.lowMargin || 0
@@ -922,6 +939,30 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
 
                 const isBasic = unitMode === "basic"
                 const sourcingUnitZkratka = p.kategorie_id === 'vyztuzne_materialy' ? 'rol.' : 'bal.'
+                const continuousUnits = ['liter', 'l', 'kg', 'm2', 'm', 'bm', 'g']
+                const isContinuous = p.zakladni_mj_id ? continuousUnits.some(u => p.zakladni_mj_id.toLowerCase().includes(u)) : false
+                const packMultiplier = isContinuous ? totalUnits : (p.mnozstvi_v_baleni || 1)
+                const mult = isBasic ? 1 : packMultiplier
+
+                const purchasePriceDisp = pr ? (pr.unitPurchasePriceCzk * mult) : 0
+                const shippingDisp = pr ? (pr.unitShippingCostCzk * mult) : 0
+                const customsDisp = pr ? (pr.unitCustomsCostCzk * mult) : 0
+                const bankFeesDisp = pr ? (pr.unitBankFeesCzk * mult) : 0
+                const clearingDisp = pr ? (pr.unitClearingFeesCzk * mult) : 0
+                const wasteDisp = pr ? (pr.unitWasteFeesCzk * mult) : 0
+                const packagingDisp = pr ? (pr.unitPackagingFeesCzk * mult) : 0
+                const safetyBufferDisp = pr ? ((pr.shippingSafetyBufferCzk ? (pr.shippingSafetyBufferCzk / pr.totalUnits) : 0) * mult) : 0
+                const bufferDisp = pr ? (pr.unitBufferAmount * mult) : 0
+                const landedCostDisp = pr ? (pr.unitLandedCostWithBuffer * mult) : 0
+                const b2cPriceDisp = pr ? (pr.b2cUnitPrice * mult) : 0
+                const b2bPriceDisp = pr ? (pr.b2bUnitPrice * mult) : 0
+                const b2bDiscountedDisp = pr ? {
+                  5: pr.b2bDiscountedPrices[5] * mult,
+                  10: pr.b2bDiscountedPrices[10] * mult,
+                  15: pr.b2bDiscountedPrices[15] * mult,
+                  20: pr.b2bDiscountedPrices[20] * mult
+                } : { 5: 0, 10: 0, 15: 0, 20: 0 }
+                const foreignPriceDisp = primarySourcing ? ((primarySourcing.nakupni_cena / totalUnits) * mult) : 0
 
                 return (
                   <TableRow key={p.id} className="hover:bg-zinc-900/50 border-zinc-800">
@@ -936,9 +977,9 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
                             Jednotka: 1 {p.c_merne_jednotky_zakladni?.zkratka || 'ks'}
                           </span>
                         ) : (
-                          totalUnits > 1 ? (
+                          packMultiplier > 1 ? (
                             <span className="text-[10px] text-zinc-400 font-medium mt-0.5">
-                              Balení: 1 {sourcingUnitZkratka} = {totalUnits} {p.c_merne_jednotky_zakladni?.zkratka || 'ks'}
+                              Balení: 1 {sourcingUnitZkratka} = {packMultiplier} {p.c_merne_jednotky_zakladni?.zkratka || 'ks'}
                             </span>
                           ) : (
                             <span className="text-[10px] text-zinc-500 italic mt-0.5">
@@ -946,6 +987,7 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
                             </span>
                           )
                         )}
+
 
                         {p.produkt_mnozstevni_slevy && p.produkt_mnozstevni_slevy.length > 0 && (
                           <Badge variant="outline" className="border-primary/50 text-primary bg-primary/5 text-[9px] py-0 px-1 mt-1.5 w-fit">
@@ -976,13 +1018,10 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
                             {hasPricing && primarySourcing ? (
                               <div className="flex flex-col items-end">
                                 <span className="font-mono text-xs font-bold text-zinc-200">
-                                  {formatCurrency(isBasic ? pr.unitPurchasePriceCzk : pr.totalPurchasePriceCzk)}
+                                  {formatCurrency(purchasePriceDisp)}
                                 </span>
                                 <span className="text-[9px] text-zinc-500 font-mono">
-                                  {isBasic 
-                                    ? `${(primarySourcing.nakupni_cena / totalUnits).toFixed(2)} ${primarySourcing.mena}`
-                                    : `${primarySourcing.nakupni_cena.toFixed(2)} ${primarySourcing.mena}`
-                                  }
+                                  {`${foreignPriceDisp.toFixed(2)} ${primarySourcing.mena}`}
                                 </span>
                               </div>
                             ) : (
@@ -993,51 +1032,49 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
 
                         {visibleColumns.shipping && (
                           <TableCell className="text-right font-mono text-xs text-zinc-300 py-1.5 px-2 bg-cyan-500/5">
-                            {hasPricing ? formatCurrency(isBasic ? pr.unitShippingCostCzk : pr.totalShippingCostCzk) : "—"}
+                            {hasPricing ? formatCurrency(shippingDisp) : "—"}
                           </TableCell>
                         )}
 
                         {visibleColumns.customs && (
                           <TableCell className="text-right font-mono text-xs text-zinc-300 py-1.5 px-2 bg-cyan-500/5">
-                            {hasPricing ? formatCurrency(isBasic ? pr.unitCustomsCostCzk : pr.totalCustomsCostCzk) : "—"}
+                            {hasPricing ? formatCurrency(customsDisp) : "—"}
                           </TableCell>
                         )}
 
                         {visibleColumns.bank_fees && (
                           <TableCell className="text-right font-mono text-xs text-zinc-300 py-1.5 px-2 bg-cyan-500/5">
-                            {hasPricing ? formatCurrency(isBasic ? pr.unitBankFeesCzk : pr.totalBankFeesCzk) : "—"}
+                            {hasPricing ? formatCurrency(bankFeesDisp) : "—"}
                           </TableCell>
                         )}
 
                         {visibleColumns.clearing && (
                           <TableCell className="text-right font-mono text-xs text-zinc-300 py-1.5 px-2 bg-cyan-500/5">
-                            {hasPricing ? formatCurrency(isBasic ? pr.unitClearingFeesCzk : pr.totalClearingFeesCzk) : "—"}
+                            {hasPricing ? formatCurrency(clearingDisp) : "—"}
                           </TableCell>
                         )}
 
                         {visibleColumns.waste && (
                           <TableCell className="text-right font-mono text-xs text-zinc-300 py-1.5 px-2 bg-purple-500/5">
-                            {hasPricing ? formatCurrency(isBasic ? pr.unitWasteFeesCzk : pr.totalWasteFeesCzk) : "—"}
+                            {hasPricing ? formatCurrency(wasteDisp) : "—"}
                           </TableCell>
                         )}
 
                         {visibleColumns.packaging && (
                           <TableCell className="text-right font-mono text-xs text-zinc-300 py-1.5 px-2 bg-purple-500/5">
-                            {hasPricing ? formatCurrency(isBasic ? pr.unitPackagingFeesCzk : pr.totalPackagingFeesCzk) : "—"}
+                            {hasPricing ? formatCurrency(packagingDisp) : "—"}
                           </TableCell>
                         )}
 
                         {visibleColumns.shipping_safety && (
                           <TableCell className="text-right font-mono text-xs text-zinc-300 py-1.5 px-2 bg-purple-500/5">
-                            {hasPricing && pr.shippingSafetyBufferCzk ? (
-                              formatCurrency(isBasic ? pr.shippingSafetyBufferCzk / totalUnits : pr.shippingSafetyBufferCzk)
-                            ) : "—"}
+                            {hasPricing && safetyBufferDisp ? formatCurrency(safetyBufferDisp) : "—"}
                           </TableCell>
                         )}
 
                         {visibleColumns.buffer && (
                           <TableCell className="text-right font-mono text-xs text-zinc-300 py-1.5 px-2 bg-red-500/5">
-                            {hasPricing ? formatCurrency(isBasic ? pr.unitBufferAmount : pr.totalBufferAmount) : "—"}
+                            {hasPricing ? formatCurrency(bufferDisp) : "—"}
                           </TableCell>
                         )}
 
@@ -1045,7 +1082,7 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
                           <TableCell className="text-right py-1.5 px-2 bg-primary/10 border-l border-zinc-800">
                             {hasPricing ? (
                               <span className="font-mono text-xs font-black text-primary">
-                                {formatCurrency(isBasic ? pr.unitLandedCostWithBuffer : pr.totalLandedCostWithBuffer)}
+                                {formatCurrency(landedCostDisp)}
                               </span>
                             ) : "—"}
                           </TableCell>
@@ -1059,13 +1096,10 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
                             {hasPricing && primarySourcing ? (
                               <div className="flex flex-col items-end">
                                 <span className="font-mono text-xs text-zinc-350">
-                                  {formatCurrency(isBasic ? pr.unitPurchasePriceCzk : pr.totalPurchasePriceCzk)}
+                                  {formatCurrency(purchasePriceDisp)}
                                 </span>
                                 <span className="text-[9px] text-zinc-500 font-mono">
-                                  {isBasic 
-                                    ? `${(primarySourcing.nakupni_cena / totalUnits).toFixed(2)} ${primarySourcing.mena}`
-                                    : `${primarySourcing.nakupni_cena.toFixed(2)} ${primarySourcing.mena}`
-                                  }
+                                  {`${foreignPriceDisp.toFixed(2)} ${primarySourcing.mena}`}
                                 </span>
                               </div>
                             ) : (
@@ -1079,10 +1113,10 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
                             {hasPricing ? (
                               <div className="flex flex-col items-end">
                                 <span className="font-bold text-zinc-300 font-mono text-xs">
-                                  {formatCurrency(isBasic ? pr.unitLandedCostWithBuffer : pr.totalLandedCostWithBuffer)}
+                                  {formatCurrency(landedCostDisp)}
                                 </span>
                                 <span className="text-[9px] text-zinc-500">
-                                  + rezerva {formatCurrency(isBasic ? pr.unitBufferAmount : pr.totalBufferAmount)}
+                                  + rezerva {formatCurrency(bufferDisp)}
                                 </span>
                               </div>
                             ) : "—"}
@@ -1094,7 +1128,7 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
                             {hasPricing ? (
                               <div className="flex flex-col items-end">
                                 <span className="font-bold text-zinc-200 font-mono text-xs">
-                                  {formatCurrency(isBasic ? pr.b2cUnitPrice : pr.b2cUnitPrice * totalUnits)}
+                                  {formatCurrency(b2cPriceDisp)}
                                 </span>
                                 <span className="text-[9px] text-green-500 font-semibold">
                                   {p.cilova_marze_retail_procenta || 30}% marže
@@ -1109,7 +1143,7 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
                             {hasPricing ? (
                               <div className="flex flex-col items-end">
                                 <span className="font-bold text-blue-400 font-mono text-xs">
-                                  {formatCurrency(isBasic ? pr.b2bUnitPrice : pr.b2bUnitPrice * totalUnits)}
+                                  {formatCurrency(b2bPriceDisp)}
                                 </span>
                                 <span className="text-[9px] text-blue-500 font-semibold">
                                   {p.cilova_marze_partner_procenta || 20}% marže
@@ -1121,25 +1155,25 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
 
                         {visibleColumns.b2b_5 && (
                           <TableCell className="text-right bg-blue-500/5 font-mono text-xs text-zinc-300 py-1.5 px-2">
-                            {hasPricing ? formatCurrency(isBasic ? pr.b2bDiscountedPrices[5] : pr.b2bDiscountedPrices[5] * totalUnits) : "—"}
+                            {hasPricing ? formatCurrency(b2bDiscountedDisp[5]) : "—"}
                           </TableCell>
                         )}
 
                         {visibleColumns.b2b_10 && (
                           <TableCell className="text-right bg-blue-500/5 font-mono text-xs text-zinc-300 py-1.5 px-2">
-                            {hasPricing ? formatCurrency(isBasic ? pr.b2bDiscountedPrices[10] : pr.b2bDiscountedPrices[10] * totalUnits) : "—"}
+                            {hasPricing ? formatCurrency(b2bDiscountedDisp[10]) : "—"}
                           </TableCell>
                         )}
 
                         {visibleColumns.b2b_15 && (
                           <TableCell className="text-right bg-blue-500/5 font-mono text-xs text-zinc-300 py-1.5 px-2">
-                            {hasPricing ? formatCurrency(isBasic ? pr.b2bDiscountedPrices[15] : pr.b2bDiscountedPrices[15] * totalUnits) : "—"}
+                            {hasPricing ? formatCurrency(b2bDiscountedDisp[15]) : "—"}
                           </TableCell>
                         )}
 
                         {visibleColumns.b2b_20 && (
                           <TableCell className="text-right border-r border-zinc-800 bg-blue-500/5 font-mono text-xs text-zinc-300 py-1.5 px-2">
-                            {hasPricing ? formatCurrency(isBasic ? pr.b2bDiscountedPrices[20] : pr.b2bDiscountedPrices[20] * totalUnits) : "—"}
+                            {hasPricing ? formatCurrency(b2bDiscountedDisp[20]) : "—"}
                           </TableCell>
                         )}
 

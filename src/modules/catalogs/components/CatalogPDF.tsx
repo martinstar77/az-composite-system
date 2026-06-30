@@ -702,8 +702,23 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
 
                       {/* První 3 řádky tabulky */}
                       {firstProducts.map((p, idx) => {
+                        const primarySourcing = p.produkt_dodavatel?.find(s => s.is_primary) || p.produkt_dodavatel?.[0]
+                        const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === p.zakladni_mj_id &&
+                          (!primarySourcing?.prevodni_pomer_na_zakladni || primarySourcing.prevodni_pomer_na_zakladni === 1)
+                        const continuousUnits = ['liter', 'l', 'kg', 'm2', 'm', 'bm', 'g']
+                        const isContinuous = p.zakladni_mj_id ? continuousUnits.some(u => p.zakladni_mj_id.toLowerCase().includes(u)) : false
+                        const parsedSpecMnozstvi = isContinuous
+                          ? (parseFloat(String((p.specifikace as any)?.mnozstvi || (p.specifikace as any)?.objem_l)) || 1)
+                          : 1
+                        const actualQty = (p.mnozstvi_v_baleni || 1) * parsedSpecMnozstvi
+                        const totalUnits = primarySourcing
+                          ? ((primarySourcing.prevodni_pomer_na_zakladni && primarySourcing.prevodni_pomer_na_zakladni !== 1)
+                              ? primarySourcing.prevodni_pomer_na_zakladni
+                              : (isBuyingInBasicUnit ? 1 : (actualQty || 1)))
+                          : 1
+
+                        const packQty = isContinuous ? totalUnits : (p.mnozstvi_v_baleni || 1)
                         const pricePerUnit = getNumericPrice(p.pricing)
-                        const packQty = p.mnozstvi_v_baleni && p.mnozstvi_v_baleni > 0 ? p.mnozstvi_v_baleni : 1
                         const totalPriceVal = pricePerUnit * packQty
                         const rawUnitAbbr = p.c_merne_jednotky_zakladni?.zkratka || ''
                         const rawPackAbbr = p.c_merne_jednotky_baleni?.zkratka || 'bal.'
@@ -750,8 +765,23 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
                   {remainingProducts.length > 0 && (
                     <View style={styles.table}>
                       {remainingProducts.map((p, idx) => {
+                        const primarySourcing = p.produkt_dodavatel?.find(s => s.is_primary) || p.produkt_dodavatel?.[0]
+                        const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === p.zakladni_mj_id &&
+                          (!primarySourcing?.prevodni_pomer_na_zakladni || primarySourcing.prevodni_pomer_na_zakladni === 1)
+                        const continuousUnits = ['liter', 'l', 'kg', 'm2', 'm', 'bm', 'g']
+                        const isContinuous = p.zakladni_mj_id ? continuousUnits.some(u => p.zakladni_mj_id.toLowerCase().includes(u)) : false
+                        const parsedSpecMnozstvi = isContinuous
+                          ? (parseFloat(String((p.specifikace as any)?.mnozstvi || (p.specifikace as any)?.objem_l)) || 1)
+                          : 1
+                        const actualQty = (p.mnozstvi_v_baleni || 1) * parsedSpecMnozstvi
+                        const totalUnits = primarySourcing
+                          ? ((primarySourcing.prevodni_pomer_na_zakladni && primarySourcing.prevodni_pomer_na_zakladni !== 1)
+                              ? primarySourcing.prevodni_pomer_na_zakladni
+                              : (isBuyingInBasicUnit ? 1 : (actualQty || 1)))
+                          : 1
+
+                        const packQty = isContinuous ? totalUnits : (p.mnozstvi_v_baleni || 1)
                         const pricePerUnit = getNumericPrice(p.pricing)
-                        const packQty = p.mnozstvi_v_baleni && p.mnozstvi_v_baleni > 0 ? p.mnozstvi_v_baleni : 1
                         const totalPriceVal = pricePerUnit * packQty
                         const rawUnitAbbr = p.c_merne_jednotky_zakladni?.zkratka || ''
                         const rawPackAbbr = p.c_merne_jednotky_baleni?.zkratka || 'bal.'
