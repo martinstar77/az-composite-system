@@ -683,6 +683,27 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
     }
   }
 
+  const handleGenerateMatrixPDF = () => {
+    try {
+      const catsParam = selectedCats.join(',')
+      const subsParam = selectedSubs.join(',')
+      const statusParam = selectedStatuses.length > 0 ? selectedStatuses.join(',') : 'all'
+      
+      let sortFieldParam = 'name'
+      let sortDirectionParam = 'asc'
+      if (sorting && sorting.length > 0) {
+        sortFieldParam = sorting[0].id
+        sortDirectionParam = sorting[0].desc ? 'desc' : 'asc'
+      }
+
+      const url = `/api/katalogy/pdf?mode=matrix&viewMode=${viewMode}&unitMode=${unitMode}&categories=${encodeURIComponent(catsParam)}&subcategories=${encodeURIComponent(subsParam)}&status=${encodeURIComponent(statusParam)}&lang=${exportLang}&search=${encodeURIComponent(globalFilter)}&sortField=${sortFieldParam}&sortDirection=${sortDirectionParam}&currency=${exportCurrency}`
+      window.open(url, '_blank')
+      toast.success("PDF Price Matrix se otevírá v nové záložce.")
+    } catch (e: any) {
+      toast.error("Chyba při otevírání PDF", { description: e.message })
+    }
+  }
+
   const handleBulkRegenerate = async () => {
     if (!window.confirm("Opravdu chcete hromadně přegenerovat názvy u všech produktů s automatickým generováním? Všechny české názvy budou přeloženy do češtiny (např. Carbon -> Uhlíková) a anglické názvy budou vygenerovány v EN.")) {
       return
@@ -791,9 +812,19 @@ export function CatalogDashboard({ products, rates, settings, templates }: Catal
               </Select>
             </div>
           </div>
-          
-          <div className="text-[10px] text-zinc-500 font-bold italic tracking-wide">
-            *Nastavení je lokální pouze pro Price Matrix
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateMatrixPDF}
+              className="bg-primary/10 border-primary/20 hover:bg-primary/20 hover:border-primary/30 text-primary font-bold text-xs h-9 gap-1.5"
+            >
+              <FileText className="h-4 w-4" />
+              Exportovat Price Matrix (PDF)
+            </Button>
+            <div className="text-[10px] text-zinc-550 font-bold italic tracking-wide hidden sm:block">
+              *Zohlední aktivní filtry a řazení
+            </div>
           </div>
         </div>
 

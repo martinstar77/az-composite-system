@@ -36,8 +36,15 @@ export async function GET(request: NextRequest) {
     
     const { renderToBuffer } = await import('@react-pdf/renderer')
     const { CatalogPDF } = await import('@/modules/catalogs/components/CatalogPDF')
+    const { PriceMatrixPDF } = await import('@/modules/catalogs/components/PriceMatrixPDF')
 
     const { searchParams } = new URL(request.url)
+    const mode = searchParams.get('mode') || 'catalog'
+    const viewMode = (searchParams.get('viewMode') || 'sales') as 'cogs' | 'sales'
+    const unitMode = (searchParams.get('unitMode') || 'basic') as 'basic' | 'packaging'
+    const sortField = searchParams.get('sortField') || 'name'
+    const sortDirection = searchParams.get('sortDirection') || 'asc'
+    
     const tier = searchParams.get('tier') || 'partner'
     const currency = searchParams.get('currency') || 'EUR'
     const categoriesParam = searchParams.get('categories') || searchParams.get('category') || 'all'
@@ -146,12 +153,100 @@ export async function GET(request: NextRequest) {
       return matchesSearch && matchesStatus && matchesCategory && matchesSubcategory
     })
 
-    // 4. Sorting by name (locale dependent)
-    filteredProducts.sort((a, b) => {
-      const valA = lang === 'en' ? (a.nazev_en || a.nazev || '') : (a.nazev || '')
-      const valB = lang === 'en' ? (b.nazev_en || b.nazev || '') : (b.nazev || '')
-      return valA.localeCompare(valB, lang === 'en' ? 'en' : 'cs')
-    })
+    // 4. Sorting logic
+    if (mode === 'matrix' && sortField !== 'name') {
+      const isBasic = unitMode === 'basic'
+      const getPackMultiplier = (p: any, pr: any) => {
+        const primarySourcing = p.produkt_dodavatel?.find((s: any) => s.is_primary) || p.produkt_dodavatel?.[0]
+        const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === p.zakladni_mj_id &&
+          (!primarySourcing?.prevodni_pomer_na_zakladni || primarySourcing.prevodni_pomer_na_zakladni === 1)
+        const totalUnits = primarySourcing
+          ? ((primarySourcing.prevodni_pomer_na_zakladni && primarySourcing.prevodni_pomer_na_zakladni !== 1)
+              ? primarySourcing.prevodni_pomer_na_zakladni
+              : (isBuyingInBasicUnit ? 1 : (p.mnozstvi_v_baleni || 1)))
+          : 1
+        const continuousUnits = ['liter', 'l', 'kg', 'm2', 'm', 'bm', 'g']
+        const isContinuous = p.zakladni_mj_id ? continuousUnits.some(u => p.zakladni_mj_id.toLowerCase().includes(u)) : false
+        return isContinuous ? totalUnits : (p.mnozstvi_v_baleni || 1)
+      }
+
+      filteredProducts.sort((a, b) => {
+        const prA = a.pricing
+        const prB = b.pricing
+        if (!prA && !prB) return 0
+        if (!prA) return 1
+        if (!prB) return -1
+
+        const multA = isBasic ? 1 : getPackMultiplier(a, prA)
+        const multB = isBasic ? 1 : getPackMultiplier(b, prB)
+
+        let valA = 0
+        let valB = 0
+
+        switch (sortField) {
+          case 'purchase_price':
+            valA = prA.unitPurchasePriceCzk * multA
+            valB = prB.unitPurchasePriceCzk * multB
+            break
+          case 'shipping':
+            valA = prA.unitShippingCostCzk * multA
+            valB = prB.unitShippingCostCzk * multB
+            break
+          case 'customs':
+            valA = prA.unitCustomsCostCzk * multA
+            valB = prB.unitCustomsCostCzk * multB
+            break
+          case 'bank_fees':
+            valA = prA.unitBankFeesCzk * multA
+            valB = prB.unitBankFeesCzk * multB
+            break
+          case 'clearing':
+            valA = prA.unitClearingFeesCzk * multA
+            valB = prB.unitClearingFeesCzk * multB
+            break
+          case 'waste':
+            valA = prA.unitWasteFeesCzk * multA
+            valB = prB.unitWasteFeesCzk * multB
+            break
+          case 'packaging':
+            valA = prA.unitPackagingFeesCzk * multA
+            valB = prB.unitPackagingFeesCzk * multB
+            break
+          case 'shipping_safety':
+            valA = (prA.shippingSafetyBufferCzk ? (prA.shippingSafetyBufferCzk / prA.totalUnits) : 0) * multA
+            valB = (prB.shippingSafetyBufferCzk ? (prB.shippingSafetyBufferCzk / prB.totalUnits) : 0) * multB
+            break
+          case 'buffer':
+            valA = prA.unitBufferAmount * multA
+            valB = prB.unitBufferAmount * multB
+            break
+          case 'landed_cost':
+            valA = prA.unitLandedCostWithBuffer * multA
+            valB = prB.unitLandedCostWithBuffer * multB
+            break
+          case 'b2c':
+            valA = prA.b2cUnitPrice * multA
+            valB = prB.b2cUnitPrice * multB
+            break
+          case 'b2b':
+            valA = prA.b2bUnitPrice * multA
+            valB = prB.b2bUnitPrice * multB
+            break
+          default:
+            return 0
+        }
+
+        const cmp = valA < valB ? -1 : valA > valB ? 1 : 0
+        return sortDirection === 'desc' ? -cmp : cmp
+      })
+    } else {
+      filteredProducts.sort((a, b) => {
+        const valA = lang === 'en' ? (a.nazev_en || a.nazev || '') : (a.nazev || '')
+        const valB = lang === 'en' ? (b.nazev_en || b.nazev || '') : (b.nazev || '')
+        const cmp = valA.localeCompare(valB, lang === 'en' ? 'en' : 'cs')
+        return sortDirection === 'desc' ? -cmp : cmp
+      })
+    }
 
     // 5. Target exchange rate calculation
     let exchangeRate = 1
@@ -166,20 +261,29 @@ export async function GET(request: NextRequest) {
     }
 
     // 6. Render PDF
-    const buffer = await renderToBuffer(
-      createElement(CatalogPDF, {
-        products: filteredProducts as any,
-        tier: tier as any,
-        targetCurrency: currency as any,
-        exchangeRate,
-        lang: lang as any
-      }) as any
-    )
+    const pdfComponent = mode === 'matrix'
+      ? createElement(PriceMatrixPDF, {
+          products: filteredProducts as any,
+          viewMode,
+          unitMode,
+          targetCurrency: currency,
+          exchangeRate,
+          lang: lang as any
+        })
+      : createElement(CatalogPDF, {
+          products: filteredProducts as any,
+          tier: tier as any,
+          targetCurrency: currency as any,
+          exchangeRate,
+          lang: lang as any
+        })
+
+    const buffer = await renderToBuffer(pdfComponent as any)
 
     // 7. Stream response as PDF
-    const filename = lang === 'cs'
-      ? `AZ_Composite_Katalog_${tier.toUpperCase()}_${currency}.pdf`
-      : `AZ_Composite_Catalog_${tier.toUpperCase()}_${currency}.pdf`
+    const filename = mode === 'matrix'
+      ? `AZ_Composite_Price_Matrix_${viewMode.toUpperCase()}_${unitMode}.pdf`
+      : (lang === 'cs' ? `AZ_Composite_Katalog_${tier.toUpperCase()}_${currency}.pdf` : `AZ_Composite_Catalog_${tier.toUpperCase()}_${currency}.pdf`)
 
     return new Response(new Uint8Array(buffer), {
       headers: {
