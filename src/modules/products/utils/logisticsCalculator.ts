@@ -767,36 +767,38 @@ export function calculateGrossWeight(
       }
 
       if (podkat === "MTI") {
-        const qty = mnozstviVBaleni || 1
         const typ_mti = String(s.typ_mti ?? "Hose")
+        const isRoll = typ_mti === "Hose" || typ_mti === "MVS" || typ_mti === "RBL"
+        const specs_delka = isRoll ? Number(s.delka_m ?? 50) : 1
+        const qty = mnozstviVBaleni || specs_delka
 
         if (typ_mti === "Hose") {
           const net = r3(calculateHollowCylinderWeight(8, qty, 950))
-          const total = r3(net + 0.05)
+          const total = r3(net + 0.1)
           return {
             weightKg: total,
             netWeightKg: net,
             confidence: "high",
-            breakdown: `MTI Hadice Ø10/8mm × ${qty}m × 950 kg/m³ = ${net} kg + 0.05 kg = ${total} kg`
+            breakdown: `MTI Hadice Ø10/8mm × ${qty}m × 950 kg/m³ = ${net} kg + 0.1 kg = ${total} kg`
           }
         } else if (typ_mti === "RBL") {
           const net = r3(calculateHollowCylinderWeight(6, qty, 950))
-          const total = r3(net + 0.05)
+          const total = r3(net + 0.1)
           return {
             weightKg: total,
             netWeightKg: net,
             confidence: "high",
-            breakdown: `MTI RBL Hadice Ø8/6mm × ${qty}m × 950 kg/m³ = ${net} kg + 0.05 kg = ${total} kg`
+            breakdown: `MTI RBL Hadice Ø8/6mm × ${qty}m × 950 kg/m³ = ${net} kg + 0.1 kg = ${total} kg`
           }
         } else if (typ_mti === "MVS") {
           const sirka_mm = Number(s.sirka_mm ?? 100)
           const net = r3((sirka_mm / 1000) * qty * 0.200)
-          const total = r3(net + 0.05)
+          const total = r3(net + 0.1)
           return {
             weightKg: total,
             netWeightKg: net,
             confidence: "medium",
-            breakdown: `MTI MVS membrána ${sirka_mm}mm × ${qty}m × 200 g/m² = ${net} kg + 0.05 kg = ${total} kg`
+            breakdown: `MTI MVS membrána ${sirka_mm}mm × ${qty}m × 200 g/m² = ${net} kg + 0.1 kg = ${total} kg`
           }
         } else {
           // Valve

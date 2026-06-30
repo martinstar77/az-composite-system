@@ -1293,20 +1293,20 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             break
           }
           case 'MTI': {
-            const isHose = conMtiTyp === 'Hose'
+            const isRoll = conMtiTyp === 'Hose' || conMtiTyp === 'MVS' || conMtiTyp === 'RBL'
             if (!dirtyFields.zakladni_mj_id && !initialData) {
-              setValue("zakladni_mj_id", isHose ? "bm" : "ks", { shouldValidate: true })
+              setValue("zakladni_mj_id", isRoll ? "bm" : "ks", { shouldValidate: true })
             }
             if (!dirtyFields.jednotka_baleni_id && !initialData) {
-              setValue("jednotka_baleni_id", isHose ? "role" : "ks", { shouldValidate: true })
+              setValue("jednotka_baleni_id", isRoll ? "role" : "ks", { shouldValidate: true })
             }
             
             const lenVal = parseFloat(conMtiDelka) || 0
             if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
-              setValue("mnozstvi_v_baleni", isHose ? parseFloat(lenVal.toFixed(2)) : 1, { shouldValidate: true })
+              setValue("mnozstvi_v_baleni", isRoll ? parseFloat(lenVal.toFixed(2)) : 1, { shouldValidate: true })
             }
 
-            if (isHose) {
+            if (isRoll) {
               targetMj = "bm"
               targetUom = "role"
               targetQty = parseFloat(lenVal.toFixed(2))
@@ -1314,13 +1314,13 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             
             const wVal = conMtiWidth.trim()
             const wSku = wVal ? `-${wVal}` : ""
-            const lenSku = (isHose && lenVal > 0) ? `-R${Math.round(lenVal)}` : ""
+            const lenSku = (isRoll && lenVal > 0) ? `-R${Math.round(lenVal)}` : ""
             generatedSku = `MTI-${conMtiTyp.toUpperCase()}${wSku}${lenSku}`
             generatedSpecs = {
               podkategorie: "MTI",
               typ_mti: conMtiTyp,
               ...(conMtiTyp === 'MVS' ? { sirka_mm: parseInt(wVal) || wVal } : {}),
-              ...(isHose ? { delka_m: lenVal } : {})
+              ...(isRoll ? { delka_m: lenVal } : {})
             }
             break
           }
@@ -1464,7 +1464,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           baseSpecs.prumer_mm = parseInt(conKpPrumer) || 12
         } else if (conSub === 'MTI') {
           baseSpecs.typ_mti = conMtiTyp
-          if (conMtiTyp === 'Hose') {
+          if (conMtiTyp === 'Hose' || conMtiTyp === 'MVS' || conMtiTyp === 'RBL') {
             baseSpecs.delka_m = parseFloat(conMtiDelka) || 0
           }
         }
@@ -2650,7 +2650,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                   />
                 </div>
               )}
-              {conMtiTyp === 'Hose' && (
+              {(conMtiTyp === 'Hose' || conMtiTyp === 'MVS' || conMtiTyp === 'RBL') && (
                 <div className="space-y-2">
                   <Label className="text-xs text-muted-foreground">Délka v roli (m)</Label>
                   <Input 

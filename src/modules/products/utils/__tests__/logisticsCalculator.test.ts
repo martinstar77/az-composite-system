@@ -215,8 +215,8 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
     // qty=50m. ID=8 (default for MTI Hose). OD=10. R_out=0.005, R_in=0.004.
     // Area = Math.PI * (0.005^2 - 0.004^2) = 0.000028274 m2
     // Net = 0.000028274 * 50 * 950 = 1.343 -> 1.34
-    // Gross = 1.34 + 0.05 = 1.39
-    expect(result.weightKg).toBe(1.39)
+    // Gross = 1.34 + 0.1 = 1.44
+    expect(result.weightKg).toBe(1.44)
   })
 
   it("should calculate weight for Release Film (RF) by computing grammage from thickness", () => {
