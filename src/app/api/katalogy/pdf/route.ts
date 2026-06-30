@@ -76,7 +76,11 @@ export async function GET(request: NextRequest) {
         ? templatesList.find(t => t.id === primarySourcing.logisticka_sablona_id)
         : null
 
-      const parsedSpecMnozstvi = parseFloat(String((product.specifikace as any)?.mnozstvi || (product.specifikace as any)?.objem_l)) || 1
+      const continuousUnits = ['liter', 'l', 'kg', 'm2', 'm', 'bm', 'g']
+      const isContinuousUnit = product.zakladni_mj_id ? continuousUnits.some(u => product.zakladni_mj_id.toLowerCase().includes(u)) : false
+      const parsedSpecMnozstvi = isContinuousUnit
+        ? (parseFloat(String((product.specifikace as any)?.mnozstvi || (product.specifikace as any)?.objem_l)) || 1)
+        : 1
       const actualQty = (product.mnozstvi_v_baleni || 1) * parsedSpecMnozstvi
 
       const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === product.zakladni_mj_id &&
