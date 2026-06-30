@@ -4,6 +4,7 @@ import { getProductsPaged, getProductLookups } from '@/modules/products/actions'
 import { ProductDataTable } from '@/modules/products/components/ProductDataTable'
 import { CreateProductDialog } from '@/modules/products/components/forms/CreateProductDialog'
 import { BulkRecalculateWeightsButton } from '@/modules/products/components/BulkRecalculateWeightsButton'
+import { ExportCatalogPdfButton } from '@/modules/products/components/ExportCatalogPdfButton'
 
 export default async function ProduktyPage() {
   const [{ data: produkty, error, totalCount }, lookups] = await Promise.all([
@@ -23,6 +24,7 @@ export default async function ProduktyPage() {
           <p className="text-muted-foreground mt-1">Správa fyzických materiálů a jejich logistických definicí.</p>
         </div>
         <div className="flex gap-3 items-center">
+          <ExportCatalogPdfButton />
           <BulkRecalculateWeightsButton />
           <CreateProductDialog lookups={lookups} />
         </div>
