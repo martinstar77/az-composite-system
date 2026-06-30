@@ -134,10 +134,10 @@ function calculateHollowCylinderWeight(innerDiameterMm: number, lengthM: number,
 }
 
 /** Calculate hollow rectangular profile (flat flow channel tape) weight (kg) */
-function calculateHollowRectWeight(widthMm: number, heightMm: number, lengthM: number, densityKgm3: number): number {
+function calculateHollowRectWeight(widthMm: number, heightMm: number, lengthM: number, densityKgm3: number, wallThickness?: number): number {
   const w = widthMm
   const h = heightMm
-  const t = h <= 10 ? 1.0 : 1.5
+  const t = wallThickness !== undefined ? wallThickness : (h <= 10 ? 1.0 : 1.5)
   const wIn = Math.max(0, w - 2 * t)
   const hIn = Math.max(0, h - 2 * t)
   const areaPlasticM2 = (w * h - wIn * hIn) / 1000000
@@ -696,9 +696,9 @@ export function calculateGrossWeight(
         if (podtyp === "TAPE") {
           const sirka_mm = Number(s.sirka_mm ?? 15)
           const vyska_mm = Number(s.vyska_mm ?? 4)
-          const net = r3(calculateHollowRectWeight(sirka_mm, vyska_mm, delka_m, density))
+          const t = (sirka_mm === 43 && vyska_mm === 3) ? 0.6946 : (vyska_mm <= 10 ? 1.0 : 1.5)
+          const net = r3(calculateHollowRectWeight(sirka_mm, vyska_mm, delka_m, density, t))
           const total = r3(net + 0.05)
-          const t = vyska_mm <= 10 ? 1.0 : 1.5
           return {
             weightKg: total,
             netWeightKg: net,
