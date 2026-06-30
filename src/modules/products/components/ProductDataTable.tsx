@@ -11,7 +11,7 @@ import {
   RowSelectionState,
 } from "@tanstack/react-table"
 import Link from "next/link"
-import { ArrowUpDown, MoreHorizontal, FileEdit, Search, FilterX, ExternalLink, Settings2, Copy, Trash2, Building2, Zap } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, FileEdit, Search, FilterX, ExternalLink, Settings2, Copy, Trash2, Building2, Zap, Edit2 } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { calculateGrossWeight } from "../utils/logisticsCalculator"
 
@@ -957,7 +957,15 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
       cell: ({ row }) => {
         const product = row.original
         return (
-          <>
+          <div className="flex items-center justify-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setEditingProduct(product)}
+              className="h-8 w-8 text-zinc-400 hover:text-white hover:bg-zinc-800"
+            >
+              <Edit2 className="h-4 w-4" />
+            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="ghost" className="h-8 w-8 p-0" />}>
                 <span className="sr-only">Otevřít menu</span>
@@ -983,7 +991,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
                 </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-          </>
+          </div>
         )
       },
     },
@@ -1260,7 +1268,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
                         cid === "packaging_qty" && "min-w-[80px] w-[80px] max-w-[80px]",
                         cid === "weight" && "min-w-[80px] w-[80px] max-w-[80px]",
                         cid === "audit" && "min-w-[160px] w-[160px] max-w-[160px]",
-                        cid === "actions" && "min-w-[36px] w-[36px] max-w-[36px] text-center"
+                        cid === "actions" && "min-w-[76px] w-[76px] max-w-[76px] text-center"
                       )}
                     >
                       {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
@@ -1301,7 +1309,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
                           cid === "packaging_qty" && "min-w-[80px] w-[80px] max-w-[80px]",
                           cid === "weight" && "min-w-[80px] w-[80px] max-w-[80px]",
                           cid === "audit" && "min-w-[160px] w-[160px] max-w-[160px]",
-                          cid === "actions" && "min-w-[36px] w-[36px] max-w-[36px] text-center"
+                          cid === "actions" && "min-w-[76px] w-[76px] max-w-[76px] text-center"
                         )}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}

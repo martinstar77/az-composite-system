@@ -123,6 +123,29 @@ const TUBE_DENSITY: Record<string, number> = {
   PET: 1380,
 }
 
+/** Areal density (g/m²) lookup table for Polyamide (PA) films by thickness (µm) */
+const PA_AEREAL_DENSITY: Record<number, number> = {
+  50: 57.00,
+  75: 85.50,
+}
+
+/** Areal density (g/m²) lookup table for HDPE release films by thickness (µm) */
+const HDPE_AEREAL_DENSITY: Record<number, number> = {
+  12.5: 11.88,
+  15: 14.25,
+  25: 23.75,
+  30: 28.50,
+  35: 33.25,
+  50: 47.50,
+}
+
+/** Areal density (g/m²) lookup table for Adhesive Teflon release fabrics by thickness (µm) */
+const PTFE_ADH_AEREAL_DENSITY: Record<number, number> = {
+  120: 225,
+  175: 330,
+  280: 530,
+}
+
 /** Calculate hollow cylinder (tube/hose) weight (kg) */
 function calculateHollowCylinderWeight(innerDiameterMm: number, lengthM: number, densityKgm3: number): number {
   const id = innerDiameterMm
@@ -603,28 +626,35 @@ export function calculateGrossWeight(
         const delka_m = Number(s.delka_m ?? 0)
 
         if (!gramaz && s.tloustka_um && ["BF", "RF", "PP-PTFE"].includes(podkat)) {
+          const t = Number(s.tloustka_um)
           if (podkat === "PP-PTFE" && (s.je_lepici === true || s.je_lepici === "true")) {
-            const t = Number(s.tloustka_um)
-            if (t === 120) gramaz = 225
-            else if (t === 175) gramaz = 330
-            else if (t === 280) gramaz = 530
-            else {
+            if (t in PTFE_ADH_AEREAL_DENSITY) {
+              gramaz = PTFE_ADH_AEREAL_DENSITY[t]
+            } else {
               gramaz = Math.round(t * 1.9 - 2.5)
             }
           } else if (podkat === "PP-PTFE") {
             // Nesamolepicí teflonová strhávací tkanina (PTFE/Sklo) má vyšší plošnou hustotu (~2.0 g/cm3)
             // 60µm -> 120 g/m2
-            const rawGramaz = Number(s.tloustka_um) * 2.0
+            const rawGramaz = t * 2.0
             gramaz = Number(rawGramaz.toFixed(2))
           } else if (podkat === "BF") {
             // Vakuové fólie (Polyamid / PA) mají hustotu ~1.14 g/cm3
             // 50µm -> 57 g/m2, 75µm -> 85.5 g/m2
-            const rawGramaz = Number(s.tloustka_um) * 1.14
-            gramaz = Number(rawGramaz.toFixed(2))
+            if (t in PA_AEREAL_DENSITY) {
+              gramaz = PA_AEREAL_DENSITY[t]
+            } else {
+              const rawGramaz = t * 1.14
+              gramaz = Number(rawGramaz.toFixed(2))
+            }
           } else {
             // Separátory a další (např. HDPE fólie) mají hustotu ~0.95
-            const rawGramaz = Number(s.tloustka_um) * 0.95
-            gramaz = Number(rawGramaz.toFixed(2))
+            if (t in HDPE_AEREAL_DENSITY) {
+              gramaz = HDPE_AEREAL_DENSITY[t]
+            } else {
+              const rawGramaz = t * 0.95
+              gramaz = Number(rawGramaz.toFixed(2))
+            }
           }
         }
 

@@ -315,6 +315,66 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
     expect(resultOmega50.weightKg).toBe(2.5)
     expect(resultOmega1.weightKg).toBe(0.15)
   })
+
+  it("should explicitly match all lookup values from plosne_hustoty.md for PA, HDPE, and PTFE (Adhesive)", () => {
+    // 1. Polyamid (PA)
+    // 50µm -> 57.00 g/m²
+    const resPA50 = calculateGrossWeight("consumables", { podkategorie: "BF", tloustka_um: 50, sirka_cm: 100, delka_m: 100 }, 100)
+    // net = 57/1000 * 100 = 5.7 kg. tube = 1.0 * 0.35 = 0.35 kg. packaging = 0.3 kg. total = 5.7 + 0.35 + 0.3 = 6.35 kg
+    expect(resPA50.weightKg).toBe(6.35)
+
+    // 75µm -> 85.50 g/m²
+    const resPA75 = calculateGrossWeight("consumables", { podkategorie: "BF", tloustka_um: 75, sirka_cm: 100, delka_m: 100 }, 100)
+    // net = 85.5/1000 * 100 = 8.55 kg. tube = 1.0 * 0.35 = 0.35 kg. packaging = 0.3. total = 8.55 + 0.35 + 0.3 = 9.20 kg
+    expect(resPA75.weightKg).toBe(9.20)
+
+    // 2. HDPE (Release Film - RF)
+    // 12.5µm -> 11.88 g/m²
+    const resHDPE12 = calculateGrossWeight("consumables", { podkategorie: "RF", tloustka_um: 12.5, sirka_cm: 100, delka_m: 100 }, 100)
+    // net = 11.88/1000 * 100 = 1.188 kg. tube = 0.35. packaging = 0.3. total = 1.188 + 0.35 + 0.3 = 1.838 -> 1.84 kg
+    expect(resHDPE12.weightKg).toBe(1.84)
+
+    // 15µm -> 14.25 g/m²
+    const resHDPE15 = calculateGrossWeight("consumables", { podkategorie: "RF", tloustka_um: 15, sirka_cm: 100, delka_m: 100 }, 100)
+    // net = 1.425. tube = 0.35. packaging = 0.3. total = 1.425 + 0.35 + 0.3 = 2.075 -> 2.08 kg
+    expect(resHDPE15.weightKg).toBe(2.08)
+
+    // 25µm -> 23.75 g/m²
+    const resHDPE25 = calculateGrossWeight("consumables", { podkategorie: "RF", tloustka_um: 25, sirka_cm: 100, delka_m: 100 }, 100)
+    // net = 2.375. tube = 0.35. packaging = 0.3. total = 2.375 + 0.35 + 0.3 = 3.025 -> 3.03 kg
+    expect(resHDPE25.weightKg).toBe(3.03)
+
+    // 30µm -> 28.50 g/m²
+    const resHDPE30 = calculateGrossWeight("consumables", { podkategorie: "RF", tloustka_um: 30, sirka_cm: 100, delka_m: 100 }, 100)
+    // net = 2.85. tube = 0.35. packaging = 0.3. total = 2.85 + 0.35 + 0.3 = 3.50 kg
+    expect(resHDPE30.weightKg).toBe(3.50)
+
+    // 35µm -> 33.25 g/m²
+    const resHDPE35 = calculateGrossWeight("consumables", { podkategorie: "RF", tloustka_um: 35, sirka_cm: 100, delka_m: 100 }, 100)
+    // net = 3.325. tube = 0.35. packaging = 0.3. total = 3.325 + 0.35 + 0.3 = 3.975 -> 3.98 kg
+    expect(resHDPE35.weightKg).toBe(3.98)
+
+    // 50µm -> 47.50 g/m²
+    const resHDPE50 = calculateGrossWeight("consumables", { podkategorie: "RF", tloustka_um: 50, sirka_cm: 100, delka_m: 100 }, 100)
+    // net = 4.75. tube = 0.35. packaging = 0.3. total = 4.75 + 0.35 + 0.3 = 5.40 kg
+    expect(resHDPE50.weightKg).toBe(5.40)
+
+    // 3. PTFE Adhesive (Teflon strhávací pásky)
+    // 120µm -> 225 g/m²
+    const resPTFE120 = calculateGrossWeight("consumables", { podkategorie: "PP-PTFE", je_lepici: true, tloustka_um: 120, sirka_cm: 100, delka_m: 100 }, 100)
+    // net = 22.5. tube = 0.35. packaging = 0.3. total = 22.5 + 0.35 + 0.3 = 23.15 kg
+    expect(resPTFE120.weightKg).toBe(23.15)
+
+    // 175µm -> 330 g/m²
+    const resPTFE175 = calculateGrossWeight("consumables", { podkategorie: "PP-PTFE", je_lepici: true, tloustka_um: 175, sirka_cm: 100, delka_m: 100 }, 100)
+    // net = 33. tube = 0.35. packaging = 0.3. total = 33 + 0.35 + 0.3 = 33.65 kg
+    expect(resPTFE175.weightKg).toBe(33.65)
+
+    // 280µm -> 530 g/m²
+    const resPTFE280 = calculateGrossWeight("consumables", { podkategorie: "PP-PTFE", je_lepici: true, tloustka_um: 280, sirka_cm: 100, delka_m: 100 }, 100)
+    // net = 53. tube = 0.35. packaging = 0.3. total = 53 + 0.35 + 0.3 = 53.65 kg
+    expect(resPTFE280.weightKg).toBe(53.65)
+  })
 })
 
 describe("logisticsCalculator - resolvePackagingProfile", () => {

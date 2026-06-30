@@ -1412,6 +1412,23 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     return getPackagingMultiplier(kategorieId, currentSpecs, uomZkratka)
   }, [jednotkaBaleniId, currentSpecs, kategorieId, lookups.units])
 
+  const prevMultiplierRef = useRef(packagingMultiplier)
+
+  useEffect(() => {
+    if (prevMultiplierRef.current !== packagingMultiplier) {
+      if (prevMultiplierRef.current > 0 && packagingMultiplier > 0) {
+        const currentQty = Number(mnozstviVBaleni) || 0
+        const pieces = currentQty / prevMultiplierRef.current
+        const newQty = pieces * packagingMultiplier
+        
+        if (newQty !== currentQty) {
+          setValue("mnozstvi_v_baleni", newQty, { shouldValidate: true, shouldDirty: true })
+        }
+      }
+      prevMultiplierRef.current = packagingMultiplier
+    }
+  }, [packagingMultiplier, setValue, mnozstviVBaleni])
+
   const packageExplanation = useMemo(() => {
     const qty = parseFloat(String(mnozstviVBaleni)) || 0
     if (qty <= 0 || packagingMultiplier <= 1) return null
