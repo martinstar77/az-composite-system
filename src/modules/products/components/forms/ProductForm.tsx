@@ -1437,10 +1437,15 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           baseSpecs.sirka_mm = parseInt(conFchSirka) || 15
           baseSpecs.vnitrni_prumer_mm = parseInt(conFchPrumer) || 10
           baseSpecs.delka_m = parseFloat(conFchDelka) || 100
+        } else if (conSub === 'TUBE') {
+          baseSpecs.vnitrni_prumer_mm = parseInt(conFchPrumer) || 10
+          baseSpecs.delka_m = parseFloat(conFchDelka) || 50
         } else if (conSub === 'K') {
           baseSpecs.vnejsi_prumer_mm = parseInt(conKPrumer) || 20
         } else if (conSub === 'KP') {
           baseSpecs.prumer_mm = parseInt(conKpPrumer) || 12
+        } else if (conSub === 'MTI') {
+          baseSpecs.typ_mti = conMtiTyp
         }
         return baseSpecs
       }
