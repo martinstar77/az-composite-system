@@ -110,7 +110,7 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       tloustka_mm: 3.5,
       pocet_roli_v_baleni: 2
     }
-    const result = calculateGrossWeight("consumables", specs, 2)
+    const result = calculateGrossWeight("consumables", specs, 30)
     // per roll: 0.012 * 0.0035 * 15 = 0.00063 m3
     // net: 0.16 * 2 = 0.32 kg
     // total: 0.32 + 0.2 = 0.52 kg

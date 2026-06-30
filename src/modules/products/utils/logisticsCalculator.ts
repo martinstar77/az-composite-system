@@ -146,8 +146,70 @@ function calculateHollowRectWeight(widthMm: number, heightMm: number, lengthM: n
 }
 
 // ---------------------------------------------------------------------------
-// Main Export: calculateGrossWeight
+// Main Exports: getPackagingMultiplier, calculateGrossWeight
 // ---------------------------------------------------------------------------
+
+/**
+ * Calculates how many basic units (e.g. meters, m²) correspond to 1 packaging unit (e.g. role, krabice).
+ * This is used for the UI to translate "1 roll" into "100 meters" automatically.
+ *
+ * @param kategorieId - The product category ID
+ * @param specs - The specifikace JSONB object
+ * @param unitZkratka - The short name of the packaging unit (e.g. "role", "rol.")
+ * @returns A multiplier (number). Defaults to 1.
+ */
+export function getPackagingMultiplier(
+  kategorieId: string,
+  specs: Record<string, unknown>,
+  unitZkratka?: string
+): number {
+  if (!unitZkratka) return 1
+  const uom = String(unitZkratka).toLowerCase()
+  if (uom !== "role" && uom !== "rol." && uom !== "bal" && uom !== "bal." && uom !== "krabice") {
+    return 1
+  }
+
+  const s = specs
+
+  if (kategorieId === "vyztuzne_materialy" || kategorieId === "prepregy") {
+    const sirka_cm = Number(s.sirka_cm ?? 0)
+    const delka_m = Number(s.delka_m ?? 0)
+    const rollArea = (sirka_cm / 100) * delka_m
+    return rollArea > 0 ? rollArea : 1
+  }
+
+  if (kategorieId === "consumables") {
+    const podkat = String(s.podkategorie ?? "")
+
+    if (podkat === "FCH" || podkat === "TUBE") {
+      const rollLen = Number(s.delka_m ?? 0)
+      return rollLen > 0 ? rollLen : 1
+    }
+
+    if (podkat === "FT" || podkat === "ST") {
+      const rollLen = Number(s.delka_m ?? 0)
+      return rollLen > 0 ? rollLen : 1
+    }
+
+    if (podkat === "MTI") {
+      // For MTI hoses/membranes, quantity is typically in meters, but if they enter rolls, it might be per 100m or similar.
+      // E.g., MTI hose usually ships in 100m rolls. Let's check specifikace or default to delka_m if exists.
+      const rollLen = Number(s.delka_m ?? 100) // fallback to 100 if not specified for MTI?
+      // Wait, MTI usually doesn't have delka_m in form. Let's see... the form uses `qty` as input for MTI.
+      // If the user selects "role", then 1 role = X meters. Let's use 100m as standard MTI roll.
+      return s.delka_m ? Number(s.delka_m) : 100
+    }
+
+    if (["BF", "RF", "PP", "PP-PTFE", "BC", "FM"].includes(podkat)) {
+      const sirka_cm = Number(s.sirka_cm ?? 0)
+      const delka_m = Number(s.delka_m ?? 0)
+      const rollArea = (sirka_cm / 100) * delka_m
+      return rollArea > 0 ? rollArea : 1
+    }
+  }
+
+  return 1
+}
 
 /**
  * Calculate the estimated gross package weight (hmotnost_baliku_kg) for a product.
@@ -547,7 +609,8 @@ export function calculateGrossWeight(
         const sirka_mm = Number(s.sirka_mm ?? 12)
         const delka_m = Number(s.delka_m ?? 15)
         const tloustka_mm = Number(s.tloustka_mm ?? 3.5)
-        const pocet_roli = mnozstviVBaleni || Number(s.pocet_roli_v_baleni ?? 1)
+        const totalLen = mnozstviVBaleni || (delka_m * Number(s.pocet_roli_v_baleni ?? 1))
+        const pocet_roli = delka_m > 0 ? (totalLen / delka_m) : Number(s.pocet_roli_v_baleni ?? 1)
 
         const perRollVolumeM3 = (sirka_mm / 1000) * (tloustka_mm / 1000) * delka_m
         const perRollKg = r3(perRollVolumeM3 * 250)

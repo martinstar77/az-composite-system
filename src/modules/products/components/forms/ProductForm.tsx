@@ -22,7 +22,7 @@ import { createProduct, updateProduct, checkSkuExists } from "@/modules/products
 import { Product } from "../../types"
 import { generateProductName, generateProductNames } from "../../utils/nameGenerator"
 import { resolvePackageDimensions } from "@/modules/finance/utils/packagingEngine"
-import { calculateGrossWeight, resolvePackagingProfile } from "@/modules/products/utils/logisticsCalculator"
+import { calculateGrossWeight, resolvePackagingProfile, getPackagingMultiplier } from "@/modules/products/utils/logisticsCalculator"
 import { Package, ShoppingCart, Sparkles, RotateCcw } from "lucide-react"
 
 const OBAL_TYPES: Record<string, string> = {
@@ -1508,23 +1508,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   ])
 
   const packagingMultiplier = useMemo(() => {
-    const specs = (currentSpecs as any) || {}
-    const podkat = specs.podkategorie
     const uomZkratka = lookups.units.find(u => u.id === jednotkaBaleniId)?.zkratka
-
-    if (uomZkratka === "role" || uomZkratka === "rol.") {
-      if (kategorieId === "vyztuzne_materialy" || kategorieId === "prepregy") {
-        const sirka_cm = Number(specs.sirka_cm ?? 0)
-        const delka_m = Number(specs.delka_m ?? 0)
-        const rollArea = (sirka_cm / 100) * delka_m
-        return rollArea > 0 ? rollArea : 1
-      }
-      if (podkat === "FCH" || podkat === "TUBE") {
-        const rollLen = Number(specs.delka_m ?? 0)
-        return rollLen > 0 ? rollLen : 1
-      }
-    }
-    return 1
+    return getPackagingMultiplier(kategorieId, currentSpecs, uomZkratka)
   }, [jednotkaBaleniId, currentSpecs, kategorieId, lookups.units])
 
   const packageExplanation = useMemo(() => {
