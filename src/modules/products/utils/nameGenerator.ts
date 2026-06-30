@@ -534,7 +534,14 @@ export function generateProductName(
     const chemStr = isCs ? (chemMapCS[specs.chemie] || specs.chemie || "") : (chemMapEN[specs.chemie] || specs.chemie || "")
     const colorStr = isCs ? (colorMapCS[specs.barva] || specs.barva || "") : (colorMapEN[specs.barva] || specs.barva || "")
     const openTimeStr = specs.open_time_min ? `${specs.open_time_min} min` : ""
-    const volumeStr = specs.objem || ""
+    
+    let volumeStr = specs.objem ? String(specs.objem).trim() : ""
+    if (volumeStr && !volumeStr.toLowerCase().includes('ml') && !volumeStr.toLowerCase().includes('l')) {
+      volumeStr = `${volumeStr} ml`
+    } else if (volumeStr) {
+      // Ensure there's a space before ml/L if not present, optional cleanup
+      volumeStr = volumeStr.replace(/([0-9])([a-zA-Z]+)/, '$1 $2').toLowerCase()
+    }
     
     // Generate code like EP60B
     const chemCode = specs.chemie || ""

@@ -36,7 +36,7 @@ async function run() {
   const { data: products, error } = await supabase
     .from('produkty')
     .select(`
-      id, sku, nazev, kategorie_id, specifikace, mnozstvi_v_baleni, hmotnost_baliku_kg, hmotnost_zafixovana,
+      id, sku, nazev, kategorie_id, specifikace, mnozstvi_v_baleni, zakladni_mj_id, hmotnost_baliku_kg, hmotnost_zafixovana,
       produkt_dodavatel (
         is_primary,
         logisticke_sablony ( typ_vypoctu_dopravy )
@@ -66,7 +66,7 @@ async function run() {
     const qty = product.mnozstvi_v_baleni || 1
     const category = product.kategorie_id || ''
 
-    const result = calculateGrossWeight(category, specs, qty)
+    const result = calculateGrossWeight(category, specs, qty, product.zakladni_mj_id)
     const newWeight = result.weightKg
 
     if (newWeight !== null && newWeight !== product.hmotnost_baliku_kg) {

@@ -98,7 +98,6 @@ function parseVolumeL(raw: string | number | null | undefined, assumeMl = false)
   if (isNaN(num) || num <= 0) return null
   if (str.includes("ml") || assumeMl) return num / 1000
   if (str.includes("l")) return num
-  if (num >= 500) return num / 1000 // Heuristic: if >= 500 without unit, assume ml
   return num  // assume litres
 }
 
@@ -222,10 +221,18 @@ export function getPackagingMultiplier(
 export function calculateGrossWeight(
   kategorieId: string,
   specs: Record<string, unknown>,
-  mnozstviVBaleni: number
+  mnozstviVBaleni: number,
+  zakladniMjId?: string
 ): WeightEstimate {
 
   const s = specs // shorthand
+  
+  // Helper to determine if unit is continuous (volume/weight/length) rather than pieces
+  let isContinuousUnit = false;
+  if (zakladniMjId) {
+    const mj = zakladniMjId.toLowerCase();
+    isContinuousUnit = ['l', 'kg', 'g', 'ml', 'm', 'm2'].includes(mj);
+  }
 
   // OVERRIDE: Check if custom weight per basic unit is defined
   if (s.vlastni_hmotnost_mj_kg) {
@@ -344,18 +351,12 @@ export function calculateGrossWeight(
       const density = RESIN_DENSITY[chemie] ?? 1.15
       const tare = containerTareKg(objem)
       const net = r3(objem * density)
-      // Resolve actual quantity as mnozstviVBaleni (number of canisters/pieces)
-      const qty = mnozstviVBaleni || 1
+      
+      // Resolve actual quantity (multiplier)
+      const qty = mnozstviVBaleni || 1;
+
       const total = r3((net + tare) * qty)
       const netTotal = r3(net * qty)
-
-      let containerType = "kanystr"
-      if (objem <= 5) containerType = "kanystr"
-      else if (objem <= 25) containerType = "kanystr 20L"
-      else if (objem <= 100) containerType = "ocelový sud 100L"
-      else if (objem <= 200) containerType = "ocelový sud 200L"
-      else if (objem <= 400) containerType = "IBC 400L"
-      else containerType = "IBC paleta 1000L"
 
       return {
         weightKg: total,
@@ -373,20 +374,26 @@ export function calculateGrossWeight(
       const objem = parseVolumeL(s.objem as string, true)
 
       if (!objem) {
-        return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí objem kartušy (objem)." }
+        return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí objem (objem)." }
       }
 
       const density = ADHESIVE_DENSITY[chemie] ?? 1.15
-      const tare = 0.15  // cartridge body weight
+      // If it's a large container (> 1L), use the barrel tare function. Otherwise, standard cartridge tare (0.15kg)
+      const tare = objem > 1 ? containerTareKg(objem) : 0.15 
       const net = r3(objem * density)
-      const qty = mnozstviVBaleni || 1
-      const total = r3((net + tare) * qty + (qty > 1 ? 0.15 : 0))
+
+      const qty = mnozstviVBaleni || 1;
+
+      // Box packaging applies if it's multiple cartridges (not drums)
+      const extraPackaging = (qty > 1 && objem <= 1) ? 0.15 : 0;
+      const total = r3((net + tare) * qty + extraPackaging)
       const netTotal = r3(net * qty)
+
       return {
         weightKg: total,
         netWeightKg: netTotal,
         confidence: chemie in ADHESIVE_DENSITY ? "high" : "medium",
-        breakdown: `${qty} ks × (${objem * 1000}ml × ${density} kg/L + ${tare} kg kartuše) + ${qty > 1 ? "0.15 kg krabice" : "0 kg"} = ${total} kg`
+        breakdown: `${qty} ks × (${objem}L × ${density} kg/L + ${tare} kg obal) + ${extraPackaging} kg krabice = ${total} kg`
       }
     }
 
@@ -401,7 +408,9 @@ export function calculateGrossWeight(
         // Wipes — sold by piece count
         const n = parseFloat(String(mnozstvi).replace(/[^0-9]/g, "")) || 0
         if (!n) return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí počet utěrek." }
-        const qty = mnozstviVBaleni || 1
+        
+        const qty = mnozstviVBaleni || 1;
+
         const total = r3((n * 0.004 + 0.12) * qty)
         const netTotal = r3(n * 0.004 * qty)
         return {
@@ -414,7 +423,9 @@ export function calculateGrossWeight(
         // Aerosol spray
         const vol = parseVolumeL(mnozstvi, true)
         if (!vol) return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí objem spreje." }
-        const qty = mnozstviVBaleni || 1
+        
+        const qty = mnozstviVBaleni || 1;
+
         const total = r3((vol * 0.85 + 0.08) * qty)
         const netTotal = r3(vol * 0.85 * qty)
         return {
@@ -427,9 +438,12 @@ export function calculateGrossWeight(
         // CON — liquid concentrate
         const vol = parseVolumeL(mnozstvi, false)
         if (!vol) return { weightKg: null, netWeightKg: null, confidence: "low", breakdown: "Chybí objem kapaliny." }
-        const tare = vol <= 1 ? 0.15 : vol <= 5 ? 0.35 : 0.80
-        const qty = mnozstviVBaleni || 1
+        
+        const tare = containerTareKg(vol)
         const net = r3(vol * 0.95)
+
+        const qty = mnozstviVBaleni || 1;
+
         const total = r3((net + tare) * qty)
         const netTotal = r3(net * qty)
         return {
@@ -447,6 +461,7 @@ export function calculateGrossWeight(
     case "chemie": {
       const podkat = String(s.podkategorie ?? "").toLowerCase()
       const objem = s.objem as string | number
+
 
       if (podkat === "lepidlo_ve_spreji" || podkat === "blinder") {
         // Aerosol spray — objem is in ml

@@ -135,7 +135,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     const calculatedAtLoad = calculateGrossWeight(
       initialData.kategorie_id,
       initialData.specifikace || {},
-      initialData.mnozstvi_v_baleni || 1
+      initialData.mnozstvi_v_baleni || 1,
+      initialData.zakladni_mj_id
     ).weightKg || 0
     return Math.abs(initWeight - calculatedAtLoad) > 0.01
   })
@@ -1553,8 +1554,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   }, [mnozstviVBaleni, packagingMultiplier, zakladniMjId, lookups.units])
 
   const autoWeight = useMemo(() =>
-    calculateGrossWeight(kategorieId, currentSpecs, Number(mnozstviVBaleni) || 1),
-    [kategorieId, currentSpecs, mnozstviVBaleni]
+    calculateGrossWeight(kategorieId, currentSpecs, Number(mnozstviVBaleni) || 1, zakladniMjId),
+    [kategorieId, currentSpecs, mnozstviVBaleni, zakladniMjId]
   )
 
   const autoProfile = useMemo(() =>
@@ -1972,8 +1973,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             {val:"off-white", label:"off-white (Krémová)"}
           ])}
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Množství / Objem</Label>
-            <Input value={adhVolume} onChange={(e) => setAdhVolume(e.target.value)} className="h-8 bg-background" placeholder="např. 50ML, 400ML, 20L" />
+            <Label className="text-xs text-muted-foreground">Objem (ml)</Label>
+            <Input value={adhVolume} onChange={(e) => setAdhVolume(e.target.value)} className="h-8 bg-background" placeholder="např. 50, 400" />
           </div>
         </>
       )) : kategorieId === 'spotrebni_chemie' ? renderGeneratorWrapper("Čističe", (
@@ -2944,7 +2945,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       {/* 8. Logistické balení */}
       <div className="grid grid-cols-3 gap-4 p-4 bg-muted/30 rounded-lg border border-zinc-800">
         <div className="space-y-2">
-          <Label htmlFor="mnozstvi_v_baleni">Množství v bal.</Label>
+          <Label htmlFor="mnozstvi_v_baleni">Počet kusů v balení</Label>
           <div className="flex items-center gap-2">
             <Input 
               id="mnozstvi_v_baleni" 
@@ -2963,9 +2964,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               }}
             />
             <span className="text-xs font-semibold text-zinc-400 min-w-[24px]">
-              {packagingMultiplier > 1 
-                ? lookups.units.find(u => u.id === jednotkaBaleniId)?.zkratka 
-                : lookups.units.find(u => u.id === zakladniMjId)?.zkratka}
+              {lookups.units.find(u => u.id === jednotkaBaleniId)?.zkratka}
             </span>
           </div>
           {packageExplanation && (
@@ -3103,14 +3102,6 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                   <span className="block text-[9px] text-zinc-500 uppercase">Výška</span>
                   <span>{calculatedPackage.vyska_cm} cm</span>
                 </div>
-              </div>
-              <div className="flex justify-between text-[10px] text-zinc-400 pt-1">
-                <span>Objemová hmotnost:</span>
-                <span className="font-bold">{calculatedPackage.volumetricWeight_kg} kg</span>
-              </div>
-              <div className="flex justify-between text-[10px] text-zinc-400">
-                <span>Účtovaná hmotnost:</span>
-                <span className="font-bold text-primary">{calculatedPackage.billedWeight_kg} kg</span>
               </div>
             </div>
           )}

@@ -76,15 +76,18 @@ export async function GET(request: NextRequest) {
         ? templatesList.find(t => t.id === primarySourcing.logisticka_sablona_id)
         : null
 
+      const parsedSpecMnozstvi = parseFloat(String((product.specifikace as any)?.mnozstvi || (product.specifikace as any)?.objem_l)) || 1
+      const actualQty = (product.mnozstvi_v_baleni || 1) * parsedSpecMnozstvi
+
       const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === product.zakladni_mj_id &&
         (!primarySourcing?.prevodni_pomer_na_zakladni || primarySourcing.prevodni_pomer_na_zakladni === 1)
       const totalUnits = primarySourcing
         ? ((primarySourcing.prevodni_pomer_na_zakladni && primarySourcing.prevodni_pomer_na_zakladni !== 1)
             ? primarySourcing.prevodni_pomer_na_zakladni
-            : (isBuyingInBasicUnit ? 1 : (product.mnozstvi_v_baleni || 1)))
+            : (isBuyingInBasicUnit ? 1 : (actualQty || 1)))
         : 1
 
-      const defaultQty = isBuyingInBasicUnit ? (product.mnozstvi_v_baleni || 1) : 1
+      const defaultQty = isBuyingInBasicUnit ? (actualQty || 1) : 1
 
       const pricing = primarySourcing 
         ? calculateProductPricing(
@@ -108,7 +111,7 @@ export async function GET(request: NextRequest) {
             },
             undefined,
             defaultQty,
-            product.mnozstvi_v_baleni || 1
+            actualQty
           )
         : null
 

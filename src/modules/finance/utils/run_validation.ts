@@ -265,8 +265,8 @@ function runTests() {
   const pack9_single = resolvePackageDimensions(0.5, pBoxStandard, overrides, undefined, 1)
   const pack9_batch = resolvePackageDimensions(0.5 * 48, pBoxStandard, overrides, undefined, 48) // 24kg real weight
   console.log("\n9. Volumetric Weight Override Scaling test (qty = 48 vs qty = 1):")
-  console.log(`- Single billed weight (qty=1): ${pack9_single.billedWeight_kg} kg (Expected: 1.6 kg)`)
-  console.log(`- Batch billed weight (qty=48): ${pack9_batch.billedWeight_kg} kg (Expected: 76.8 kg)`)
+  console.log(`- Single billed weight (qty=1): ${pack9_single.billedWeight_kg} kg (Expected: 0.5 kg)`)
+  console.log(`- Batch billed weight (qty=48): ${pack9_batch.billedWeight_kg} kg (Expected: 24 kg)`)
 }
 
 runTests()

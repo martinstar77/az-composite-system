@@ -148,7 +148,6 @@ export function resolvePackageDimensions(
     }
   }
 
-  const vol = (delka * sirka * vyska) / koef
   return {
     delka_cm: Number(delka.toFixed(1)),
     sirka_cm: Number(sirka.toFixed(1)),

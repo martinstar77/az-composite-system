@@ -45,20 +45,23 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
     ? templates.find(t => t.id === primarySourcing.logisticka_sablona_id)
     : null
 
+  const parsedSpecMnozstvi = parseFloat(String((product.specifikace as any)?.mnozstvi || (product.specifikace as any)?.objem_l)) || 1
+  const actualQty = (product.mnozstvi_v_baleni || 1) * parsedSpecMnozstvi
+
   const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === product.zakladni_mj_id &&
     (!primarySourcing?.prevodni_pomer_na_zakladni || primarySourcing.prevodni_pomer_na_zakladni === 1)
   const isRatioFallbackUsed = !primarySourcing?.prevodni_pomer_na_zakladni || primarySourcing.prevodni_pomer_na_zakladni === 1
   const totalUnits = primarySourcing
     ? ((primarySourcing.prevodni_pomer_na_zakladni && primarySourcing.prevodni_pomer_na_zakladni !== 1)
         ? primarySourcing.prevodni_pomer_na_zakladni
-        : (isBuyingInBasicUnit ? 1 : (product.mnozstvi_v_baleni || 1)))
+        : (isBuyingInBasicUnit ? 1 : (actualQty || 1)))
     : 1
 
-  const showRatioFallbackWarning = !!(primarySourcing && isRatioFallbackUsed && !isBuyingInBasicUnit && (product.mnozstvi_v_baleni || 1) > 1)
+  const showRatioFallbackWarning = !!(primarySourcing && isRatioFallbackUsed && !isBuyingInBasicUnit && (actualQty || 1) > 1)
 
-  const defaultQty = isBuyingInBasicUnit ? (product.mnozstvi_v_baleni || 1) : 1
+  const defaultQty = isBuyingInBasicUnit ? (actualQty || 1) : 1
 
-  const autoWeight = calculateGrossWeight(product.kategorie_id, product.specifikace || {}, product.mnozstvi_v_baleni || 1)
+  const autoWeight = calculateGrossWeight(product.kategorie_id, product.specifikace || {}, product.mnozstvi_v_baleni || 1, product.zakladni_mj_id)
   const isWeightOverridden = autoWeight.weightKg !== null && product.hmotnost_baliku_kg !== null && Math.abs((product.hmotnost_baliku_kg || 0) - (autoWeight.weightKg || 0)) > 0.01
   const isFixedShipping = template?.typ_vypoctu_dopravy === 'fixni'
 
@@ -84,7 +87,7 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
         },
         undefined,
         defaultQty,
-        product.mnozstvi_v_baleni || 1
+        actualQty
       )
     : null
 
@@ -376,8 +379,8 @@ export function ProductPricingTab({ product, sourcingData, rates, settings, temp
                               </span>
                             )
                           )}
-                          {breakdown.packagingDimensions && breakdown.packagingDimensions.volumetricWeight_kg && breakdown.packagingDimensions.volumetricWeight_kg > (product.hmotnost_baliku_kg || 0) && (
-                            <span className="text-amber-500 font-bold">Aplikována objemová hmotnost ({breakdown.packagingDimensions.volumetricWeight_kg} kg)</span>
+                          {breakdown.shippingSafetyBufferCzk !== undefined && (
+                            <span className="text-zinc-500 font-normal"> (vč. bezp. koeficientu)</span>
                           )}
                         </div>
                       )}

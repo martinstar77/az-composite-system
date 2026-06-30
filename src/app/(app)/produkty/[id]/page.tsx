@@ -575,16 +575,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
                       <div className="border-t border-zinc-900 pt-2 space-y-1.5 text-xs">
                         <div className="flex justify-between text-zinc-400">
-                          <span>Reálná hmotnost:</span>
+                          <span>Hmotnost balíku:</span>
                           <span className="font-semibold text-zinc-200">{product.hmotnost_baliku_kg || 0} kg</span>
-                        </div>
-                        <div className="flex justify-between text-zinc-400">
-                          <span>Objemová hmotnost:</span>
-                          <span className="font-semibold text-zinc-200">{calculatedDims.volumetricWeight_kg} kg</span>
-                        </div>
-                        <div className="flex justify-between text-zinc-300 font-bold border-t border-zinc-900/55 pt-1.5">
-                          <span>Účtovaná hmotnost:</span>
-                          <span className="text-primary">{calculatedDims.billedWeight_kg} kg</span>
                         </div>
                       </div>
                     </div>

@@ -849,7 +849,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
               {inStock} {p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id}
             </div>
             <div className="text-[10px] text-muted-foreground">
-              Balení: {p.mnozstvi_v_baleni} {p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id} ({p.c_merne_jednotky_baleni?.zkratka || p.jednotka_baleni_id})
+              Balení: {p.mnozstvi_v_baleni} {p.c_merne_jednotky_baleni?.zkratka || p.jednotka_baleni_id} ({p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id})
             </div>
           </div>
         )
@@ -863,9 +863,9 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
         return (
           <div className="flex flex-col text-xs font-mono text-zinc-300">
             <span>
-              {p.mnozstvi_v_baleni}{" "}
+              {p.mnozstvi_v_baleni || 1}{" "}
               <span className="text-zinc-500">
-                {p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id} ({p.c_merne_jednotky_baleni?.zkratka || p.jednotka_baleni_id})
+                {p.c_merne_jednotky_baleni?.zkratka || p.jednotka_baleni_id} ({p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id})
               </span>
             </span>
           </div>
@@ -879,7 +879,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
         const p = row.original
         
         // Calculate auto-weight to check for manual override
-        const autoWeight = calculateGrossWeight(p.kategorie_id, p.specifikace || {}, p.mnozstvi_v_baleni || 1)
+        const autoWeight = calculateGrossWeight(p.kategorie_id, p.specifikace || {}, p.mnozstvi_v_baleni || 1, p.zakladni_mj_id)
         const isWeightOverridden = autoWeight.weightKg !== null && p.hmotnost_baliku_kg !== null && Math.abs((p.hmotnost_baliku_kg || 0) - (autoWeight.weightKg || 0)) > 0.01
 
         const primarySourcing = p.produkt_dodavatel?.find(s => s.is_primary) || p.produkt_dodavatel?.[0]
