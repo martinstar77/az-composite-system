@@ -432,6 +432,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   // MTI
   const [conMtiTyp, setConMtiTyp] = useState(specs.typ_mti || "Hose")
   const [conMtiWidth, setConMtiWidth] = useState(specs.sirka_mm !== undefined ? String(specs.sirka_mm) : "")
+  const [conMtiDelka, setConMtiDelka] = useState(specs.delka_m !== undefined ? String(specs.delka_m) : "50")
 
   // KP – Konektor průchodný (plastový)
   const [conKpTvar, setConKpTvar] = useState(specs.tvar || "O")
@@ -1289,23 +1290,34 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             break
           }
           case 'MTI': {
+            const isHose = conMtiTyp === 'Hose'
             if (!dirtyFields.zakladni_mj_id && !initialData) {
-              setValue("zakladni_mj_id", "ks", { shouldValidate: true })
+              setValue("zakladni_mj_id", isHose ? "bm" : "ks", { shouldValidate: true })
             }
             if (!dirtyFields.jednotka_baleni_id && !initialData) {
-              setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
+              setValue("jednotka_baleni_id", isHose ? "role" : "ks", { shouldValidate: true })
             }
+            
+            const lenVal = parseFloat(conMtiDelka) || 0
             if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
-              setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
+              setValue("mnozstvi_v_baleni", isHose ? parseFloat(lenVal.toFixed(2)) : 1, { shouldValidate: true })
+            }
+
+            if (isHose) {
+              targetMj = "bm"
+              targetUom = "role"
+              targetQty = parseFloat(lenVal.toFixed(2))
             }
             
             const wVal = conMtiWidth.trim()
             const wSku = wVal ? `-${wVal}` : ""
-            generatedSku = `MTI-${conMtiTyp.toUpperCase()}${wSku}`
+            const lenSku = (isHose && lenVal > 0) ? `-R${Math.round(lenVal)}` : ""
+            generatedSku = `MTI-${conMtiTyp.toUpperCase()}${wSku}${lenSku}`
             generatedSpecs = {
               podkategorie: "MTI",
               typ_mti: conMtiTyp,
-              ...(conMtiTyp === 'MVS' ? { sirka_mm: parseInt(wVal) || wVal } : {})
+              ...(conMtiTyp === 'MVS' ? { sirka_mm: parseInt(wVal) || wVal } : {}),
+              ...(isHose ? { delka_m: lenVal } : {})
             }
             break
           }
@@ -1359,7 +1371,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         setValue("nazev_en", names.en, { shouldValidate: true })
       }
     }
-  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, chemObjemNakup, clnSub, clnBrand, clnPack, clnType, clnQty, clnPmpType, clnPmpQty, coreMat, coreDens, coreThick, coreFinish, coreSirkaCm, coreDelkaCm, polSub, polPasteType, polPasteColor, polPasteCont, polPasteWeight, polWaxName, polWaxState, polWaxQty, polDiscType, polDiscCode, polDiscDia, polAccType, polAccProp, polAccDia, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conStPocetRoli, conFtSirka, conFtTemp, conFtDelka, conFtPocetRoli, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, chemSub, chemAdhProp, chemBaseType, chemSealerProp, chemVol, setValue, lookups.fiberCodes])
+  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, chemObjemNakup, clnSub, clnBrand, clnPack, clnType, clnQty, clnPmpType, clnPmpQty, coreMat, coreDens, coreThick, coreFinish, coreSirkaCm, coreDelkaCm, polSub, polPasteType, polPasteColor, polPasteCont, polPasteWeight, polWaxName, polWaxState, polWaxQty, polDiscType, polDiscCode, polDiscDia, polAccType, polAccProp, polAccDia, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conStPocetRoli, conFtSirka, conFtTemp, conFtDelka, conFtPocetRoli, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conMtiDelka, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, chemSub, chemAdhProp, chemBaseType, chemSealerProp, chemVol, setValue, lookups.fiberCodes])
 
   // Live SKU Duplicate Check (Debounced)
   useEffect(() => {
@@ -1446,6 +1458,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           baseSpecs.prumer_mm = parseInt(conKpPrumer) || 12
         } else if (conSub === 'MTI') {
           baseSpecs.typ_mti = conMtiTyp
+          if (conMtiTyp === 'Hose') {
+            baseSpecs.delka_m = parseFloat(conMtiDelka) || 0
+          }
         }
         return baseSpecs
       }
@@ -2616,6 +2631,18 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
                     type="number" 
                     value={conMtiWidth} 
                     onChange={(e) => setConMtiWidth(e.target.value)} 
+                    className="h-8 bg-background" 
+                    placeholder="Např. 50"
+                  />
+                </div>
+              )}
+              {conMtiTyp === 'Hose' && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-muted-foreground">Délka v roli (m)</Label>
+                  <Input 
+                    type="number" 
+                    value={conMtiDelka} 
+                    onChange={(e) => setConMtiDelka(e.target.value)} 
                     className="h-8 bg-background" 
                     placeholder="Např. 50"
                   />
