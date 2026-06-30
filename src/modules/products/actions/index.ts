@@ -30,7 +30,8 @@ export async function getProducts(): Promise<{ data: Product[] | null, error: an
         nakupni_mj_id,
         prevodni_pomer_na_zakladni,
         moq,
-        logisticke_sablony ( id, nazev, typ_vypoctu_dopravy )
+        logisticke_sablony ( id, nazev, typ_vypoctu_dopravy ),
+        dodavatele ( id, nazev_spolecnosti )
       ),
       produkt_mnozstevni_slevy (
         id,

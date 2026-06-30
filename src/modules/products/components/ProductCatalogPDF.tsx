@@ -129,22 +129,28 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   colName: {
-    width: 170,
-  },
-  colSupplier: {
     width: 140,
   },
-  colPurchase: {
-    width: 80,
-  },
-  colLogistics: {
-    width: 120,
-  },
-  colPackaging: {
+  colSupplier: {
     width: 110,
   },
-  colWeight: {
+  colPurchase: {
+    width: 65,
+  },
+  colLogistics: {
     width: 90,
+  },
+  colMargins: {
+    width: 90,
+  },
+  colPackaging: {
+    width: 90,
+  },
+  colWeight: {
+    width: 65,
+  },
+  colStatus: {
+    width: 60,
   },
   footer: {
     position: 'absolute',
@@ -552,6 +558,9 @@ export function ProductCatalogPDF({ products, lang }: ProductCatalogPDFProps) {
       ? `${p.hmotnost_baliku_kg.toFixed(2)} kg` 
       : '—'
 
+    const marginsText = `B2C: ${p.cilova_marze_retail_procenta || 0}%\nB2B: ${p.cilova_marze_partner_procenta || 0}%`
+    const statusText = p.c_stavy_produktu?.nazev || p.stav_katalogu_id || ""
+
     return (
       <View style={[styles.tableRow, isAlt ? styles.tableRowAlt : {}]} key={p.id} wrap={false}>
         {/* Název a SKU */}
@@ -575,6 +584,11 @@ export function ProductCatalogPDF({ products, lang }: ProductCatalogPDFProps) {
           <Text style={styles.tdText}>{template}</Text>
         </View>
 
+        {/* Cílové marže */}
+        <View style={styles.colMargins}>
+          <Text style={styles.tdText}>{marginsText}</Text>
+        </View>
+
         {/* Balení */}
         <View style={styles.colPackaging}>
           <Text style={styles.tdText}>{packagingText}</Text>
@@ -583,6 +597,11 @@ export function ProductCatalogPDF({ products, lang }: ProductCatalogPDFProps) {
         {/* Hmotnost */}
         <View style={styles.colWeight}>
           <Text style={[styles.tdText, styles.textRight]}>{weightText}</Text>
+        </View>
+
+        {/* Stav */}
+        <View style={styles.colStatus}>
+          <Text style={styles.tdText}>{statusText}</Text>
         </View>
       </View>
     )
@@ -649,11 +668,17 @@ export function ProductCatalogPDF({ products, lang }: ProductCatalogPDFProps) {
                         <View style={styles.colLogistics}>
                           <Text style={styles.thText}>{isCs ? 'Logistika' : 'Logistics'}</Text>
                         </View>
+                        <View style={styles.colMargins}>
+                          <Text style={styles.thText}>{isCs ? 'Cílové marže' : 'Target Margins'}</Text>
+                        </View>
                         <View style={styles.colPackaging}>
                           <Text style={styles.thText}>{isCs ? 'Balení' : 'Packaging'}</Text>
                         </View>
                         <View style={styles.colWeight}>
-                          <Text style={[styles.thText, styles.textRight]}>{isCs ? 'Hmotnost balíku' : 'Weight'}</Text>
+                          <Text style={[styles.thText, styles.textRight]}>{isCs ? 'Hmotnost' : 'Weight'}</Text>
+                        </View>
+                        <View style={styles.colStatus}>
+                          <Text style={styles.thText}>{isCs ? 'Stav' : 'Status'}</Text>
                         </View>
                       </View>
 
