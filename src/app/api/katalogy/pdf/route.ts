@@ -37,9 +37,10 @@ export async function GET(request: NextRequest) {
     const { renderToBuffer } = await import('@react-pdf/renderer')
     const { CatalogPDF } = await import('@/modules/catalogs/components/CatalogPDF')
     const { PriceMatrixPDF } = await import('@/modules/catalogs/components/PriceMatrixPDF')
+    const { ProductCatalogPDF } = await import('@/modules/products/components/ProductCatalogPDF')
 
     const { searchParams } = new URL(request.url)
-    const mode = searchParams.get('mode') || 'catalog'
+    const mode = searchParams.get('mode') || 'catalog' // 'catalog' | 'matrix' | 'products'
     const viewMode = (searchParams.get('viewMode') || 'sales') as 'cogs' | 'sales'
     const unitMode = (searchParams.get('unitMode') || 'basic') as 'basic' | 'packaging'
     const sortField = searchParams.get('sortField') || 'name'
@@ -261,29 +262,38 @@ export async function GET(request: NextRequest) {
     }
 
     // 6. Render PDF
-    const pdfComponent = mode === 'matrix'
-      ? createElement(PriceMatrixPDF, {
+    const pdfComponent = mode === 'products'
+      ? createElement(ProductCatalogPDF, {
           products: filteredProducts as any,
-          viewMode,
-          unitMode,
-          targetCurrency: currency,
-          exchangeRate,
           lang: lang as any
         })
-      : createElement(CatalogPDF, {
-          products: filteredProducts as any,
-          tier: tier as any,
-          targetCurrency: currency as any,
-          exchangeRate,
-          lang: lang as any
-        })
+      : (mode === 'matrix'
+          ? createElement(PriceMatrixPDF, {
+              products: filteredProducts as any,
+              viewMode,
+              unitMode,
+              targetCurrency: currency,
+              exchangeRate,
+              lang: lang as any
+            })
+          : createElement(CatalogPDF, {
+              products: filteredProducts as any,
+              tier: tier as any,
+              targetCurrency: currency as any,
+              exchangeRate,
+              lang: lang as any
+            })
+        )
 
     const buffer = await renderToBuffer(pdfComponent as any)
 
     // 7. Stream response as PDF
-    const filename = mode === 'matrix'
-      ? `AZ_Composite_Price_Matrix_${viewMode.toUpperCase()}_${unitMode}.pdf`
-      : (lang === 'cs' ? `AZ_Composite_Katalog_${tier.toUpperCase()}_${currency}.pdf` : `AZ_Composite_Catalog_${tier.toUpperCase()}_${currency}.pdf`)
+    const filename = mode === 'products'
+      ? `AZ_Composite_Katalog_Produktu.pdf`
+      : (mode === 'matrix'
+          ? `AZ_Composite_Price_Matrix_${viewMode.toUpperCase()}_${unitMode}.pdf`
+          : (lang === 'cs' ? `AZ_Composite_Katalog_${tier.toUpperCase()}_${currency}.pdf` : `AZ_Composite_Catalog_${tier.toUpperCase()}_${currency}.pdf`)
+        )
 
     return new Response(new Uint8Array(buffer), {
       headers: {
