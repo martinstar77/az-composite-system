@@ -227,12 +227,12 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
       delka_m: 153
     }
     const result = calculateGrossWeight("consumables", specs, 186.66)
-    // Grammage calculated: Math.round(12.5 * 0.95 * 2) / 2 = 12.0 g/m2
-    // Net: 12 / 1000 * 186.66 = 2.2399 -> r3 -> 2.24 kg
-    // Tube: 1.22 * 0.35 = 0.427 -> r3 -> 0.43 kg
+    // Grammage calculated: (12.5 * 0.95).toFixed(2) = 11.88 g/m2
+    // Net: 11.88 / 1000 * 186.66 = 2.218 kg
+    // Tube: 1.22 * 0.35 = 0.427 -> 0.43 kg
     // Packaging: 0.3 kg
-    // Gross = 2.24 + 0.43 + 0.3 = 2.97 kg
-    expect(result.weightKg).toBe(2.97)
+    // Gross = 2.218 + 0.427 + 0.3 = 2.945 -> 2.95 kg
+    expect(result.weightKg).toBe(2.95)
   })
 
   it("should calculate weight for PP-PTFE self-adhesive by computing grammage from thickness map", () => {
@@ -250,6 +250,39 @@ describe("logisticsCalculator - calculateGrossWeight", () => {
     // Packaging: 0.3 kg
     // Gross = 6.75 + 0.35 + 0.3 = 7.40 kg
     expect(result.weightKg).toBe(7.40)
+  })
+
+  it("should calculate weight for PP-PTFE non-adhesive by using factor 2.0 (e.g. 60um -> 120 g/m2)", () => {
+    const specs = {
+      podkategorie: "PP-PTFE",
+      je_lepici: false,
+      tloustka_um: 60,
+      sirka_cm: 100,
+      delka_m: 100
+    }
+    const result = calculateGrossWeight("consumables", specs, 100)
+    // Grammage calculated: 60 * 2.0 = 120 g/m2
+    // Net: 120 / 1000 * 100 = 12.0 kg
+    // Tube: 1.0 * 0.35 = 0.35 kg
+    // Packaging: 0.3 kg
+    // Gross = 12.0 + 0.35 + 0.3 = 12.65 kg
+    expect(result.weightKg).toBe(12.65)
+  })
+
+  it("should calculate weight for Bagging Film (BF) by computing grammage from thickness with 1.14 PA factor", () => {
+    const specs = {
+      podkategorie: "BF",
+      tloustka_um: 50,
+      sirka_cm: 100,
+      delka_m: 100
+    }
+    const result = calculateGrossWeight("consumables", specs, 100)
+    // Grammage calculated: 50 * 1.14 = 57.0 g/m2
+    // Net: 57 / 1000 * 100 = 5.7 kg
+    // Tube: 1.0 * 0.35 = 0.35 kg
+    // Packaging: 0.3 kg
+    // Gross = 5.7 + 0.35 + 0.3 = 6.35 kg
+    expect(result.weightKg).toBe(6.35)
   })
 
   it("should scale weight linearly with mnozstviVBaleni (multiplier audit)", () => {

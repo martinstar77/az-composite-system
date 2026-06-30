@@ -596,9 +596,20 @@ export function calculateGrossWeight(
             else {
               gramaz = Math.round(t * 1.9 - 2.5)
             }
+          } else if (podkat === "PP-PTFE") {
+            // Nesamolepicí teflonová strhávací tkanina (PTFE/Sklo) má vyšší plošnou hustotu (~2.0 g/cm3)
+            // 60µm -> 120 g/m2
+            const rawGramaz = Number(s.tloustka_um) * 2.0
+            gramaz = Number(rawGramaz.toFixed(2))
+          } else if (podkat === "BF") {
+            // Vakuové fólie (Polyamid / PA) mají hustotu ~1.14 g/cm3
+            // 50µm -> 57 g/m2, 75µm -> 85.5 g/m2
+            const rawGramaz = Number(s.tloustka_um) * 1.14
+            gramaz = Number(rawGramaz.toFixed(2))
           } else {
+            // Separátory a další (např. HDPE fólie) mají hustotu ~0.95
             const rawGramaz = Number(s.tloustka_um) * 0.95
-            gramaz = Math.round(rawGramaz * 2) / 2
+            gramaz = Number(rawGramaz.toFixed(2))
           }
         }
 
