@@ -53,6 +53,8 @@ export interface PricingBreakdown {
   currentMargin: number
   lowMargin: number // Weakest CZK
   highMargin: number // Strongest CZK
+  lowMarginB2B: number
+  highMarginB2B: number
 
   // Shipping Engine v2 outputs
   billedWeightKg?: number
@@ -324,7 +326,7 @@ export function calculateProductPricing(
   const strongestRate = currency === 'EUR' ? 23.5 : (currency === 'USD' ? 21.0 : 1)
   const weakestRate = currency === 'EUR' ? 27.5 : (currency === 'USD' ? 25.5 : 1)
 
-  const calculateMargin = (r: number) => {
+  const calculateMargin = (r: number, targetPrice: number) => {
     const purchasePart = purchasingUnitPrice * r * (1 + roklenMargin)
     const purchasePartUnit = purchasePart / totalUnits
     
@@ -332,7 +334,7 @@ export function calculateProductPricing(
     const logisticsPartUnit = logisticsPart / unitsInPack
     
     const costUnit = purchasePartUnit + logisticsPartUnit
-    return ((b2cUnitPrice - costUnit) / b2cUnitPrice) * 100
+    return ((targetPrice - costUnit) / targetPrice) * 100
   }
 
   return {
@@ -372,8 +374,10 @@ export function calculateProductPricing(
     b2bUnitMarginAmount: b2bUnitPrice - unitLandedCostWithBuffer,
     
     currentMargin: margins.retail,
-    lowMargin: calculateMargin(weakestRate),
-    highMargin: calculateMargin(strongestRate),
+    lowMargin: calculateMargin(weakestRate, b2cUnitPrice),
+    highMargin: calculateMargin(strongestRate, b2cUnitPrice),
+    lowMarginB2B: calculateMargin(weakestRate, b2bUnitPrice),
+    highMarginB2B: calculateMargin(strongestRate, b2bUnitPrice),
 
     // Shipping Engine v2 outputs
     billedWeightKg: billedWeight / qty,

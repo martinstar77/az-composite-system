@@ -235,53 +235,7 @@ function isHighTemp(temp: any): boolean {
   return false
 }
 
-function translateCategory(id: string, name: string, lang: 'cs' | 'en'): string {
-  if (lang === 'cs') {
-    const csMap: Record<string, string> = {
-      vyztuzne_materialy: "Výztužné materiály",
-      prepregy: "Prepregy",
-      pryskyrice: "Pryskyřice a Gelcoaty",
-      brouseni_a_lesteni: "Broušení a leštění",
-      lepidla: "Strukturální lepidla",
-      spotrebni_chemie: "Spotřební chemie a čističe",
-      cores_standard: "Jádrové materiály",
-      cores_active: "Active Core Technology",
-      consumables: "Spotřební materiál",
-      naradi: "Nářadí",
-      chemie: "Chemie"
-    };
-    return csMap[id] || name;
-  } else {
-    const enMap: Record<string, string> = {
-      vyztuzne_materialy: "Reinforcement Materials",
-      prepregy: "Prepregs",
-      pryskyrice: "Resins & Gelcoats",
-      brouseni_a_lesteni: "Sanding & Polishing",
-      lepidla: "Structural Adhesives",
-      spotrebni_chemie: "Consumable Chemicals & Cleaners",
-      cores_standard: "Core Materials",
-      cores_active: "Active Core Technology",
-      consumables: "Consumables",
-      naradi: "Tools",
-      chemie: "Chemicals"
-    };
-    return enMap[id] || name;
-  }
-}
-
-function translateUnit(abbr: string, lang: 'cs' | 'en'): string {
-  if (lang === 'cs') return abbr;
-  const unitMap: Record<string, string> = {
-    'ks': 'pcs',
-    'bm': 'm',
-    'm2': 'm²',
-    'kg': 'kg',
-    'l': 'l',
-    'bal.': 'pack',
-    'bal': 'pack'
-  };
-  return unitMap[abbr.toLowerCase()] || abbr;
-}
+import { translateCategory, translateUnit } from '../utils/catalogHelpers'
 
 export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang = 'cs' }: CatalogPDFProps) => {
   const isCs = lang === 'cs'
@@ -627,8 +581,26 @@ export const CatalogPDF = ({ products, tier, targetCurrency, exchangeRate, lang 
 
     // Sort categories and subgroups
     const sortedCats = Object.values(cats).map(c => {
-      c.subgroups.sort((a, b) => b.priority - a.priority)
+      c.subgroups.sort((a, b) => {
+        if (a.priority !== b.priority) return b.priority - a.priority
+        return a.label.localeCompare(b.label, lang === 'en' ? 'en' : 'cs')
+      })
+      
+      c.subgroups.forEach(sub => {
+        sub.products.sort((p1: any, p2: any) => {
+          const name1 = lang === 'en' ? (p1.nazev_en || p1.nazev || '') : (p1.nazev || '')
+          const name2 = lang === 'en' ? (p2.nazev_en || p2.nazev || '') : (p2.nazev || '')
+          return name1.localeCompare(name2, lang === 'en' ? 'en' : 'cs')
+        })
+      })
+      
       return c
+    })
+
+    sortedCats.sort((a, b) => {
+      const nameA = translateCategory(a.id, a.name, lang)
+      const nameB = translateCategory(b.id, b.name, lang)
+      return nameA.localeCompare(nameB, lang === 'en' ? 'en' : 'cs')
     })
 
     return sortedCats

@@ -11,7 +11,7 @@ import {
   RowSelectionState,
 } from "@tanstack/react-table"
 import Link from "next/link"
-import { ArrowUpDown, MoreHorizontal, FileEdit, Search, FilterX, ExternalLink, Settings2, Copy, Trash2, Building2, Zap, Edit2 } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, FileEdit, Search, FilterX, ExternalLink, Settings2, Copy, Trash2, Building2, Zap, Edit2, Download } from "lucide-react"
 import { cn } from "@/shared/lib/utils"
 import { calculateGrossWeight } from "../utils/logisticsCalculator"
 
@@ -53,9 +53,12 @@ import { BulkEditMarginsDialog } from "./forms/BulkEditMarginsDialog"
 import { BulkEditLogisticsDialog } from "./forms/BulkEditLogisticsDialog"
 import { BulkEditSourcingDialog } from "./forms/BulkEditSourcingDialog"
 import { SpeedPricingDrawer } from "./SpeedPricingDrawer"
-import { LogisticsTemplate } from "@/modules/finance/types/logistics"
 import { cloneProduct, deleteProduct, getProductsPaged, getCategoryFacets } from "../actions"
 import { toast } from "sonner"
+import { ExportPricingDialog } from "./ExportPricingDialog"
+import { ExchangeRate, GlobalFinanceSettings, LogisticsTemplate } from "@/modules/finance/types"
+import { calculatePricedProducts, getPackMultiplier } from "../utils/pricingUtils"
+import { formatCurrency } from "../utils/catalogHelpers"
 
 interface ProductDataTableProps {
   initialData: Product[]
@@ -69,6 +72,8 @@ interface ProductDataTableProps {
     templates: LogisticsTemplate[]
     suppliers: { id: string; kod: string; nazev_spolecnosti: string; vychozi_mena: string }[]
   }
+  rates: ExchangeRate[]
+  settings: GlobalFinanceSettings
 }
 
 const CATEGORY_SPEC_MAP: Record<string, { key: string; label: string }[]> = {
@@ -264,7 +269,7 @@ const SPEC_VALUE_LABELS: Record<string, Record<string, string>> = {
   }
 }
 
-export function ProductDataTable({ initialData, initialTotalCount, lookups }: ProductDataTableProps) {
+export function ProductDataTable({ initialData, initialTotalCount, lookups, rates, settings }: ProductDataTableProps) {
   // Infinite Scroll & Client State
   const [products, setProducts] = React.useState<Product[]>(initialData)
   const [totalCount, setTotalCount] = React.useState(initialTotalCount)
@@ -299,6 +304,17 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
   const [isRestoring, setIsRestoring] = React.useState(true)
   const observerTargetRef = React.useRef<HTMLDivElement>(null)
   const isFirstRender = React.useRef(true)
+
+  // View modes for Price Matrix functionality
+  const [viewMode, setViewMode] = React.useState<"products" | "cogs" | "sales">("products")
+  const [unitMode, setUnitMode] = React.useState<"basic" | "packaging">("basic")
+  const [salesTarget, setSalesTarget] = React.useState<"b2b" | "b2c" | "both">("b2b")
+  const [isExportDrawerOpen, setIsExportDrawerOpen] = React.useState(false)
+
+  // Pricing Calculation
+  const pricedProducts = React.useMemo(() => {
+    return calculatePricedProducts(products, rates, settings, lookups.templates);
+  }, [products, rates, settings, lookups.templates]);
 
   // Restore filters from sessionStorage on mount
   React.useEffect(() => {
@@ -688,317 +704,480 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
     }
   }
 
-  const columns: ColumnDef<Product>[] = [
-    {
-      id: "select",
-      header: ({ table }) => (
-        <Checkbox
-          checked={table.getIsAllRowsSelected()}
-          onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
-          aria-label="Vybrat vše"
-          className="translate-y-[2px]"
-        />
-      ),
-      cell: ({ row }) => (
-        <Checkbox
-          checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Vybrat řádek"
-          className="translate-y-[2px]"
-        />
-      ),
-      enableSorting: false,
-      enableHiding: false,
-    },
-    {
-      accessorKey: "sku",
-      header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4 text-[10px] font-bold uppercase tracking-tighter">
-          SKU <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => (
-        <div className="font-mono text-[9px] font-medium text-zinc-300 truncate" title={row.getValue("sku")}>
-          {row.getValue("sku")}
-        </div>
-      ),
-    },
-    {
-      accessorKey: "nazev",
-      header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4 text-[10px] font-bold uppercase tracking-tighter">
-          Název <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const nazev = row.getValue("nazev") as string
-        return (
-          <Link href={`/produkty/${row.original.id}`} className="group flex items-center gap-2 max-w-full" title={nazev}>
-            <span className="font-semibold text-sm group-hover:text-primary transition-colors underline-offset-4 group-hover:underline truncate block w-full">
-              {nazev}
-            </span>
-            <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 text-primary transition-all shrink-0" />
-          </Link>
-        )
-      },
-    },
-    {
-      accessorKey: "kategorie_id",
-      header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4 text-[10px] font-bold uppercase tracking-tighter">
-          Kategorie <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const product = row.original;
-        const label = product.kategorie_id === 'spotrebni_chemie' ? 'Čističe' : (product.c_kategorie?.nazev || product.kategorie_id);
-        return (
-          <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 hover:bg-primary/10 text-[10px] py-0 px-2 h-5 max-w-[85px] truncate" title={label}>
-            {label}
-          </Badge>
-        )
-      },
-    },
-    {
-      accessorKey: "stav_katalogu_id",
-      header: ({ column }) => (
-        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4 text-[10px] font-bold uppercase tracking-tighter">
-          Stav <ArrowUpDown className="ml-1 h-3 w-3" />
-        </Button>
-      ),
-      cell: ({ row }) => {
-        const product = row.original;
-        const status = product.c_stavy_produktu?.nazev || product.stav_katalogu_id || "";
-        return (
-          <div className="flex items-center gap-2 max-w-full">
-            <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${status.includes('Aktivní') ? 'bg-green-500' : 'bg-zinc-500'}`} />
-            <span className="text-[10px] font-medium text-muted-foreground truncate max-w-[90px]" title={status}>{status}</span>
-          </div>
-        )
-      },
-    },
-    {
-      id: "sourcing",
-      header: "Nákupní cena",
-      cell: ({ row }) => {
-        const sourcing = row.original.produkt_dodavatel?.find(s => s.is_primary) || row.original.produkt_dodavatel?.[0]
-        if (!sourcing) return <span className="text-[10px] text-zinc-500 italic">Nedefinováno</span>
-        
-        return (
-          <span className="font-mono text-xs font-bold text-primary">
-            {sourcing.nakupni_cena.toFixed(2)} {sourcing.mena}
-          </span>
-        )
-      }
-    },
-    {
-      id: "dodavatel",
-      header: "Dodavatel",
-      cell: ({ row }) => {
-        const sourcing = row.original.produkt_dodavatel?.find(s => s.is_primary) || row.original.produkt_dodavatel?.[0]
-        const supplierName = sourcing?.dodavatele?.nazev_spolecnosti
-        return supplierName ? (
-          <span className="text-xs text-zinc-300 font-medium max-w-[100px] truncate block" title={supplierName}>
-            {supplierName}
-          </span>
-        ) : (
-          <span className="text-[10px] text-zinc-500 italic">Nedefinováno</span>
-        )
-      }
-    },
-    {
-      id: "logistika",
-      header: "Logistika",
-      cell: ({ row }) => {
-        const sourcing = row.original.produkt_dodavatel?.find(s => s.is_primary) || row.original.produkt_dodavatel?.[0]
-        const templateName = sourcing?.logisticke_sablony?.nazev
-        return templateName ? (
-          <Badge variant="secondary" className="bg-zinc-800 text-zinc-300 border-zinc-700 text-[10px] py-0 px-2 h-5 max-w-[80px] truncate" title={templateName}>
-            🚚 {templateName}
-          </Badge>
-        ) : (
-          <Badge variant="outline" className="border-yellow-600/30 text-yellow-600 bg-yellow-600/5 text-[10px] py-0 px-2 h-5">
-            Bez šablony
-          </Badge>
-        )
-      }
-    },
-    {
-      id: "margins",
-      header: "Cílové Marže",
-      cell: ({ row }) => {
-        const p = row.original
-        return (
-          <div className="flex flex-col gap-1 text-[10px] font-mono">
-            <div className="flex justify-between w-28"><span className="text-zinc-500">B2C (Retail):</span><span className="text-zinc-200">{p.cilova_marze_retail_procenta}%</span></div>
-            <div className="flex justify-between w-28"><span className="text-zinc-500">B2B (Partner):</span><span className="text-zinc-200">{p.cilova_marze_partner_procenta}%</span></div>
-          </div>
-        )
-      }
-    },
-    {
-      id: "stock",
-      header: "Skladem",
-      cell: ({ row }) => {
-        const p = row.original;
-        const inStock = 0; 
-        
-        return (
-          <div className="flex flex-col gap-1">
-            <div className="text-xs font-bold text-green-500">
-              {inStock} {p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id}
-            </div>
-            <div className="text-[10px] text-muted-foreground">
-              Balení: {p.mnozstvi_v_baleni} {p.c_merne_jednotky_baleni?.zkratka || p.jednotka_baleni_id} ({p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id})
-            </div>
-          </div>
-        )
-      },
-    },
-    {
-      id: "packaging_qty",
-      header: "Balení",
-      cell: ({ row }) => {
-        const p = row.original
-        return (
-          <div className="flex flex-col text-xs font-mono text-zinc-300">
-            <span>
-              {p.mnozstvi_v_baleni || 1}{" "}
-              <span className="text-zinc-500">
-                {p.c_merne_jednotky_baleni?.zkratka || p.jednotka_baleni_id} ({p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id})
-              </span>
-            </span>
-          </div>
-        )
-      }
-    },
-    {
-      id: "weight",
-      header: "Hmotnost",
-      cell: ({ row }) => {
-        const p = row.original
-        
-        // Calculate auto-weight to check for manual override
-        const autoWeight = calculateGrossWeight(p.kategorie_id, p.specifikace || {}, p.mnozstvi_v_baleni || 1, p.zakladni_mj_id)
-        const isWeightOverridden = autoWeight.weightKg !== null && p.hmotnost_baliku_kg !== null && Math.abs((p.hmotnost_baliku_kg || 0) - (autoWeight.weightKg || 0)) > 0.01
+  const columns: ColumnDef<any>[] = React.useMemo(() => {
+    const isBasicUnit = unitMode === "basic"
 
-        const primarySourcing = p.produkt_dodavatel?.find(s => s.is_primary) || p.produkt_dodavatel?.[0]
-        const isFixedShipping = primarySourcing?.logisticke_sablony?.typ_vypoctu_dopravy === 'fixni'
-
-        return (
-          <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-300">
-            {p.hmotnost_baliku_kg !== null && p.hmotnost_baliku_kg !== undefined ? (
-              <span>{p.hmotnost_baliku_kg.toFixed(2)} kg</span>
-            ) : (
-              <span className="text-zinc-600 italic">-</span>
-            )}
-            {p.hmotnost_zafixovana ? (
-              <span 
-                className="text-emerald-400 font-bold cursor-help" 
-                title={`Hmotnost je ručně zafixována uživatelem a ochráněna před hromadným přepočtem (automatický odhad: ${autoWeight.weightKg?.toFixed(2)} kg)`}
-              >
-                🔒
+    const baseCols: ColumnDef<any>[] = [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={table.getIsAllRowsSelected()}
+            onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
+            aria-label="Vybrat vše"
+            className="translate-y-[2px]"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(value) => row.toggleSelected(!!value)}
+            aria-label="Vybrat řádek"
+            className="translate-y-[2px]"
+          />
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
+      {
+        accessorKey: "sku",
+        header: ({ column }) => (
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4 text-[10px] font-bold uppercase tracking-tighter">
+            SKU <ArrowUpDown className="ml-1 h-3 w-3" />
+          </Button>
+        ),
+        cell: ({ row }) => (
+          <div className="font-mono text-[9px] font-medium text-zinc-300 truncate" title={row.getValue("sku")}>
+            {row.getValue("sku")}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "nazev",
+        header: ({ column }) => (
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4 text-[10px] font-bold uppercase tracking-tighter">
+            Název <ArrowUpDown className="ml-1 h-3 w-3" />
+          </Button>
+        ),
+        cell: ({ row }) => {
+          const nazev = row.getValue("nazev") as string
+          return (
+            <Link href={`/produkty/${row.original.id}`} className="group flex items-center gap-2 max-w-full" title={nazev}>
+              <span className="font-semibold text-sm group-hover:text-primary transition-colors underline-offset-4 group-hover:underline truncate block w-full">
+                {nazev}
               </span>
-            ) : isWeightOverridden && (
-              isFixedShipping ? (
-                <span 
-                  className="text-emerald-400 font-bold cursor-help" 
-                  title={`Hmotnost byla ručně upravena a je ochráněna šablonou s fixní dopravou (automatický odhad: ${autoWeight.weightKg?.toFixed(2)} kg)`}
-                >
-                  ⚠️
-                </span>
-              ) : (
-                <span 
-                  className="text-amber-500 font-bold cursor-help" 
-                  title={`Hmotnost byla ručně upravena (automatický odhad: ${autoWeight.weightKg?.toFixed(2)} kg). Upozornění: Hrozí přepsání hromadným přepočtem!`}
-                >
-                  ⚠️
-                </span>
+              <ExternalLink className="h-3 w-3 opacity-0 group-hover:opacity-100 text-primary transition-all shrink-0" />
+            </Link>
+          )
+        },
+      },
+      {
+        accessorKey: "kategorie_id",
+        header: ({ column }) => (
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4 text-[10px] font-bold uppercase tracking-tighter">
+            Kategorie <ArrowUpDown className="ml-1 h-3 w-3" />
+          </Button>
+        ),
+        cell: ({ row }) => {
+          const product = row.original;
+          const label = product.kategorie_id === 'spotrebni_chemie' ? 'Čističe' : (product.c_kategorie?.nazev || product.kategorie_id);
+          return (
+            <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 hover:bg-primary/10 text-[10px] py-0 px-2 h-5 max-w-[85px] truncate" title={label}>
+              {label}
+            </Badge>
+          )
+        },
+      },
+      ...(viewMode === "products" ? [{
+        accessorKey: "stav_katalogu_id",
+        header: ({ column }: any) => (
+          <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4 text-[10px] font-bold uppercase tracking-tighter">
+            Stav <ArrowUpDown className="ml-1 h-3 w-3" />
+          </Button>
+        ),
+        cell: ({ row }: any) => {
+          const product = row.original;
+          const status = product.c_stavy_produktu?.nazev || product.stav_katalogu_id || "";
+          return (
+            <div className="flex items-center gap-2 max-w-full">
+              <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${status.includes('Aktivní') ? 'bg-green-500' : 'bg-zinc-500'}`} />
+              <span className="text-[10px] font-medium text-muted-foreground truncate max-w-[90px]" title={status}>{status}</span>
+            </div>
+          )
+        },
+      }] : [])
+    ]
+
+    if (viewMode === "products") {
+      baseCols.push(
+        {
+          id: "sourcing",
+          header: "Nákupní cena",
+          cell: ({ row }) => {
+            const sourcing = row.original.produkt_dodavatel?.find((s: any) => s.is_primary) || row.original.produkt_dodavatel?.[0]
+            if (!sourcing) return <span className="text-[10px] text-zinc-500 italic">Nedefinováno</span>
+            return <span className="font-mono text-xs font-bold text-primary">{sourcing.nakupni_cena.toFixed(2)} {sourcing.mena}</span>
+          }
+        },
+        {
+          id: "dodavatel",
+          header: "Dodavatel",
+          cell: ({ row }) => {
+            const sourcing = row.original.produkt_dodavatel?.find((s: any) => s.is_primary) || row.original.produkt_dodavatel?.[0]
+            const supplierName = sourcing?.dodavatele?.nazev_spolecnosti
+            return supplierName ? (
+              <span className="text-xs text-zinc-300 font-medium max-w-[100px] truncate block" title={supplierName}>{supplierName}</span>
+            ) : <span className="text-[10px] text-zinc-500 italic">Nedefinováno</span>
+          }
+        },
+        {
+          id: "logistika",
+          header: "Logistika",
+          cell: ({ row }) => {
+            const sourcing = row.original.produkt_dodavatel?.find((s: any) => s.is_primary) || row.original.produkt_dodavatel?.[0]
+            const templateName = sourcing?.logisticke_sablony?.nazev
+            return templateName ? (
+              <Badge variant="secondary" className="bg-zinc-800 text-zinc-300 border-zinc-700 text-[10px] py-0 px-2 h-5 max-w-[80px] truncate" title={templateName}>🚚 {templateName}</Badge>
+            ) : <Badge variant="outline" className="border-yellow-600/30 text-yellow-600 bg-yellow-600/5 text-[10px] py-0 px-2 h-5">Bez šablony</Badge>
+          }
+        },
+        {
+          id: "margins",
+          header: "Cílové Marže",
+          cell: ({ row }) => {
+            const p = row.original
+            return (
+              <div className="flex flex-col gap-1 text-[10px] font-mono">
+                <div className="flex justify-between w-28"><span className="text-zinc-500">B2C (Retail):</span><span className="text-zinc-200">{p.cilova_marze_retail_procenta}%</span></div>
+                <div className="flex justify-between w-28"><span className="text-zinc-500">B2B (Partner):</span><span className="text-zinc-200">{p.cilova_marze_partner_procenta}%</span></div>
+              </div>
+            )
+          }
+        },
+        {
+          id: "stock",
+          header: "Skladem",
+          cell: ({ row }) => {
+            const p = row.original;
+            return (
+              <div className="flex flex-col gap-1">
+                <div className="text-xs font-bold text-green-500">0 {p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id}</div>
+                <div className="text-[10px] text-muted-foreground">Balení: {p.mnozstvi_v_baleni} {p.c_merne_jednotky_baleni?.zkratka || p.jednotka_baleni_id} ({p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id})</div>
+              </div>
+            )
+          },
+        },
+        {
+          id: "packaging_qty",
+          header: "Balení",
+          cell: ({ row }) => {
+            const p = row.original
+            return (
+              <div className="flex flex-col text-xs font-mono text-zinc-300">
+                <span>{p.mnozstvi_v_baleni || 1} <span className="text-zinc-500">{p.c_merne_jednotky_baleni?.zkratka || p.jednotka_baleni_id} ({p.c_merne_jednotky_zakladni?.zkratka || p.zakladni_mj_id})</span></span>
+              </div>
+            )
+          }
+        },
+        {
+          id: "weight",
+          header: "Hmotnost",
+          cell: ({ row }) => {
+            const p = row.original
+            const autoWeight = calculateGrossWeight(p.kategorie_id, p.specifikace || {}, p.mnozstvi_v_baleni || 1, p.zakladni_mj_id)
+            const isWeightOverridden = autoWeight.weightKg !== null && p.hmotnost_baliku_kg !== null && Math.abs((p.hmotnost_baliku_kg || 0) - (autoWeight.weightKg || 0)) > 0.01
+            const primarySourcing = p.produkt_dodavatel?.find((s: any) => s.is_primary) || p.produkt_dodavatel?.[0]
+            const isFixedShipping = primarySourcing?.logisticke_sablony?.typ_vypoctu_dopravy === 'fixni'
+            return (
+              <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-300">
+                {p.hmotnost_baliku_kg !== null && p.hmotnost_baliku_kg !== undefined ? <span>{p.hmotnost_baliku_kg.toFixed(2)} kg</span> : <span className="text-zinc-600 italic">-</span>}
+                {p.hmotnost_zafixovana ? <span className="text-emerald-400 font-bold cursor-help" title={`Hmotnost je ručně zafixována uživatelem (odhad: ${autoWeight.weightKg?.toFixed(2)} kg)`}>🔒</span> : isWeightOverridden && <span className="text-amber-500 font-bold cursor-help" title={`Ručně upraveno (odhad: ${autoWeight.weightKg?.toFixed(2)} kg)`}>⚠️</span>}
+                {isFixedShipping && <span className="text-blue-400 font-bold cursor-help" title={`Fixní doprava`}>🚚</span>}
+              </div>
+            )
+          }
+        }
+      )
+    }
+
+    if (viewMode === "cogs") {
+      baseCols.push(
+        {
+          id: "purchase_price",
+          header: () => <div className="text-right">Nákupní cena</div>,
+          cell: ({ row }) => {
+            const pr = row.original.pricing
+            if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+            const mult = isBasicUnit ? 1 : getPackMultiplier(row.original, pr)
+            return <div className="text-right font-mono text-xs">{formatCurrency(pr.unitPurchasePriceCzk * mult)}</div>
+          }
+        },
+        {
+          id: "shipping",
+          header: () => <div className="text-right">Doprava</div>,
+          cell: ({ row }) => {
+            const pr = row.original.pricing
+            if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+            const mult = isBasicUnit ? 1 : getPackMultiplier(row.original, pr)
+            return <div className="text-right font-mono text-xs">{formatCurrency(pr.unitShippingCostCzk * mult)}</div>
+          }
+        },
+        {
+          id: "customs",
+          header: () => <div className="text-right">Clo</div>,
+          cell: ({ row }) => {
+            const pr = row.original.pricing
+            if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+            const mult = isBasicUnit ? 1 : getPackMultiplier(row.original, pr)
+            return <div className="text-right font-mono text-xs">{formatCurrency(pr.unitCustomsCostCzk * mult)}</div>
+          }
+        },
+        {
+          id: "bank_fees",
+          header: () => <div className="text-right">Banka</div>,
+          cell: ({ row }) => {
+            const pr = row.original.pricing
+            if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+            const mult = isBasicUnit ? 1 : getPackMultiplier(row.original, pr)
+            return <div className="text-right font-mono text-xs text-zinc-400">{formatCurrency(pr.unitBankFeesCzk * mult)}</div>
+          }
+        },
+        {
+          id: "clearing",
+          header: () => <div className="text-right">Proclení (Paušál)</div>,
+          cell: ({ row }) => {
+            const pr = row.original.pricing
+            if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+            const mult = isBasicUnit ? 1 : getPackMultiplier(row.original, pr)
+            return <div className="text-right font-mono text-xs text-zinc-400">{formatCurrency(pr.unitClearingFeesCzk * mult)}</div>
+          }
+        },
+        {
+          id: "waste",
+          header: () => <div className="text-right">Odpady (EKO)</div>,
+          cell: ({ row }) => {
+            const pr = row.original.pricing
+            if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+            const mult = isBasicUnit ? 1 : getPackMultiplier(row.original, pr)
+            return <div className="text-right font-mono text-xs text-zinc-400">{formatCurrency(pr.unitWasteFeesCzk * mult)}</div>
+          }
+        },
+        {
+          id: "packaging",
+          header: () => <div className="text-right">Obaly</div>,
+          cell: ({ row }) => {
+            const pr = row.original.pricing
+            if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+            const mult = isBasicUnit ? 1 : getPackMultiplier(row.original, pr)
+            return <div className="text-right font-mono text-xs text-zinc-400">{formatCurrency(pr.unitPackagingFeesCzk * mult)}</div>
+          }
+        },
+        {
+          id: "buffer",
+          header: () => <div className="text-right">Buffer</div>,
+          cell: ({ row }) => {
+            const pr = row.original.pricing
+            if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+            const mult = isBasicUnit ? 1 : getPackMultiplier(row.original, pr)
+            return <div className="text-right font-mono text-xs text-orange-400">{formatCurrency(pr.unitBufferAmount * mult)}</div>
+          }
+        },
+        {
+          id: "landed_cost",
+          header: () => <div className="text-right text-primary font-bold">Landed Cost</div>,
+          cell: ({ row }) => {
+            const pr = row.original.pricing
+            if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+            const mult = isBasicUnit ? 1 : getPackMultiplier(row.original, pr)
+            return <div className="text-right font-mono text-xs font-bold text-primary">{formatCurrency(pr.unitLandedCostWithBuffer * mult)}</div>
+          }
+        }
+      )
+    }
+
+    if (viewMode === "sales") {
+      baseCols.push(
+        {
+          id: "landed_cost",
+          header: () => <div className="text-right text-primary">Landed Cost</div>,
+          cell: ({ row }) => {
+            const pr = row.original.pricing
+            if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+            const mult = isBasicUnit ? 1 : getPackMultiplier(row.original, pr)
+            return <div className="text-right font-mono text-xs font-bold text-primary">{formatCurrency(pr.unitLandedCostWithBuffer * mult)}</div>
+          }
+        }
+      )
+      
+      if (salesTarget === "b2b" || salesTarget === "both") {
+        baseCols.push(
+          {
+            id: "margin_b2b",
+            header: () => <div className="text-right">Marže B2B</div>,
+            cell: ({ row }) => {
+              const p = row.original
+              return <div className="text-right font-mono text-xs text-zinc-400">{p.cilova_marze_partner_procenta}%</div>
+            }
+          },
+          {
+            id: "margin_risk_b2b",
+            header: () => <div className="text-right text-red-400">Risk (Slabá CZK)</div>,
+            cell: ({ row }) => {
+              const pr = row.original.pricing
+              if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+              return <div className="text-right font-mono text-xs text-red-400">{pr.lowMarginB2B.toFixed(1)}%</div>
+            }
+          },
+          {
+            id: "margin_safe_b2b",
+            header: () => <div className="text-right text-green-400">Safe (Silná CZK)</div>,
+            cell: ({ row }) => {
+              const pr = row.original.pricing
+              if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+              return <div className="text-right font-mono text-xs text-green-400">{pr.highMarginB2B.toFixed(1)}%</div>
+            }
+          },
+          {
+            id: "margin_b2b_discount",
+            header: () => <div className="text-right">B2B Slevy (5-20%)</div>,
+            cell: ({ row }) => {
+              const pr = row.original.pricing
+              if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+              const mult = isBasicUnit ? 1 : getPackMultiplier(row.original, pr)
+              return (
+                <div className="flex flex-col gap-1 text-[9px] font-mono text-zinc-400 items-end">
+                  <span>5%: {formatCurrency(pr.b2bDiscountedPrices[5] * mult)}</span>
+                  <span>20%: {formatCurrency(pr.b2bDiscountedPrices[20] * mult)}</span>
+                </div>
               )
-            )}
-            {isFixedShipping && (
-              <span 
-                className="text-blue-400 font-bold cursor-help" 
-                title={`Produkt používá šablonu s fixní dopravou (${primarySourcing?.logisticke_sablony?.nazev})`}
-              >
-                🚚
-              </span>
-            )}
-          </div>
+            }
+          }
         )
       }
-    },
-    {
-      id: "audit",
-      header: "Autor / Změna",
-      cell: ({ row }) => {
-        const p = row.original;
-        const createdDate = new Date(p.vytvoreno_at).toLocaleDateString('cs-CZ');
-        const updatedDate = new Date(p.aktualizovano_at).toLocaleDateString('cs-CZ');
-        
-        return (
-          <div className="flex flex-col gap-1 text-[10px]">
-            <div className="flex gap-1 items-center text-zinc-400">
-              <span className="font-semibold text-primary">Vytvořil:</span>
-              <span>{p.vytvoril?.jmeno || 'Systém'}</span>
-              <span>({createdDate})</span>
-            </div>
-            <div className="flex gap-1 items-center text-zinc-500">
-              <span className="font-semibold">Upravil:</span>
-              <span>{p.upravil?.jmeno || 'Systém'}</span>
-              <span>({updatedDate})</span>
-            </div>
-          </div>
+
+      if (salesTarget === "b2c" || salesTarget === "both") {
+        baseCols.push(
+          {
+            id: "margin_b2c",
+            header: () => <div className="text-right">Marže B2C</div>,
+            cell: ({ row }) => {
+              const p = row.original
+              return <div className="text-right font-mono text-xs text-zinc-400">{p.cilova_marze_retail_procenta}%</div>
+            }
+          },
+          {
+            id: "margin_risk",
+            header: () => <div className="text-right text-red-400">Risk (Slabá CZK)</div>,
+            cell: ({ row }) => {
+              const pr = row.original.pricing
+              if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+              return <div className="text-right font-mono text-xs text-red-400">{pr.lowMargin.toFixed(1)}%</div>
+            }
+          },
+          {
+            id: "margin_safe",
+            header: () => <div className="text-right text-green-400">Safe (Silná CZK)</div>,
+            cell: ({ row }) => {
+              const pr = row.original.pricing
+              if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+              return <div className="text-right font-mono text-xs text-green-400">{pr.highMargin.toFixed(1)}%</div>
+            }
+          }
         )
+      }
+
+      if (salesTarget === "b2b" || salesTarget === "both") {
+        baseCols.push({
+          id: "b2b",
+          header: () => <div className="text-right text-green-400 font-bold">Prodej B2B</div>,
+          cell: ({ row }) => {
+            const pr = row.original.pricing
+            if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+            const mult = isBasicUnit ? 1 : getPackMultiplier(row.original, pr)
+            return <div className="text-right font-mono text-xs font-bold text-green-400">{formatCurrency(pr.b2bUnitPrice * mult)}</div>
+          }
+        })
+      }
+
+      if (salesTarget === "b2c" || salesTarget === "both") {
+        baseCols.push({
+          id: "b2c",
+          header: () => <div className="text-right text-green-400 font-bold">Prodej B2C</div>,
+          cell: ({ row }) => {
+            const pr = row.original.pricing
+            if (!pr) return <div className="text-right text-[10px] text-zinc-500">-</div>
+            const mult = isBasicUnit ? 1 : getPackMultiplier(row.original, pr)
+            return <div className="text-right font-mono text-xs font-bold text-green-400">{formatCurrency(pr.b2cUnitPrice * mult)}</div>
+          }
+        })
+      }
+    }
+
+    baseCols.push(
+      {
+        id: "audit",
+        header: "Autor / Změna",
+        cell: ({ row }) => {
+          const p = row.original;
+          const createdDate = new Date(p.vytvoreno_at).toLocaleDateString('cs-CZ');
+          const updatedDate = new Date(p.aktualizovano_at).toLocaleDateString('cs-CZ');
+          
+          return (
+            <div className="flex flex-col gap-1 text-[10px]">
+              <div className="flex gap-1 items-center text-zinc-400">
+                <span className="font-semibold text-primary">Vytvořil:</span>
+                <span>{p.vytvoril?.jmeno || 'Systém'}</span>
+                <span>({createdDate})</span>
+              </div>
+              <div className="flex gap-1 items-center text-zinc-500">
+                <span className="font-semibold">Upravil:</span>
+                <span>{p.upravil?.jmeno || 'Systém'}</span>
+                <span>({updatedDate})</span>
+              </div>
+            </div>
+          )
+        },
       },
-    },
-    {
-      id: "actions",
-      cell: ({ row }) => {
-        const product = row.original
-        return (
-          <div className="flex items-center justify-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setEditingProduct(product)}
-              className="h-8 w-8 text-zinc-400 hover:text-white hover:bg-zinc-800"
-            >
-              <Edit2 className="h-4 w-4" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger render={<Button variant="ghost" className="h-8 w-8 p-0" />}>
-                <span className="sr-only">Otevřít menu</span>
-                <MoreHorizontal className="h-4 w-4" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel>Akce s produktem</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setEditingProduct(product)}>
-                    <FileEdit className="mr-2 h-4 w-4" /> Upravit produkt
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleCloneProduct(product)}>
-                    <Copy className="mr-2 h-4 w-4" /> Duplikovat produkt
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigator.clipboard.writeText(product.sku)}>
-                    Kopírovat SKU
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => setProductToDelete(product)} className="text-red-500 hover:text-red-600 focus:text-red-600 focus:bg-red-500/10">
-                    <Trash2 className="mr-2 h-4 w-4" /> Odstranit produkt
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        )
-      },
-    },
-  ]
+      {
+        id: "actions",
+        cell: ({ row }) => {
+          const product = row.original
+          return (
+            <div className="flex items-center justify-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setEditingProduct(product)}
+                className="h-8 w-8 text-zinc-400 hover:text-white hover:bg-zinc-800"
+              >
+                <Edit2 className="h-4 w-4" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger render={<Button variant="ghost" className="h-8 w-8 p-0" />}>
+                  <span className="sr-only">Otevřít menu</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Akce s produktem</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setEditingProduct(product)}>
+                      <FileEdit className="mr-2 h-4 w-4" /> Upravit produkt
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleCloneProduct(product)}>
+                      <Copy className="mr-2 h-4 w-4" /> Duplikovat produkt
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigator.clipboard.writeText(product.sku)}>
+                      Kopírovat SKU
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => setProductToDelete(product)} className="text-red-500 hover:text-red-600 focus:text-red-600 focus:bg-red-500/10">
+                      <Trash2 className="mr-2 h-4 w-4" /> Odstranit produkt
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )
+        },
+      }
+    )
+
+    return baseCols
+  }, [viewMode, unitMode, salesTarget])
 
   const table = useReactTable({
-    data: products,
+    data: pricedProducts,
     columns,
     getCoreRowModel: getCoreRowModel(),
     onSortingChange: setSorting,
@@ -1102,6 +1281,109 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
         }}
       />
 
+      {/* Export Pricing Drawer */}
+      <ExportPricingDialog
+        open={isExportDrawerOpen}
+        onOpenChange={setIsExportDrawerOpen}
+        products={pricedProducts}
+        globalFilter={globalFilter || ""}
+        rates={rates}
+        settings={settings}
+        viewMode={viewMode}
+        unitMode={unitMode}
+        sorting={sorting}
+        selectedStatuses={selectedStatuses}
+        categories={lookups.categories}
+      />
+
+      {/* Financial View Controls */}
+      <div className="flex flex-col md:flex-row gap-3 items-center justify-between bg-zinc-950 p-3 rounded-lg border border-zinc-800 mb-3">
+        <div className="flex gap-2 bg-zinc-900 p-1 rounded-md border border-zinc-800">
+          <Button
+            variant={viewMode === "products" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("products")}
+            className={viewMode === "products" ? "bg-zinc-800 text-white" : "text-zinc-400"}
+          >
+            Katalog produktů
+          </Button>
+          <Button
+            variant={viewMode === "cogs" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("cogs")}
+            className={viewMode === "cogs" ? "bg-zinc-800 text-white" : "text-zinc-400"}
+          >
+            Nákup a COGS
+          </Button>
+          <Button
+            variant={viewMode === "sales" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => setViewMode("sales")}
+            className={viewMode === "sales" ? "bg-zinc-800 text-white" : "text-zinc-400"}
+          >
+            Prodejní Ceny
+          </Button>
+        </div>
+        <div className="flex gap-3 items-center">
+          {(viewMode === "cogs" || viewMode === "sales") && (
+            <div className="flex items-center gap-2 bg-zinc-900 p-1 rounded-md border border-zinc-800">
+              <Button
+                variant={unitMode === "basic" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setUnitMode("basic")}
+                className={unitMode === "basic" ? "bg-zinc-800 text-white" : "text-zinc-400"}
+              >
+                1 ks
+              </Button>
+              <Button
+                variant={unitMode === "packaging" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setUnitMode("packaging")}
+                className={unitMode === "packaging" ? "bg-zinc-800 text-white" : "text-zinc-400"}
+              >
+                Balení
+              </Button>
+            </div>
+          )}
+          {viewMode === "sales" && (
+            <div className="flex items-center gap-2 bg-zinc-900 p-1 rounded-md border border-zinc-800">
+              <Button
+                variant={salesTarget === "b2b" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setSalesTarget("b2b")}
+                className={salesTarget === "b2b" ? "bg-zinc-800 text-white" : "text-zinc-400"}
+              >
+                B2B
+              </Button>
+              <Button
+                variant={salesTarget === "b2c" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setSalesTarget("b2c")}
+                className={salesTarget === "b2c" ? "bg-zinc-800 text-white" : "text-zinc-400"}
+              >
+                B2C
+              </Button>
+              <Button
+                variant={salesTarget === "both" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setSalesTarget("both")}
+                className={salesTarget === "both" ? "bg-zinc-800 text-white" : "text-zinc-400"}
+              >
+                Vše
+              </Button>
+            </div>
+          )}
+          <Button 
+            variant="default" 
+            size="sm" 
+            className="h-9 gap-2 bg-primary hover:bg-primary/90"
+            onClick={() => setIsExportDrawerOpen(true)}
+          >
+            <Download className="h-4 w-4" /> Exportovat Katalog (PDF / Excel)
+          </Button>
+        </div>
+      </div>
+
       {/* Search and Filters Bar */}
       <div className="flex flex-col md:flex-row gap-3 items-center justify-between bg-zinc-900/50 p-3 rounded-lg border border-zinc-800">
         <div className="flex flex-1 items-center gap-3 w-full">
@@ -1123,11 +1405,13 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
               .map(c => ({ label: c.id === 'spotrebni_chemie' ? 'Čističe' : c.nazev, value: c.id }))}
           />
 
-          <DataTableFacetedFilter 
-            column={table.getColumn("stav_katalogu_id")}
-            title="Stav"
-            options={lookups.statuses.map(s => ({ label: s.nazev, value: s.id }))}
-          />
+          {viewMode === "products" && table.getColumn("stav_katalogu_id") && (
+            <DataTableFacetedFilter 
+              column={table.getColumn("stav_katalogu_id")}
+              title="Stav"
+              options={lookups.statuses.map(s => ({ label: s.nazev, value: s.id }))}
+            />
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger render={<Button variant="outline" size="sm" className="h-9 gap-2 border-zinc-800 bg-zinc-950 text-zinc-400 hover:text-white">
@@ -1241,7 +1525,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
 
       {/* Table Area */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 overflow-x-auto shadow-2xl scrollbar-thin">
-        <Table className="table-fixed w-full">
+        <Table className="table-fixed w-max min-w-full">
           <TableHeader className="bg-zinc-900/80">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent border-zinc-800">
@@ -1257,7 +1541,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
                         "h-10 text-zinc-500",
                         isStickySelect && "sticky left-0 bg-zinc-900 z-20 min-w-[36px] w-[36px] max-w-[36px] text-center",
                         isStickySku && "sticky left-[36px] bg-zinc-900 z-20 min-w-[115px] w-[115px] max-w-[115px] border-r border-zinc-800",
-                        cid === "nazev" && "min-w-[200px] w-full border-r border-zinc-800",
+                        cid === "nazev" && "min-w-[250px] border-r border-zinc-800",
                         cid === "kategorie_id" && "min-w-[95px] w-[95px] max-w-[95px]",
                         cid === "stav_katalogu_id" && "min-w-[110px] w-[110px] max-w-[110px]",
                         cid === "sourcing" && "min-w-[80px] w-[80px] max-w-[80px]",
@@ -1267,6 +1551,15 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
                         cid === "stock" && "min-w-[80px] w-[80px] max-w-[80px]",
                         cid === "packaging_qty" && "min-w-[80px] w-[80px] max-w-[80px]",
                         cid === "weight" && "min-w-[80px] w-[80px] max-w-[80px]",
+                        cid === "landed_cost" && "min-w-[100px] w-[100px] max-w-[100px]",
+                        cid === "cogs" && "min-w-[100px] w-[100px] max-w-[100px]",
+                        cid === "margin_b2b" && "min-w-[90px] w-[90px] max-w-[90px]",
+                        cid === "margin_b2c" && "min-w-[90px] w-[90px] max-w-[90px]",
+                        cid === "margin_b2b_discount" && "min-w-[130px] w-[130px] max-w-[130px]",
+                        cid === "margin_risk" && "min-w-[110px] w-[110px] max-w-[110px]",
+                        cid === "margin_safe" && "min-w-[110px] w-[110px] max-w-[110px]",
+                        cid === "b2b" && "min-w-[110px] w-[110px] max-w-[110px]",
+                        cid === "b2c" && "min-w-[110px] w-[110px] max-w-[110px]",
                         cid === "audit" && "min-w-[160px] w-[160px] max-w-[160px]",
                         cid === "actions" && "min-w-[76px] w-[76px] max-w-[76px] text-center"
                       )}
@@ -1298,7 +1591,7 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
                           "py-2.5",
                           isStickySelect && "sticky left-0 bg-zinc-950 z-10 min-w-[36px] w-[36px] max-w-[36px] text-center group-hover:bg-zinc-900 transition-colors group-data-[state=selected]:bg-zinc-800",
                           isStickySku && "sticky left-[36px] bg-zinc-950 z-10 min-w-[115px] w-[115px] max-w-[115px] border-r border-zinc-800 group-hover:bg-zinc-900 transition-colors group-data-[state=selected]:bg-zinc-800",
-                          cid === "nazev" && "min-w-[200px] w-full border-r border-zinc-800",
+                          cid === "nazev" && "min-w-[250px] border-r border-zinc-800",
                           cid === "kategorie_id" && "min-w-[95px] w-[95px] max-w-[95px]",
                           cid === "stav_katalogu_id" && "min-w-[110px] w-[110px] max-w-[110px]",
                           cid === "sourcing" && "min-w-[80px] w-[80px] max-w-[80px]",
@@ -1308,6 +1601,15 @@ export function ProductDataTable({ initialData, initialTotalCount, lookups }: Pr
                           cid === "stock" && "min-w-[80px] w-[80px] max-w-[80px]",
                           cid === "packaging_qty" && "min-w-[80px] w-[80px] max-w-[80px]",
                           cid === "weight" && "min-w-[80px] w-[80px] max-w-[80px]",
+                          cid === "landed_cost" && "min-w-[100px] w-[100px] max-w-[100px]",
+                          cid === "cogs" && "min-w-[100px] w-[100px] max-w-[100px]",
+                          cid === "margin_b2b" && "min-w-[90px] w-[90px] max-w-[90px]",
+                          cid === "margin_b2c" && "min-w-[90px] w-[90px] max-w-[90px]",
+                          cid === "margin_b2b_discount" && "min-w-[130px] w-[130px] max-w-[130px]",
+                          cid === "margin_risk" && "min-w-[110px] w-[110px] max-w-[110px]",
+                          cid === "margin_safe" && "min-w-[110px] w-[110px] max-w-[110px]",
+                          cid === "b2b" && "min-w-[110px] w-[110px] max-w-[110px]",
+                          cid === "b2c" && "min-w-[110px] w-[110px] max-w-[110px]",
                           cid === "audit" && "min-w-[160px] w-[160px] max-w-[160px]",
                           cid === "actions" && "min-w-[76px] w-[76px] max-w-[76px] text-center"
                         )}

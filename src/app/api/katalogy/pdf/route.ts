@@ -1,31 +1,10 @@
 import { getProducts } from '@/modules/products/actions'
 import { getLatestRates, getGlobalFinanceSettings, getLogisticsTemplates } from '@/modules/finance/actions'
-import { calculateProductPricing } from '@/modules/finance/utils/calculations'
+import { calculatePricedProducts, getPackMultiplier } from '@/modules/products/utils/pricingUtils'
 import { createElement } from 'react'
 import { NextRequest, NextResponse } from 'next/server'
 
-function getProductSubcategory(p: any): string {
-  const catId = p.kategorie_id
-  if (catId === 'vyztuzne_materialy') {
-    return p.specifikace?.materiál || p.specifikace?.material || 'OF'
-  }
-  if (catId === 'consumables') {
-    return p.specifikace?.podkategorie || 'Ostatní'
-  }
-  if (catId === 'naradi') {
-    return p.specifikace?.podkategorie || 'Ostatní'
-  }
-  if (catId === 'brouseni_a_lesteni') {
-    return p.specifikace?.podkategorie || 'ostatni'
-  }
-  if (catId === 'chemie') {
-    return p.specifikace?.podkategorie || 'ostatni'
-  }
-  if (catId === 'spotrebni_chemie') {
-    return p.specifikace?.podkategorie || 'standard'
-  }
-  return '_default'
-}
+import { getProductSubcategory } from '@/modules/products/utils/catalogHelpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,8 +14,8 @@ export async function GET(request: NextRequest) {
     process.env.OVERRIDE_REACT_PDF_RECONCILER_REACT_VERSION = '19.0.0'
     
     const { renderToBuffer } = await import('@react-pdf/renderer')
-    const { CatalogPDF } = await import('@/modules/catalogs/components/CatalogPDF')
-    const { PriceMatrixPDF } = await import('@/modules/catalogs/components/PriceMatrixPDF')
+    const { CatalogPDF } = await import('@/modules/products/components/CatalogPDF')
+    const { PriceMatrixPDF } = await import('@/modules/products/components/PriceMatrixPDF')
     const { ProductCatalogPDF } = await import('@/modules/products/components/ProductCatalogPDF')
 
     const { searchParams } = new URL(request.url)
@@ -77,58 +56,8 @@ export async function GET(request: NextRequest) {
     const ratesList = rates || []
     const templatesList = templates || []
 
-    // 2. Pricing calculations (exact mirror of CatalogDashboard client-side calculation)
-    const pricedProducts = products.map(product => {
-      const primarySourcing = product.produkt_dodavatel?.find(s => s.is_primary) || product.produkt_dodavatel?.[0]
-      const template = primarySourcing?.logisticka_sablona_id 
-        ? templatesList.find(t => t.id === primarySourcing.logisticka_sablona_id)
-        : null
-
-      const continuousUnits = ['liter', 'l', 'kg', 'm2', 'm', 'bm', 'g']
-      const isContinuousUnit = product.zakladni_mj_id ? continuousUnits.some(u => product.zakladni_mj_id.toLowerCase().includes(u)) : false
-      const parsedSpecMnozstvi = isContinuousUnit
-        ? (parseFloat(String((product.specifikace as any)?.mnozstvi || (product.specifikace as any)?.objem_l)) || 1)
-        : 1
-      const actualQty = (product.mnozstvi_v_baleni || 1) * parsedSpecMnozstvi
-
-      const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === product.zakladni_mj_id &&
-        (!primarySourcing?.prevodni_pomer_na_zakladni || primarySourcing.prevodni_pomer_na_zakladni === 1)
-      const totalUnits = primarySourcing
-        ? ((primarySourcing.prevodni_pomer_na_zakladni && primarySourcing.prevodni_pomer_na_zakladni !== 1)
-            ? primarySourcing.prevodni_pomer_na_zakladni
-            : (isBuyingInBasicUnit ? 1 : (actualQty || 1)))
-        : 1
-
-      const defaultQty = isBuyingInBasicUnit ? (actualQty || 1) : 1
-
-      const pricing = primarySourcing 
-        ? calculateProductPricing(
-            primarySourcing.nakupni_cena,
-            primarySourcing.mena,
-            totalUnits,
-            product.hmotnost_baliku_kg || 0,
-            product.clo_procenta,
-            {
-              retail: product.cilova_marze_retail_procenta || 30,
-              partner: product.cilova_marze_partner_procenta || 20
-            },
-            ratesList,
-            settings,
-            template,
-            (product.c_balici_profily as any) || null,
-            {
-              delka: product.balik_delka_cm_override,
-              sirka: product.balik_sirka_cm_override,
-              vyska: product.balik_vyska_cm_override
-            },
-            undefined,
-            defaultQty,
-            actualQty
-          )
-        : null
-
-      return { ...product, pricing }
-    })
+    // 2. Pricing calculations using shared utility
+    const pricedProducts = calculatePricedProducts(products, ratesList, settings, templatesList);
 
     // 3. Filtering
     let filteredProducts = pricedProducts.filter(p => {
@@ -157,19 +86,7 @@ export async function GET(request: NextRequest) {
     // 4. Sorting logic
     if (mode === 'matrix' && sortField !== 'name') {
       const isBasic = unitMode === 'basic'
-      const getPackMultiplier = (p: any, pr: any) => {
-        const primarySourcing = p.produkt_dodavatel?.find((s: any) => s.is_primary) || p.produkt_dodavatel?.[0]
-        const isBuyingInBasicUnit = primarySourcing?.nakupni_mj_id === p.zakladni_mj_id &&
-          (!primarySourcing?.prevodni_pomer_na_zakladni || primarySourcing.prevodni_pomer_na_zakladni === 1)
-        const totalUnits = primarySourcing
-          ? ((primarySourcing.prevodni_pomer_na_zakladni && primarySourcing.prevodni_pomer_na_zakladni !== 1)
-              ? primarySourcing.prevodni_pomer_na_zakladni
-              : (isBuyingInBasicUnit ? 1 : (p.mnozstvi_v_baleni || 1)))
-          : 1
-        const continuousUnits = ['liter', 'l', 'kg', 'm2', 'm', 'bm', 'g']
-        const isContinuous = p.zakladni_mj_id ? continuousUnits.some(u => p.zakladni_mj_id.toLowerCase().includes(u)) : false
-        return isContinuous ? totalUnits : (p.mnozstvi_v_baleni || 1)
-      }
+      // getPackMultiplier imported from pricingUtils
 
       filteredProducts.sort((a, b) => {
         const prA = a.pricing

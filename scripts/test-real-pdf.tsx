@@ -1,7 +1,7 @@
 import React, { createElement } from 'react'
 import { renderToBuffer } from '@react-pdf/renderer'
 import { createClient } from '@supabase/supabase-js'
-import { CatalogPDF } from '../src/modules/catalogs/components/CatalogPDF'
+import { CatalogPDF } from '../src/modules/products/components/CatalogPDF'
 import { calculateProductPricing } from '../src/modules/finance/utils/calculations'
 import dotenv from 'dotenv'
 

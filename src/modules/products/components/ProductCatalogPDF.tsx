@@ -534,8 +534,26 @@ export function ProductCatalogPDF({ products, lang }: ProductCatalogPDFProps) {
 
     // Sort categories and subgroups
     const sortedCats = Object.values(cats).map(c => {
-      c.subgroups.sort((a, b) => b.priority - a.priority)
+      c.subgroups.sort((a, b) => {
+        if (a.priority !== b.priority) return b.priority - a.priority
+        return a.label.localeCompare(b.label, lang === 'en' ? 'en' : 'cs')
+      })
+      
+      c.subgroups.forEach(sub => {
+        sub.products.sort((p1: any, p2: any) => {
+          const name1 = lang === 'en' ? (p1.nazev_en || p1.nazev || '') : (p1.nazev || '')
+          const name2 = lang === 'en' ? (p2.nazev_en || p2.nazev || '') : (p2.nazev || '')
+          return name1.localeCompare(name2, lang === 'en' ? 'en' : 'cs')
+        })
+      })
+      
       return c
+    })
+
+    sortedCats.sort((a, b) => {
+      const nameA = translateCategory(a.id, a.name, lang)
+      const nameB = translateCategory(b.id, b.name, lang)
+      return nameA.localeCompare(nameB, lang === 'en' ? 'en' : 'cs')
     })
 
     return sortedCats

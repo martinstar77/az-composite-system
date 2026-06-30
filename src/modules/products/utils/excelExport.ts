@@ -7,54 +7,7 @@ interface PricedProduct extends Product {
   pricing: PricingBreakdown | null
 }
 
-function translateCategory(id: string, name: string, lang: 'cs' | 'en'): string {
-  if (lang === 'cs') {
-    const csMap: Record<string, string> = {
-      vyztuzne_materialy: "Výztužné materiály",
-      prepregy: "Prepregy",
-      pryskyrice: "Pryskyřice a Gelcoaty",
-      brouseni_a_lesteni: "Broušení a leštění",
-      lepidla: "Lepidla",
-      spotrebni_chemie: "Spotřební chemie a čističe",
-      cores_standard: "Jádrové materiály",
-      cores_active: "Active Core Technology",
-      consumables: "Spotřební materiál",
-      naradi: "Nářadí",
-      chemie: "Chemie"
-    };
-    return csMap[id] || name;
-  } else {
-    const enMap: Record<string, string> = {
-      vyztuzne_materialy: "Reinforcement Materials",
-      prepregy: "Prepregs",
-      pryskyrice: "Resins and Gelcoats",
-      brouseni_a_lesteni: "Sanding and Polishing",
-      lepidla: "Adhesives",
-      spotrebni_chemie: "Consumable Chemicals & Cleaners",
-      cores_standard: "Core Materials",
-      cores_active: "Active Core Technology",
-      consumables: "Consumables",
-      naradi: "Tools",
-      chemie: "Chemicals"
-    };
-    return enMap[id] || name;
-  }
-}
-
-function translateUnit(abbr: string, lang: 'cs' | 'en'): string {
-  if (lang === 'cs') return abbr;
-  const unitMap: Record<string, string> = {
-    'ks': 'pcs',
-    'bm': 'm',
-    'm2': 'm²',
-    'kg': 'kg',
-    'l': 'l',
-    'bal.': 'pack',
-    'bal': 'pack'
-  };
-  return unitMap[abbr.toLowerCase()] || abbr;
-}
-
+import { translateCategory, translateUnit } from './catalogHelpers'
 export function exportCatalogToExcel(
   products: PricedProduct[],
   tier: "retail" | "partner" | "partner_5" | "partner_10" | "partner_15" | "partner_20",

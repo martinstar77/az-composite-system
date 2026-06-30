@@ -48,7 +48,6 @@ const navItems = [
       { title: "Vydané doklady (Prodej)", url: "/faktury", icon: Receipt },
       { title: "Přijaté doklady (Nákup)", url: "/faktury/nakup", icon: Receipt },
       { title: "Cenotvorba", url: "/finance", icon: DollarSign },
-      { title: "Katalogy a Ceníky", url: "/katalogy", icon: FileText },
     ],
   },
   {

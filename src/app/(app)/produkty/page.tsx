@@ -1,19 +1,26 @@
 export const dynamic = 'force-dynamic'
 
 import { getProductsPaged, getProductLookups } from '@/modules/products/actions'
+import { getLatestRates, getGlobalFinanceSettings } from '@/modules/finance/actions'
 import { ProductDataTable } from '@/modules/products/components/ProductDataTable'
 import { CreateProductDialog } from '@/modules/products/components/forms/CreateProductDialog'
 import { BulkRecalculateWeightsButton } from '@/modules/products/components/BulkRecalculateWeightsButton'
-import { ExportCatalogPdfButton } from '@/modules/products/components/ExportCatalogPdfButton'
 
 export default async function ProduktyPage() {
-  const [{ data: produkty, error, totalCount }, lookups] = await Promise.all([
+  const [
+    { data: produkty, error, totalCount }, 
+    lookups,
+    { data: rates },
+    { data: settings }
+  ] = await Promise.all([
     getProductsPaged({ page: 0, limit: 30 }),
-    getProductLookups()
+    getProductLookups(),
+    getLatestRates(),
+    getGlobalFinanceSettings()
   ])
 
-  if (error) {
-    return <div>Chyba při načítání produktů: {error.message}</div>
+  if (error || !settings) {
+    return <div>Chyba při načítání produktů nebo finančního nastavení: {error?.message}</div>
   }
 
   return (
@@ -24,7 +31,6 @@ export default async function ProduktyPage() {
           <p className="text-muted-foreground mt-1">Správa fyzických materiálů a jejich logistických definicí.</p>
         </div>
         <div className="flex gap-3 items-center">
-          <ExportCatalogPdfButton />
           <BulkRecalculateWeightsButton />
           <CreateProductDialog lookups={lookups} />
         </div>
@@ -34,6 +40,8 @@ export default async function ProduktyPage() {
         initialData={produkty || []} 
         initialTotalCount={totalCount || 0} 
         lookups={lookups} 
+        rates={rates || []}
+        settings={settings}
       />
     </div>
   )
