@@ -165,6 +165,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   // --- Omni-Generator State ---
   const specs = (initialData?.specifikace as any) || {}
 
+  const [customHmotnostMj, setCustomHmotnostMj] = useState(specs.vlastni_hmotnost_mj_kg ? String(specs.vlastni_hmotnost_mj_kg) : "")
+
   // Fabrics
   const [fabMat, setFabMat] = useState(specs.materiál || "CF")
   const [fabForm, setFabForm] = useState(specs.typ || "WF")
@@ -537,7 +539,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
 
   useEffect(() => {
     let generatedSku = ""
-    let generatedSpecs = {}
+    let generatedSpecs: Record<string, any> = {}
 
     switch (kategorieId) {
       case 'vyztuzne_materialy':
@@ -1362,6 +1364,9 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     }
 
     if (generatedSku) {
+      if (customHmotnostMj && parseFloat(customHmotnostMj) > 0) {
+        generatedSpecs.vlastni_hmotnost_mj_kg = parseFloat(customHmotnostMj)
+      }
       setValue("sku", generatedSku, { shouldValidate: true })
       setValue("specifikace_json", JSON.stringify(generatedSpecs, null, 2))
       
@@ -1371,7 +1376,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         setValue("nazev_en", names.en, { shouldValidate: true })
       }
     }
-  }, [kategorieId, isNameGenerated, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, chemObjemNakup, clnSub, clnBrand, clnPack, clnType, clnQty, clnPmpType, clnPmpQty, coreMat, coreDens, coreThick, coreFinish, coreSirkaCm, coreDelkaCm, polSub, polPasteType, polPasteColor, polPasteCont, polPasteWeight, polWaxName, polWaxState, polWaxQty, polDiscType, polDiscCode, polDiscDia, polAccType, polAccProp, polAccDia, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conStPocetRoli, conFtSirka, conFtTemp, conFtDelka, conFtPocetRoli, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conMtiDelka, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, chemSub, chemAdhProp, chemBaseType, chemSealerProp, chemVol, setValue, lookups.fiberCodes])
+  }, [kategorieId, isNameGenerated, customHmotnostMj, fabMat, fabForm, fabWeight, fabTow, fabTow1, fabTow2, fabWeave, fabUse, fabBrand, fabMat1, fabMat2, fabBrand1, fabBrand2, fabFiberCode, fabFiberCode1, fabFiberCode2, fabPackType, fabWidth, fabLength, fabPieces, prepBase, prepWeight, prepResin, chemType, chemBase, chemVariant, chemColor, chemTech, chemCuringTime, chemUse, chemObjemNakup, clnSub, clnBrand, clnPack, clnType, clnQty, clnPmpType, clnPmpQty, coreMat, coreDens, coreThick, coreFinish, coreSirkaCm, coreDelkaCm, polSub, polPasteType, polPasteColor, polPasteCont, polPasteWeight, polWaxName, polWaxState, polWaxQty, polDiscType, polDiscCode, polDiscDia, polAccType, polAccProp, polAccDia, fasType, fasBase, fasSize, fasMat, toolSub, toolBuTvar, toolBuPrumer, toolQrTyp, toolQrMat, toolSqPrumer, toolVId, toolCuVolume, conSub, conRollWidth, conRollLength, conBfFormat, conBfTloustka, conBfTemp, conRfPerf, conRfTloustka, conRfTemp, conPpPolymer, conPpGramaz, conPtfeAdhesive, conPtfeTloustka, conBcGramaz, conStTemp, conStSirka, conStDelka, conStPocetRoli, conFtSirka, conFtTemp, conFtDelka, conFtPocetRoli, conFmTyp, conFmMaterial, conFmBarva, conFmRychlost, conFmTloustka, conFmGramaz, conFmTeplota, conFmFlexibilita, conFchSubtyp, conFchMaterial, conFchSirka, conFchVyska, conFchDelka, conFchPrumer, conFchTemp, conKTvar, conKPrumer, conMtiTyp, conMtiWidth, conMtiDelka, conKpTvar, conKpPrumer, adhChem, adhOpenTime, adhColor, adhVolume, chemSub, chemAdhProp, chemBaseType, chemSealerProp, chemVol, setValue, lookups.fiberCodes])
 
   // Live SKU Duplicate Check (Debounced)
   useEffect(() => {
@@ -1390,8 +1395,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
   // when the user has not manually overridden it
   const currentSpecs = useMemo(() => {
     // Build a live spec snapshot from all generator states for the current category
-    // This mirrors what generatedSpecs produces in the SKU generator useEffect
-    switch (kategorieId) {
+    const getBaseSpecs = () => {
+      switch (kategorieId) {
       case 'vyztuzne_materialy':
         return {
           gramáž: parseInt(fabWeight) || 0,
@@ -1511,6 +1516,13 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
       default:
         return {}
     }
+    }
+    
+    const res = getBaseSpecs()
+    if (customHmotnostMj && parseFloat(customHmotnostMj) > 0) {
+      (res as any).vlastni_hmotnost_mj_kg = parseFloat(customHmotnostMj)
+    }
+    return res
   }, [
     kategorieId, fabWeight, fabWidth, fabLength, fabPackType, fabPieces,
     coreDens, coreThick, coreSirkaCm, coreDelkaCm,
@@ -1524,7 +1536,8 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     polSub, polPasteWeight, polDiscType, polDiscDia,
     toolSub, toolBuPrumer, toolQrMat, toolCuVolume,
     fasSize, clnType, clnQty, chemSub, chemVol,
-    chemBaseType, chemAdhProp, chemSealerProp
+    chemBaseType, chemAdhProp, chemSealerProp,
+    customHmotnostMj
   ])
 
   const packagingMultiplier = useMemo(() => {
@@ -3016,7 +3029,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               setIsWeightOverridden(true)
             }}
           />
-          <div className="flex items-center space-x-2 mt-1">
+          <div className="flex items-center space-x-2 mt-1 mb-3">
             <input
               type="checkbox"
               id="hmotnost_zafixovana"
@@ -3026,6 +3039,22 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             <Label htmlFor="hmotnost_zafixovana" className="text-[11px] text-zinc-400 cursor-pointer select-none flex items-center gap-1 hover:text-zinc-300">
               Zafixovat hmotnost (chránit před hromadným přepočtem) 🔒
             </Label>
+          </div>
+          
+          <div className="pt-2 border-t border-zinc-800 space-y-1.5">
+            <Label className="text-xs text-zinc-300">Vlastní hmotnost pro 1 MJ (kg)</Label>
+            <Input
+              type="number"
+              step="0.001"
+              placeholder="Např. 0.05"
+              className="h-8 bg-zinc-900/50 text-sm"
+              value={customHmotnostMj}
+              onChange={(e) => setCustomHmotnostMj(e.target.value)}
+            />
+            <p className="text-[10px] text-zinc-500 leading-tight">
+              Pokud je tato hodnota vyplněna, ignoruje se standardní výpočet a hmotnost balíku se vypočítá jako: <br/> 
+              <span className="text-zinc-400 font-mono">Vlastní hmotnost × Množství v balení</span> + obal.
+            </p>
           </div>
           {estimatedNetWeight > 0 && Number(hmotnostBaliku) > 0 && Number(hmotnostBaliku) < (estimatedNetWeight - 0.05) && (
             <p className="text-[11px] text-red-400 font-medium mt-1 flex items-center gap-1">

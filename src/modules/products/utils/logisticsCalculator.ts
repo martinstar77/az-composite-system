@@ -227,6 +227,23 @@ export function calculateGrossWeight(
 
   const s = specs // shorthand
 
+  // OVERRIDE: Check if custom weight per basic unit is defined
+  if (s.vlastni_hmotnost_mj_kg) {
+    const unitWeight = Number(s.vlastni_hmotnost_mj_kg)
+    if (unitWeight > 0) {
+      const qty = mnozstviVBaleni || 1
+      const netWeight = r3(unitWeight * qty)
+      const packaging = 0.05 // Baseline packaging weight
+      const total = r3(netWeight + packaging)
+      return {
+        weightKg: total,
+        netWeightKg: netWeight,
+        confidence: "high",
+        breakdown: `${netWeight} kg (${qty} MJ × ${unitWeight} kg) + ${packaging} kg obal = ${total} kg`
+      }
+    }
+  }
+
   switch (kategorieId) {
 
     // -----------------------------------------------------------------------
