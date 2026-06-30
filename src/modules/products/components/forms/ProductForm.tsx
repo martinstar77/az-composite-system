@@ -569,7 +569,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
         const hasFabSpecsChanged = fabPackType !== origPackType || fabWidth !== origWidth || fabLength !== origLength || fabPieces !== origPieces
 
         if (!initialData || hasFabSpecsChanged) {
-          if (!dirtyFields.mnozstvi_v_baleni) {
+          if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
             setValue("mnozstvi_v_baleni", parseFloat(area.toFixed(2)), { shouldValidate: true })
           }
           if (!dirtyFields.jednotka_baleni_id) {
@@ -662,7 +662,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           if (!dirtyFields.jednotka_baleni_id) {
             setValue("jednotka_baleni_id", "ks", { shouldValidate: true })
           }
-          if (!dirtyFields.mnozstvi_v_baleni) {
+          if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
             setValue("mnozstvi_v_baleni", parseFloat(calculatedWeight.toFixed(2)), { shouldValidate: true })
           }
         }
@@ -735,7 +735,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               if (!dirtyFields.zakladni_mj_id) {
                 setValue("zakladni_mj_id", "l", { shouldValidate: true })
               }
-              if (!dirtyFields.mnozstvi_v_baleni) {
+              if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
                 const parsedVol = parseFloat(clnQty.replace(/[^0-9.]/g, '')) || 1
                 setValue("mnozstvi_v_baleni", parsedVol, { shouldValidate: true })
               }
@@ -743,7 +743,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
               if (!dirtyFields.zakladni_mj_id) {
                 setValue("zakladni_mj_id", "ks", { shouldValidate: true })
               }
-              if (!dirtyFields.mnozstvi_v_baleni) {
+              if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
                 setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
               }
             }
@@ -751,7 +751,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             if (!dirtyFields.zakladni_mj_id) {
               setValue("zakladni_mj_id", "ks", { shouldValidate: true })
             }
-            if (!dirtyFields.mnozstvi_v_baleni) {
+            if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
               setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
             }
           }
@@ -811,14 +811,14 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             if (!dirtyFields.zakladni_mj_id) {
               setValue("zakladni_mj_id", "ks", { shouldValidate: true })
             }
-            if (!dirtyFields.mnozstvi_v_baleni) {
+            if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
               setValue("mnozstvi_v_baleni", 1, { shouldValidate: true })
             }
           } else {
             if (!dirtyFields.zakladni_mj_id) {
               setValue("zakladni_mj_id", "l", { shouldValidate: true })
             }
-            if (!dirtyFields.mnozstvi_v_baleni) {
+            if (!dirtyFields.mnozstvi_v_baleni && !initialData) {
               setValue("mnozstvi_v_baleni", volL, { shouldValidate: true })
             }
           }
@@ -1309,12 +1309,11 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
             if (isRoll) {
               targetMj = "bm"
               targetUom = "role"
-              targetQty = parseFloat(lenVal.toFixed(2))
             }
             
             const wVal = conMtiWidth.trim()
             const wSku = wVal ? `-${wVal}` : ""
-            const lenSku = (isRoll && lenVal > 0) ? `-R${Math.round(lenVal)}` : ""
+            const lenSku = (isRoll && lenVal > 0) ? `-${Math.round(lenVal)}M` : ""
             generatedSku = `MTI-${conMtiTyp.toUpperCase()}${wSku}${lenSku}`
             generatedSpecs = {
               podkategorie: "MTI",
@@ -1354,7 +1353,7 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
           if (targetUom && !dirtyFields.jednotka_baleni_id) {
             setValue("jednotka_baleni_id", targetUom, { shouldValidate: true })
           }
-          if (targetQty !== undefined && !dirtyFields.mnozstvi_v_baleni) {
+          if (targetQty !== undefined && !dirtyFields.mnozstvi_v_baleni && !initialData) {
             setValue("mnozstvi_v_baleni", targetQty, { shouldValidate: true })
           }
         }
@@ -1392,154 +1391,21 @@ export function ProductForm({ initialData, lookups, onSubmit, isSubmitting, onCa
     return () => clearTimeout(timer)
   }, [currentSku, initialData?.id])
 
+  const specifikaceJsonStr = watch("specifikace_json")
+
   // Auto-Weight: compute gross weight from specifikace and auto-fill the field
   // when the user has not manually overridden it
   const currentSpecs = useMemo(() => {
-    // Build a live spec snapshot from all generator states for the current category
-    const getBaseSpecs = () => {
-      switch (kategorieId) {
-      case 'vyztuzne_materialy':
-        return {
-          gramáž: parseInt(fabWeight) || 0,
-          sirka_cm: (parseFloat(fabWidth) || 0),
-          delka_m: parseFloat(fabLength) || 0,
-          typ_baleni: fabPackType,
-          pocet_kusu: parseInt(fabPieces) || 1,
-        }
-      case 'cores_standard':
-      case 'cores_active':
-        return {
-          hustota_kgm3: parseInt(coreDens) || 0,
-          tloušťka: coreThick,
-          sirka_cm: coreSirkaCm,
-          delka_cm: coreDelkaCm,
-        }
-      case 'pryskyrice': {
-        const isCuringType = chemType === 'HRD'
-        return {
-          typ: chemType,
-          chemie: chemBase,
-          pouziti: chemUse,
-          objem_nakup_l: parseFloat(chemObjemNakup) || 0,
-          ...(isCuringType ? { cas_vytvrzeni: chemCuringTime } : { technologie: chemTech })
-        }
+    try {
+      const parsed = JSON.parse(specifikaceJsonStr || "{}")
+      if (customHmotnostMj && parseFloat(customHmotnostMj) > 0) {
+        parsed.vlastni_hmotnost_mj_kg = parseFloat(customHmotnostMj)
       }
-      case 'lepidla':
-        return { chemie: adhChem, objem: adhVolume }
-      case 'consumables': {
-        const baseSpecs: Record<string, unknown> = { podkategorie: conSub }
-        if (['BF','RF','PP','PP-PTFE','BC','FM'].includes(conSub)) {
-          baseSpecs.gramaz_gm2 = parseInt(conBcGramaz || conPpGramaz || conFmGramaz || '0') || 0
-          baseSpecs.sirka_cm = parseFloat(conRollWidth) || 0
-          baseSpecs.delka_m = parseFloat(conRollLength) || 0
-          if (conSub === 'FM') {
-            baseSpecs.typ_vyroby = conFmTyp
-            baseSpecs.material = conFmMaterial
-            baseSpecs.barva = conFmBarva
-            baseSpecs.rychlost_proudeni = conFmRychlost
-            baseSpecs.tloustka_mm = parseFloat(conFmTloustka) || 0
-            baseSpecs.teplotni_odolnost = conFmTeplota
-            baseSpecs.flexibilita = conFmFlexibilita
-          }
-        } else if (conSub === 'ST') {
-          baseSpecs.sirka_mm = parseInt(conStSirka) || 12
-          baseSpecs.tloustka_mm = 3.5
-          baseSpecs.delka_m = parseFloat(conStDelka) || 15
-          baseSpecs.pocet_roli_v_baleni = conStPocetRoli
-        } else if (conSub === 'FT') {
-          baseSpecs.sirka_mm = parseInt(conFtSirka) || 25
-          baseSpecs.delka_m = parseFloat(conFtDelka) || 66
-          baseSpecs.pocet_roli_v_baleni = conFtPocetRoli
-        } else if (conSub === 'FCH') {
-          baseSpecs.podtyp_fch = conFchSubtyp
-          baseSpecs.sirka_mm = parseInt(conFchSirka) || 15
-          baseSpecs.vnitrni_prumer_mm = parseInt(conFchPrumer) || 10
-          baseSpecs.delka_m = parseFloat(conFchDelka) || 100
-        } else if (conSub === 'TUBE') {
-          baseSpecs.vnitrni_prumer_mm = parseInt(conFchPrumer) || 10
-          baseSpecs.delka_m = parseFloat(conFchDelka) || 50
-        } else if (conSub === 'K') {
-          baseSpecs.vnejsi_prumer_mm = parseInt(conKPrumer) || 20
-        } else if (conSub === 'KP') {
-          baseSpecs.prumer_mm = parseInt(conKpPrumer) || 12
-        } else if (conSub === 'MTI') {
-          baseSpecs.typ_mti = conMtiTyp
-          if (conMtiTyp === 'Hose' || conMtiTyp === 'MVS' || conMtiTyp === 'RBL') {
-            baseSpecs.delka_m = parseFloat(conMtiDelka) || 0
-          }
-        }
-        return baseSpecs
-      }
-      case 'brouseni_a_lesteni': {
-        if (polSub === 'vosk') {
-          return {
-            podkategorie: 'vosk',
-            typ: 'vosk',
-            nazev_vosku: polWaxName,
-            skupenstvi: polWaxState,
-            mnozstvi: `${polWaxQty} kg`
-          }
-        }
-        if (polSub === 'pasty') {
-          return {
-            podkategorie: 'pasty',
-            typ: polPasteType,
-            barva: polPasteColor,
-            obal: polPasteCont,
-            hmotnost: `${polPasteWeight} kg`
-          }
-        }
-        return {
-          podkategorie: polSub,
-          typ_kotouce: polDiscType,
-          kod_kotouce: polDiscCode,
-          prumer: parseInt(polDiscDia) || 160,
-        }
-      }
-      case 'naradi':
-        return {
-          podkategorie: toolSub,
-          prumer_mm: parseInt(toolBuPrumer) || 50,
-          material: toolQrMat,
-          objem_l: parseInt(toolCuVolume) || 0,
-        }
-      case 'spojovaci_material':
-        return { zavit_prumer: fasSize }
-      case 'spotrebni_chemie':
-        return { typ: clnType, mnozstvi: clnQty }
-      case 'chemie':
-        return {
-          podkategorie: chemSub,
-          objem: chemSub === 'lepidlo_ve_spreji' || chemSub === 'blinder' ? `${chemVol} ml` : `${chemVol} l`,
-          chemie: chemBaseType,
-          vlastnost: chemSub === 'lepidlo_ve_spreji' ? chemAdhProp : chemSealerProp
-        }
-      default:
-        return {}
+      return parsed
+    } catch {
+      return {}
     }
-    }
-    
-    const res = getBaseSpecs()
-    if (customHmotnostMj && parseFloat(customHmotnostMj) > 0) {
-      (res as any).vlastni_hmotnost_mj_kg = parseFloat(customHmotnostMj)
-    }
-    return res
-  }, [
-    kategorieId, fabWeight, fabWidth, fabLength, fabPackType, fabPieces,
-    coreDens, coreThick, coreSirkaCm, coreDelkaCm,
-    chemBase, chemType, chemObjemNakup,
-    adhChem, adhVolume,
-    conSub, conBcGramaz, conPpGramaz, conFmGramaz, conRollWidth, conRollLength,
-    conStSirka, conStDelka, conStPocetRoli,
-    conFtSirka, conFtDelka, conFtPocetRoli,
-    conFchSubtyp, conFchSirka, conFchPrumer, conFchDelka,
-    conKPrumer, conKpPrumer,
-    polSub, polPasteWeight, polDiscType, polDiscDia,
-    toolSub, toolBuPrumer, toolQrMat, toolCuVolume,
-    fasSize, clnType, clnQty, chemSub, chemVol,
-    chemBaseType, chemAdhProp, chemSealerProp,
-    customHmotnostMj
-  ])
+  }, [specifikaceJsonStr, customHmotnostMj])
 
   const packagingMultiplier = useMemo(() => {
     const uomZkratka = lookups.units.find(u => u.id === jednotkaBaleniId)?.zkratka

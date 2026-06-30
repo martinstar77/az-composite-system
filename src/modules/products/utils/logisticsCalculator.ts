@@ -770,7 +770,7 @@ export function calculateGrossWeight(
         const typ_mti = String(s.typ_mti ?? "Hose")
         const isRoll = typ_mti === "Hose" || typ_mti === "MVS" || typ_mti === "RBL"
         const specs_delka = isRoll ? Number(s.delka_m ?? 50) : 1
-        const qty = mnozstviVBaleni || specs_delka
+        const qty = isRoll ? (mnozstviVBaleni || specs_delka) : (mnozstviVBaleni || 1)
 
         if (typ_mti === "Hose") {
           const net = r3(calculateHollowCylinderWeight(8, qty, 950))
